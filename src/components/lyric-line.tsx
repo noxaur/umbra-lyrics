@@ -6,8 +6,26 @@ type LyricLineProps = {
   englishText?: string
   active: boolean
   progress: number
+  synced: boolean
   displayMode: "native" | "english" | "both"
   onSeek?: () => void
+}
+
+const ACTIVE_SIZE = "text-[clamp(1.5rem,4vw,3rem)] lg:text-[clamp(5rem,5vw,7rem)]"
+const INACTIVE_SIZE = "text-[clamp(1.1rem,3vw,1.75rem)]"
+
+function WordProgressText({ text, progress }: { text: string; progress: number }) {
+  const pct = `${progress * 100}%`
+  return (
+    <span
+      className="bg-clip-text [-webkit-background-clip:text] text-transparent"
+      style={{
+        backgroundImage: `linear-gradient(to right, var(--karaoke-active) ${pct}, var(--karaoke-unsung) ${pct})`,
+      }}
+    >
+      {text}
+    </span>
+  )
 }
 
 export function LyricLine({
@@ -15,6 +33,7 @@ export function LyricLine({
   englishText,
   active,
   progress,
+  synced,
   displayMode,
   onSeek,
 }: LyricLineProps) {
@@ -25,37 +44,23 @@ export function LyricLine({
     <MotionConfig reducedMotion="user">
       <motion.button
         type="button"
-        layout
         onClick={onSeek}
         className={cn(
-          "w-full rounded-lg px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "w-full rounded-lg px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:scale-100",
           active
             ? "scale-[1.02] text-karaoke-active"
             : "text-karaoke-muted hover:text-foreground",
         )}
-        animate={{ opacity: active ? 1 : 0.55 }}
-        transition={{ duration: 0.2 }}
         aria-current={active ? "true" : undefined}
       >
         {showNative && (
           <span
-            className="block font-semibold leading-tight"
-            style={{ fontSize: active ? "clamp(1.5rem, 4vw, 3rem)" : "clamp(1.1rem, 3vw, 1.75rem)" }}
-          >
-            {active ? (
-              <span className="relative inline">
-                <span
-                  className="absolute inset-0 text-karaoke-active"
-                  style={{ width: `${progress * 100}%`, overflow: "hidden" }}
-                  aria-hidden
-                >
-                  {text}
-                </span>
-                <span className="text-muted-foreground/40">{text}</span>
-              </span>
-            ) : (
-              text
+            className={cn(
+              "block font-semibold leading-tight",
+              active ? ACTIVE_SIZE : INACTIVE_SIZE,
             )}
+          >
+            {active && synced ? <WordProgressText text={text} progress={progress} /> : text}
           </span>
         )}
         {showEnglish && (
