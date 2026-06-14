@@ -9,7 +9,13 @@ import { extractYouTubeVideoId } from "@/lib/youtube-url"
 export function UrlInput() {
   const [url, setUrl] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [opening, setOpening] = useState(false)
   const navigate = useNavigate()
+
+  const goToPlayer = (id: string) => {
+    setOpening(true)
+    navigate(`/play/${id}`, { state: { fromHome: true } })
+  }
 
   const submit = (e?: FormEvent) => {
     e?.preventDefault()
@@ -19,7 +25,7 @@ export function UrlInput() {
       return
     }
     setError(null)
-    navigate(`/play/${id}`)
+    goToPlayer(id)
   }
 
   const onPaste = (value: string) => {
@@ -27,15 +33,16 @@ export function UrlInput() {
     const id = extractYouTubeVideoId(value)
     if (id) {
       setError(null)
-      navigate(`/play/${id}`)
+      goToPlayer(id)
     }
   }
 
   return (
-    <form onSubmit={submit} className="flex w-full max-w-xl flex-col gap-2">
+    <form onSubmit={submit} noValidate className="flex w-full max-w-xl flex-col gap-2">
       <div className="flex gap-2">
         <Input
-          type="url"
+          type="text"
+          inputMode="url"
           placeholder="Paste YouTube URL…"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
@@ -43,14 +50,20 @@ export function UrlInput() {
             const text = e.clipboardData.getData("text")
             setTimeout(() => onPaste(text), 0)
           }}
+          disabled={opening}
           aria-invalid={!!error}
-          aria-describedby={error ? "url-error" : undefined}
+          aria-describedby={error ? "url-error" : opening ? "url-opening" : undefined}
         />
-        <Button type="submit" className="shrink-0">
+        <Button type="submit" className="shrink-0" disabled={opening}>
           <AnimatedIcon icon={Music} />
-          Start
+          {opening ? "Opening…" : "Start"}
         </Button>
       </div>
+      {opening && (
+        <p id="url-opening" className="text-sm text-muted-foreground" role="status">
+          Opening player…
+        </p>
+      )}
       {error && (
         <p id="url-error" className="text-sm text-destructive" role="alert">
           {error}

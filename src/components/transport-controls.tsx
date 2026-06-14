@@ -1,4 +1,5 @@
-import { EyeOff, HelpCircle, Pause, Play } from "lucide-react"
+import { useEffect } from "react"
+import { Eye, EyeOff, HelpCircle, Pause, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { usePlayerStore } from "@/stores/player-store"
@@ -29,11 +30,20 @@ export function TransportControls({
   const displayMode = usePlayerStore((s) => s.displayMode)
   const setDisplayMode = usePlayerStore((s) => s.setDisplayMode)
   const languageCode = usePlayerStore((s) => s.languageCode)
+  const englishLines = usePlayerStore((s) => s.englishLines)
 
-  const modes: { value: LyricDisplayMode; label: string }[] = [
+  const hasEnglish = englishLines.length > 0
+
+  useEffect(() => {
+    if (!hasEnglish && displayMode !== "native") {
+      setDisplayMode("native")
+    }
+  }, [hasEnglish, displayMode, setDisplayMode])
+
+  const modes: { value: LyricDisplayMode; label: string; disabled?: boolean }[] = [
     { value: "native", label: "Native" },
-    { value: "english", label: "English" },
-    { value: "both", label: "Both" },
+    { value: "english", label: "English", disabled: !hasEnglish },
+    { value: "both", label: "Both", disabled: !hasEnglish },
   ]
 
   return (
@@ -62,31 +72,56 @@ export function TransportControls({
         {formatTime(currentTime)} / {formatTime(duration)}
       </span>
 
-      <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" onClick={() => adjustOffset(-500)} aria-label="Earlier lyrics">
-          −0.5s
+      <fieldset className="flex items-center gap-1 border-0 p-0" aria-labelledby="lyrics-timing-label">
+        <legend className="sr-only">Lyrics timing</legend>
+        <span className="text-xs text-muted-foreground" id="lyrics-timing-label">
+          Lyrics timing
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => adjustOffset(-500)}
+          aria-label="Lyrics 0.5 seconds earlier"
+        >
+          0.5s earlier
         </Button>
-        <span className="min-w-12 text-center text-xs tabular-nums">
+        <span
+          className="min-w-12 text-center text-xs tabular-nums"
+          aria-label={`Lyrics timing offset ${(syncOffsetMs / 1000).toFixed(1)} seconds`}
+        >
           {(syncOffsetMs / 1000).toFixed(1)}s
         </span>
-        <Button variant="ghost" size="sm" onClick={() => adjustOffset(500)} aria-label="Later lyrics">
-          +0.5s
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => adjustOffset(500)}
+          aria-label="Lyrics 0.5 seconds later"
+        >
+          0.5s later
         </Button>
-      </div>
+      </fieldset>
 
       {languageCode !== "eng" && (
-        <select
-          value={displayMode}
-          onChange={(e) => setDisplayMode(e.target.value as LyricDisplayMode)}
-          className="min-h-[44px] rounded-md border border-input bg-background px-2 text-sm"
-          aria-label="Lyric display mode"
-        >
-          {modes.map((m) => (
-            <option key={m.value} value={m.value}>
-              {m.label}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-col gap-0.5">
+          <select
+            value={displayMode}
+            onChange={(e) => setDisplayMode(e.target.value as LyricDisplayMode)}
+            className="min-h-[44px] rounded-md border border-input bg-background px-2 text-sm"
+            aria-label="Lyric display mode"
+            aria-describedby={!hasEnglish ? "bilingual-helper" : undefined}
+          >
+            {modes.map((m) => (
+              <option key={m.value} value={m.value} disabled={m.disabled}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          {!hasEnglish && (
+            <span id="bilingual-helper" className="text-xs text-muted-foreground">
+              No English lyrics found
+            </span>
+          )}
+        </div>
       )}
 
       <Button
@@ -96,7 +131,7 @@ export function TransportControls({
         aria-label={videoHidden ? "Show video" : "Hide video"}
         aria-pressed={videoHidden}
       >
-        <AnimatedIcon icon={EyeOff} />
+        <AnimatedIcon icon={videoHidden ? Eye : EyeOff} />
       </Button>
 
       <ShortcutsHelp>
