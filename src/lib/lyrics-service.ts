@@ -1,8 +1,6 @@
 import type { LyricsResult } from "@/types/lyrics"
+import { proxyFetch } from "@/lib/lyrics-providers/api-base"
 import { simplifyTrackName } from "@/lib/parse-track-title"
-
-const BASE = "https://lrclib.net/api"
-const CLIENT_HEADER = "song-kara/1.0.0 (https://github.com/song-kara)"
 
 const DURATION_TOLERANCE_SEC = 15
 
@@ -25,12 +23,7 @@ export type FetchLyricsParams = {
 }
 
 export function lrclibFetch(path: string): Promise<Response> {
-  return fetch(`${BASE}${path}`, {
-    headers: {
-      "Lrclib-Client": CLIENT_HEADER,
-      "User-Agent": CLIENT_HEADER,
-    },
-  })
+  return proxyFetch(`/api/lyrics/lrclib${path}`)
 }
 
 export function hasLyrics(result: SearchResult): boolean {

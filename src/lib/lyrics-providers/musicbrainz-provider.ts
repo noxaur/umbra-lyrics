@@ -1,4 +1,5 @@
 import { searchByParams, searchByQuery } from "@/lib/lyrics-service"
+import { proxyFetch } from "@/lib/lyrics-providers/api-base"
 import { simplifyTrackName } from "@/lib/parse-track-title"
 import {
   fetchLrclibCandidate,
@@ -7,8 +8,6 @@ import {
 import { hasLyricsText, pickBestCandidate } from "@/lib/lyrics-providers/match-utils"
 import type { LyricsProvider, ProviderLyricsCandidate, ProviderSearchParams } from "./types"
 
-const MB_BASE = "https://musicbrainz.org/ws/2"
-const MB_USER_AGENT = "song-kara/1.0.0 (https://github.com/song-kara)"
 const MIN_REQUEST_GAP_MS = 1100
 
 let lastMbRequestAt = 0
@@ -20,9 +19,7 @@ async function rateLimitedMbFetch(path: string): Promise<Response | null> {
   lastMbRequestAt = Date.now()
 
   try {
-    const res = await fetch(`${MB_BASE}${path}`, {
-      headers: { "User-Agent": MB_USER_AGENT, Accept: "application/json" },
-    })
+    const res = await proxyFetch(`/api/lyrics/musicbrainz${path}`)
     return res.ok ? res : null
   } catch {
     return null

@@ -1,16 +1,16 @@
+import { proxyFetch } from "@/lib/lyrics-providers/api-base"
+
 export type YouTubeOEmbed = {
   title: string
   author_name: string
 }
 
 export async function fetchYouTubeOEmbed(videoId: string): Promise<YouTubeOEmbed | null> {
-  const url = `https://www.youtube.com/oembed?url=${encodeURIComponent(
-    `https://www.youtube.com/watch?v=${videoId}`,
-  )}&format=json`
+  const q = new URLSearchParams({ videoId })
+  const res = await proxyFetch(`/api/youtube/oembed?${q}`)
+  if (!res.ok) return null
 
   try {
-    const res = await fetch(url)
-    if (!res.ok) return null
     const data = (await res.json()) as YouTubeOEmbed
     return data
   } catch {

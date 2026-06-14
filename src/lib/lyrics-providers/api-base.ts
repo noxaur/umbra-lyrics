@@ -1,4 +1,4 @@
-/** Base URL for proxied lyrics APIs (Worker in prod, Vite middleware in dev). */
+/** Base URL for proxied APIs (Worker in prod, Vite middleware in dev). Empty = same origin. */
 export function lyricsApiBase(): string {
   const fromEnv = import.meta.env.VITE_LYRICS_API_BASE
   if (typeof fromEnv === "string" && fromEnv.trim()) return fromEnv.replace(/\/$/, "")

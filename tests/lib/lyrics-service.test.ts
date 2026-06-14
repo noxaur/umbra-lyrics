@@ -135,7 +135,7 @@ describe("fetchLyrics", () => {
     })
 
     expect(result?.plainLyrics).toBe("Found via q")
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("q="), expect.any(Object))
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("q="))).toBe(true)
   })
 
   it("prefers artist match over closer duration from another artist", async () => {

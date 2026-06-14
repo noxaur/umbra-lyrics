@@ -219,14 +219,14 @@ describe("orchestrateLyricsSearch", () => {
 
     expect(result.status).toBe("found")
     expect(result.strategy).toBe("query_oembed_author")
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("q="), expect.any(Object))
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("q="))).toBe(true)
   })
 
   it("falls back to lyrics.ovh when LRCLIB has no lyrics", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url.includes("lrclib.net")) {
+        if (url.includes("/api/lyrics/lrclib")) {
           return new Response("[]", { status: 200 })
         }
         if (url.includes("/api/lyrics/ovh/")) {
