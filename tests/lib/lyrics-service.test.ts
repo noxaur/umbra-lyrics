@@ -138,6 +138,46 @@ describe("fetchLyrics", () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("q="), expect.any(Object))
   })
 
+  it("prefers artist match over closer duration from another artist", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/search")) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: 1,
+                trackName: "別世界",
+                artistName: "Kitri",
+                duration: 255,
+                plainLyrics: "wrong song",
+              },
+              {
+                id: 2,
+                trackName: "別世界 (UnknownDIVA ver.)",
+                artistName: "天音かなた",
+                duration: 246,
+                plainLyrics: "作詞の空白を埋めるみたいに",
+              },
+            ]),
+            { status: 200 },
+          )
+        }
+        return new Response("{}", { status: 404 })
+      }),
+    )
+
+    const result = await fetchLyrics({
+      track: "別世界",
+      artist: "天音かなた",
+      album: "",
+      durationSec: 255,
+    })
+
+    expect(result?.id).toBe(2)
+    expect(result?.plainLyrics).toContain("作詞の空白")
+  })
+
   it("returns null when no results", async () => {
     vi.stubGlobal(
       "fetch",
