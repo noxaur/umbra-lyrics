@@ -1,59 +1,138 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { LyricsPasteModal } from "@/components/lyrics-paste-modal"
 import { usePlayerStore } from "@/stores/player-store"
 
 type LyricsRetryProps = {
   onRetry: (artist: string, track: string) => void
+  onPaste: (text: string) => void
+  variant?: "not_found" | "partial" | "instrumental" | "network_error"
 }
 
-export function LyricsRetry({ onRetry }: LyricsRetryProps) {
+export function LyricsRetry({ onRetry, onPaste, variant = "not_found" }: LyricsRetryProps) {
   const artist = usePlayerStore((s) => s.artist)
   const track = usePlayerStore((s) => s.track)
   const error = usePlayerStore((s) => s.error)
+  const lyricsAttempts = usePlayerStore((s) => s.lyricsAttempts)
+  const lrclibTrackId = usePlayerStore((s) => s.lrclibTrackId)
+  const networkRetryCount = usePlayerStore((s) => s.networkRetryCount)
   const [artistInput, setArtistInput] = useState(artist)
   const [trackInput, setTrackInput] = useState(track)
+  const [pasteOpen, setPasteOpen] = useState(false)
+
+  const lastAttempts = lyricsAttempts.slice(-3)
+
+  const headline =
+    variant === "network_error"
+      ? "Couldn't reach lyrics service"
+      : variant === "instrumental"
+        ? "Song found — marked instrumental in LRCLIB"
+        : variant === "partial"
+          ? "Song found but no lyrics in database"
+          : "No lyrics found in LRCLIB"
+
+  const detail =
+    variant === "network_error"
+      ? error ?? "Check your connection and try again."
+      : variant === "instrumental"
+        ? error ?? "LRCLIB lists this track as instrumental — paste lyrics or try another video."
+        : variant === "partial"
+          ? error ?? "A matching song exists but LRCLIB has no lyric text."
+          : error ?? "Edit artist/title below and search again."
+
+  const subline =
+    variant === "network_error" && networkRetryCount > 0
+      ? `Auto-retry attempted ${networkRetryCount} time${networkRetryCount === 1 ? "" : "s"}`
+      : null
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
-      <p className="text-center text-muted-foreground">
-        {error ?? "No lyrics found — edit artist/title and retry"}
-      </p>
-      {(track || artist) && (
-        <p className="text-center text-sm text-muted-foreground/80">
-          Parsed as <span className="font-medium text-foreground">{track || "unknown track"}</span>
-          {artist ? (
-            <>
-              {" "}
-              by <span className="font-medium text-foreground">{artist}</span>
-            </>
-          ) : null}
-        </p>
-      )}
-      <div className="flex w-full max-w-md flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">Artist</span>
-          <Input
-            value={artistInput}
-            onChange={(e) => setArtistInput(e.target.value)}
-            placeholder="Artist name"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">Track</span>
-          <Input
-            value={trackInput}
-            onChange={(e) => setTrackInput(e.target.value)}
-            placeholder="Track title"
-          />
-        </label>
-        <Button
-          onClick={() => onRetry(artistInput.trim(), trackInput.trim())}
-          disabled={!trackInput.trim()}
-        >
-          Search again
-        </Button>
+    <>
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8" role="alert">
+        <div className="max-w-md text-center">
+          <p className="font-medium text-foreground">{headline}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
+          {subline ? <p className="mt-2 text-sm text-muted-foreground/80">{subline}</p> : null}
+        </div>
+
+        {(track || artist) && (
+          <p className="text-center text-sm text-muted-foreground/80">
+            Parsed as <span className="font-medium text-foreground">{track || "unknown track"}</span>
+            {artist ? (
+              <>
+                {" "}
+                by <span className="font-medium text-foreground">{artist}</span>
+              </>
+            ) : null}
+          </p>
+        )}
+
+        {lastAttempts.length > 0 && (
+          <div className="w-full max-w-md rounded-md border border-border bg-muted/30 px-4 py-3 text-left text-sm">
+            <p className="mb-2 font-medium text-foreground">Tried recently</p>
+            <ul className="list-inside list-disc space-y-1 text-muted-foreground">
+              {lastAttempts.map((attempt) => (
+                <li key={attempt}>{attempt.replaceAll("_", " ")}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {lrclibTrackId ? (
+          <a
+            href={`https://lrclib.net/${lrclibTrackId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-primary hover:underline"
+          >
+            View on LRCLIB →
+          </a>
+        ) : null}
+
+        <div className="flex w-full max-w-md flex-col gap-3">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-muted-foreground">Artist</span>
+            <Input
+              value={artistInput}
+              onChange={(e) => setArtistInput(e.target.value)}
+              placeholder="Artist name"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-muted-foreground">Track</span>
+            <Input
+              value={trackInput}
+              onChange={(e) => setTrackInput(e.target.value)}
+              placeholder="Track title"
+            />
+          </label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              className="flex-1"
+              onClick={() => onRetry(artistInput.trim(), trackInput.trim())}
+              disabled={!trackInput.trim()}
+            >
+              Retry search
+            </Button>
+            <Button className="flex-1" variant="outline" onClick={() => setPasteOpen(true)}>
+              Paste lyrics
+            </Button>
+          </div>
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/">Back to home</Link>
+          </Button>
+        </div>
       </div>
-    </div>
+
+      <LyricsPasteModal
+        open={pasteOpen}
+        onClose={() => setPasteOpen(false)}
+        onSubmit={(text) => {
+          setPasteOpen(false)
+          onPaste(text)
+        }}
+      />
+    </>
   )
 }

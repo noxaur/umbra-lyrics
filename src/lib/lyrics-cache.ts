@@ -1,0 +1,76 @@
+import type { LyricLine, LyricsResult } from "@/types/lyrics"
+
+const STORAGE_PREFIX = "song-kara-lyrics:"
+const CACHE_VERSION = 1
+
+export type LyricsCacheEntry = {
+  v: number
+  videoId: string
+  lyricsResult: LyricsResult
+  lines: LyricLine[]
+  synced: boolean
+  englishLines: string[]
+  languageCode: string
+  title: string
+  artist: string
+  track: string
+  cachedAt: number
+}
+
+function storageKey(videoId: string): string {
+  return `${STORAGE_PREFIX}${videoId}`
+}
+
+function isValidEntry(value: unknown): value is LyricsCacheEntry {
+  if (!value || typeof value !== "object") return false
+  const entry = value as LyricsCacheEntry
+  return (
+    entry.v === CACHE_VERSION &&
+    typeof entry.videoId === "string" &&
+    Array.isArray(entry.lines) &&
+    typeof entry.synced === "boolean" &&
+    entry.lyricsResult != null &&
+    typeof entry.lyricsResult.id === "number"
+  )
+}
+
+export function getLyricsCache(videoId: string): LyricsCacheEntry | null {
+  if (!videoId) return null
+  try {
+    const raw = localStorage.getItem(storageKey(videoId))
+    if (!raw) return null
+    const parsed: unknown = JSON.parse(raw)
+    if (!isValidEntry(parsed) || parsed.videoId !== videoId) return null
+    if (parsed.lines.length === 0) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+export function setLyricsCache(
+  entry: Omit<LyricsCacheEntry, "v" | "cachedAt">,
+): void {
+  if (!entry.videoId || entry.lines.length === 0) return
+  const payload: LyricsCacheEntry = {
+    ...entry,
+    v: CACHE_VERSION,
+    cachedAt: Date.now(),
+  }
+  try {
+    localStorage.setItem(storageKey(entry.videoId), JSON.stringify(payload))
+  } catch {
+    // Quota exceeded or private mode — ignore
+  }
+}
+
+export function clearLyricsCache(videoId?: string): void {
+  if (videoId) {
+    localStorage.removeItem(storageKey(videoId))
+    return
+  }
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i)
+    if (key?.startsWith(STORAGE_PREFIX)) localStorage.removeItem(key)
+  }
+}
