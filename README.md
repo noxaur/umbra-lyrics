@@ -30,13 +30,15 @@ npm run build
 npm run preview
 ```
 
-## Deploy (Cloudflare)
+## Deploy (Cloudflare Workers)
 
 ```bash
 npm run deploy
 ```
 
-Or connect the repo to Cloudflare Pages. Static assets are configured in `wrangler.jsonc` with SPA fallback.
+The app deploys as a Cloudflare Worker with static assets (`@cloudflare/vite-plugin`) and lyrics API routes on `/api/*`. Custom domain: **song.opsec.rent**.
+
+Local dev runs the Worker runtime via `vp dev` (Vite+ + Cloudflare plugin).
 
 ## Attribution
 
