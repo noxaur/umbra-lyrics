@@ -1,4 +1,5 @@
 import { usePlayerStore } from "@/stores/player-store"
+import { LYRICS_PROVIDER_LABELS, type LyricsProviderId } from "@/types/lyrics"
 
 type SyncBadge = "Synced" | "Approximate" | "Plain"
 
@@ -13,6 +14,11 @@ function getSyncBadge(
   if (lyricsSource === "pasted") return "Plain"
   if (lyricsSynced) return "Synced"
   return "Approximate"
+}
+
+function getSourceLabel(source: ReturnType<typeof usePlayerStore.getState>["lyricsSource"]): string | null {
+  if (!source || source === "pasted") return null
+  return LYRICS_PROVIDER_LABELS[source as LyricsProviderId] ?? source
 }
 
 const badgeStyles: Record<SyncBadge, string> = {
@@ -33,6 +39,7 @@ export function NowPlayingHeader() {
   const videoId = usePlayerStore((s) => s.videoId)
   const displayTrack = track || title
   const badge = getSyncBadge(status, lyricsSynced, lyrics.length, lyricsSource)
+  const sourceLabel = getSourceLabel(lyricsSource)
 
   if (!displayTrack && !artist && status === "idle" && !videoId) return null
 
@@ -53,6 +60,15 @@ export function NowPlayingHeader() {
             role="status"
           >
             {badge}
+          </span>
+        ) : null}
+        {sourceLabel ? (
+          <span
+            className="shrink-0 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground"
+            role="status"
+            title="Lyrics source"
+          >
+            {sourceLabel}
           </span>
         ) : null}
       </div>

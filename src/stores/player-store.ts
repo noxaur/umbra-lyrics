@@ -1,9 +1,9 @@
 import { create } from "zustand"
-import type { LyricDisplayMode, LyricLine } from "@/types/lyrics"
+import type { LyricDisplayMode, LyricLine, LyricsProviderId } from "@/types/lyrics"
 import type { LyricsOrchestratorStatus, LyricsSearchStep } from "@/lib/lyrics-orchestrator"
 
 export type PlayerStatus = "idle" | "loading" | "ready" | "error"
-export type LyricsSource = "lrclib" | "pasted" | null
+export type LyricsSource = LyricsProviderId | "pasted" | null
 
 type PlayerState = {
   videoId: string | null

@@ -221,4 +221,35 @@ describe("orchestrateLyricsSearch", () => {
     expect(result.strategy).toBe("query_oembed_author")
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("q="), expect.any(Object))
   })
+
+  it("falls back to lyrics.ovh when LRCLIB has no lyrics", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("lrclib.net")) {
+          return new Response("[]", { status: 200 })
+        }
+        if (url.includes("/api/lyrics/ovh/")) {
+          return new Response(JSON.stringify({ lyrics: "Fallback line one\nLine two" }), {
+            status: 200,
+          })
+        }
+        return new Response("{}", { status: 404 })
+      }),
+    )
+
+    const phases: string[] = []
+    const result = await orchestrateLyricsSearch({
+      track: "Rare Song",
+      artist: "Unknown Artist",
+      title: "Unknown Artist - Rare Song",
+      durationSec: 200,
+      onProgress: ({ phase }) => phases.push(phase),
+    })
+
+    expect(result.status).toBe("found")
+    expect(result.providerId).toBe("lyrics-ovh")
+    expect(result.lyrics?.plainLyrics).toContain("Fallback line")
+    expect(phases.some((p) => p.includes("alternate"))).toBe(true)
+  })
 })

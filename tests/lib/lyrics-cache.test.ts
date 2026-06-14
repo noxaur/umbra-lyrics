@@ -8,7 +8,13 @@ import {
 
 const sampleEntry = {
   videoId: "abc12345678",
-  lyricsResult: { id: 42, plainLyrics: "Line one", syncedLyrics: "[00:00.00] Line one" },
+  lyricsResult: {
+    id: 42,
+    providerId: "lrclib" as const,
+    plainLyrics: "Line one",
+    syncedLyrics: "[00:00.00] Line one",
+  },
+  providerId: "lrclib" as const,
   lines: [{ startMs: 0, endMs: 3000, text: "Line one" }],
   synced: true,
   englishLines: [] as string[],
@@ -38,10 +44,18 @@ describe("lyrics-cache", () => {
     expect(cached?.cachedAt).toBeTypeOf("number")
   })
 
+  it("rejects legacy cache version", () => {
+    localStorage.setItem(
+      "song-kara-lyrics:abc12345678",
+      JSON.stringify({ ...sampleEntry, v: 1, cachedAt: 1 }),
+    )
+    expect(getLyricsCache("abc12345678")).toBeNull()
+  })
+
   it("rejects mismatched videoId in payload", () => {
     localStorage.setItem(
       "song-kara-lyrics:abc12345678",
-      JSON.stringify({ ...sampleEntry, v: 1, videoId: "other", cachedAt: 1 }),
+      JSON.stringify({ ...sampleEntry, v: 2, videoId: "other", cachedAt: 1 }),
     )
     expect(getLyricsCache("abc12345678")).toBeNull()
   })

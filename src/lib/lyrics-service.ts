@@ -40,6 +40,7 @@ export function hasLyrics(result: SearchResult): boolean {
 function searchResultToLyrics(result: SearchResult): LyricsResult {
   return {
     id: result.id,
+    providerId: "lrclib",
     plainLyrics: result.plainLyrics ?? null,
     syncedLyrics: result.syncedLyrics ?? null,
   }
@@ -166,6 +167,7 @@ export async function fetchLyricsById(id: number): Promise<LyricsResult | null> 
   const data = await res.json()
   return {
     id: data.id,
+    providerId: "lrclib",
     plainLyrics: data.plainLyrics ?? null,
     syncedLyrics: data.syncedLyrics ?? null,
   }
@@ -185,6 +187,7 @@ export async function fetchLyricsByMetadata(match: SearchResult): Promise<Lyrics
   const data = await res.json()
   return {
     id: data.id,
+    providerId: "lrclib",
     plainLyrics: data.plainLyrics ?? null,
     syncedLyrics: data.syncedLyrics ?? null,
   }

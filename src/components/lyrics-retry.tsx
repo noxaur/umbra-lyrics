@@ -3,10 +3,12 @@ import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { LyricsPasteModal } from "@/components/lyrics-paste-modal"
+import { PROVIDER_FALLBACK_ORDER } from "@/lib/lyrics-providers"
 import { usePlayerStore } from "@/stores/player-store"
+import { LYRICS_PROVIDER_LABELS, type LyricsProviderId } from "@/types/lyrics"
 
 type LyricsRetryProps = {
-  onRetry: (artist: string, track: string) => void
+  onRetry: (artist: string, track: string, providerIds?: LyricsProviderId[]) => void
   onPaste: (text: string) => void
   variant?: "not_found" | "partial" | "instrumental" | "network_error"
 }
@@ -22,24 +24,24 @@ export function LyricsRetry({ onRetry, onPaste, variant = "not_found" }: LyricsR
   const [trackInput, setTrackInput] = useState(track)
   const [pasteOpen, setPasteOpen] = useState(false)
 
-  const lastAttempts = lyricsAttempts.slice(-3)
+  const lastAttempts = lyricsAttempts.slice(-4)
 
   const headline =
     variant === "network_error"
       ? "Couldn't reach lyrics service"
       : variant === "instrumental"
-        ? "Song found — marked instrumental in LRCLIB"
+        ? "Song found — marked instrumental"
         : variant === "partial"
           ? "Song found but no lyrics in database"
-          : "No lyrics found in LRCLIB"
+          : "No lyrics found"
 
   const detail =
     variant === "network_error"
       ? error ?? "Check your connection and try again."
       : variant === "instrumental"
-        ? error ?? "LRCLIB lists this track as instrumental — paste lyrics or try another video."
+        ? error ?? "This track is marked instrumental — paste lyrics or try another source."
         : variant === "partial"
-          ? error ?? "A matching song exists but LRCLIB has no lyric text."
+          ? error ?? "A matching song exists but no lyric text was returned."
           : error ?? "Edit artist/title below and search again."
 
   const subline =
@@ -107,21 +109,35 @@ export function LyricsRetry({ onRetry, onPaste, variant = "not_found" }: LyricsR
               placeholder="Track title"
             />
           </label>
+          <Button
+            className="w-full"
+            onClick={() => onRetry(artistInput.trim(), trackInput.trim())}
+            disabled={!trackInput.trim()}
+          >
+            Retry all sources
+          </Button>
+          <div className="flex flex-wrap gap-2">
+            {PROVIDER_FALLBACK_ORDER.map((providerId) => (
+              <Button
+                key={providerId}
+                variant="outline"
+                size="sm"
+                className="flex-1 min-w-[7rem]"
+                onClick={() => onRetry(artistInput.trim(), trackInput.trim(), [providerId])}
+                disabled={!trackInput.trim()}
+              >
+                {LYRICS_PROVIDER_LABELS[providerId]}
+              </Button>
+            ))}
+          </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              className="flex-1"
-              onClick={() => onRetry(artistInput.trim(), trackInput.trim())}
-              disabled={!trackInput.trim()}
-            >
-              Retry search
-            </Button>
             <Button className="flex-1" variant="outline" onClick={() => setPasteOpen(true)}>
               Paste lyrics
             </Button>
+            <Button variant="ghost" size="sm" className="flex-1" asChild>
+              <Link to="/">Back to home</Link>
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/">Back to home</Link>
-          </Button>
         </div>
       </div>
 

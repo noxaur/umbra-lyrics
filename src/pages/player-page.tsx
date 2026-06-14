@@ -20,8 +20,8 @@ import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
 import { parseTrackTitle } from "@/lib/parse-track-title"
 import { addRecentSong } from "@/lib/recent-songs"
 import { fetchYouTubeAuthor } from "@/lib/youtube-oembed"
-import { usePlayerStore } from "@/stores/player-store"
-import type { LyricLine } from "@/types/lyrics"
+import { usePlayerStore, type LyricsSource } from "@/stores/player-store"
+import type { LyricLine, LyricsProviderId } from "@/types/lyrics"
 
 function applyLyricsText(
   text: string,
@@ -113,10 +113,12 @@ export function PlayerPage() {
         artist: cached.artist,
         track: cached.track,
       })
-      setLyrics(cached.lines, cached.synced, "lrclib")
+      setLyrics(cached.lines, cached.synced, cached.providerId ?? cached.lyricsResult.providerId)
       setEnglishLines(cached.englishLines)
       setLanguageCode(cached.languageCode)
-      setLrclibTrackId(cached.lyricsResult.id)
+      setLrclibTrackId(
+        typeof cached.lyricsResult.id === "number" ? cached.lyricsResult.id : null,
+      )
       setLyricsOutcome("found")
       setStatus("ready")
       setLoadedFromCache(true)
@@ -163,7 +165,7 @@ export function PlayerPage() {
   const applyParsedLyrics = useCallback(
     async (
       parsed: { lines: LyricLine[]; synced: boolean },
-      source: "lrclib" | "pasted",
+      source: LyricsSource,
       meta: { title: string; track: string; artist: string },
       durationSec: number,
       sample: string,
@@ -203,7 +205,7 @@ export function PlayerPage() {
       track: string,
       title: string,
       durationSec: number,
-      options?: { skipPasted?: boolean; skipCache?: boolean },
+      options?: { skipPasted?: boolean; skipCache?: boolean; providerIds?: LyricsProviderId[] },
     ) => {
       resetLyricsSearch()
       setStatus("loading")
@@ -240,7 +242,7 @@ export function PlayerPage() {
           setLanguageCode(cached.languageCode)
           await applyParsedLyrics(
             { lines: cached.lines, synced: cached.synced },
-            "lrclib",
+            cached.providerId ?? cached.lyricsResult.providerId,
             {
               title: cached.title || title,
               track: cached.track || track,
@@ -262,18 +264,22 @@ export function PlayerPage() {
           title,
           durationSec: Math.round(durationSec) || 0,
           oembedAuthor: oembedAuthorRef.current ?? undefined,
-          onProgress: ({ phase, step, retryRound }) => {
-            setLyricsSearchPhase(phase)
+          providerIds: options?.providerIds,
+          onProgress: ({ phase, step, retryRound, provider }) => {
+            setLyricsSearchPhase(provider ? `${phase}` : phase)
             setLyricsSearchStep(step)
             if (retryRound) setNetworkRetryCount(retryRound)
           },
         })
 
         for (const attempt of result.attempts) {
-          if (attempt.result !== "skipped") addLyricsAttempt(attempt.strategy)
+          if (attempt.result !== "skipped") {
+            addLyricsAttempt(attempt.provider ? `${attempt.provider}:${attempt.strategy}` : attempt.strategy)
+          }
         }
 
-        if (result.matchId) setLrclibTrackId(result.matchId)
+        if (typeof result.matchId === "number") setLrclibTrackId(result.matchId)
+        else setLrclibTrackId(null)
 
         if (result.status === "found" && result.lyrics) {
           let parsed =
@@ -299,13 +305,14 @@ export function PlayerPage() {
 
           await applyParsedLyrics(
             parsed,
-            "lrclib",
+            result.lyrics.providerId,
             { title, track, artist },
             durationSec,
             sample,
             {
               videoId,
               lyricsResult: result.lyrics,
+              providerId: result.lyrics.providerId,
               lines: parsed.lines,
               synced: parsed.synced,
               englishLines: [],
@@ -326,7 +333,7 @@ export function PlayerPage() {
           setStatus(
             "error",
             result.status === "instrumental"
-              ? "Song found — marked instrumental in LRCLIB"
+              ? "Song found — marked instrumental"
               : "Song found but no lyrics in database",
           )
           return
@@ -370,9 +377,13 @@ export function PlayerPage() {
   }, [ready, videoId, duration, getVideoTitle, loadLyrics, setMeta])
 
   const handleRetry = useCallback(
-    (artist: string, track: string) => {
+    (artist: string, track: string, providerIds?: LyricsProviderId[]) => {
       const title = usePlayerStore.getState().title
-      void loadLyrics(artist, track, title, duration, { skipPasted: true, skipCache: true })
+      void loadLyrics(artist, track, title, duration, {
+        skipPasted: true,
+        skipCache: true,
+        providerIds,
+      })
     },
     [duration, loadLyrics],
   )
