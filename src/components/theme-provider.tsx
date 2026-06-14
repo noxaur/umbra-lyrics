@@ -1,47 +1,61 @@
 import { createContext, useContext, useEffect, useState } from "react"
-
-type Theme = "dark" | "light" | "system"
+import {
+  applyThemeToElement,
+  DEFAULT_DARK_THEME_ID,
+  DEFAULT_LIGHT_THEME_ID,
+  getThemeById,
+  persistThemeId,
+  readStoredThemeId,
+  themeById,
+  themes,
+  type Theme,
+} from "@/lib/themes"
 
 type ThemeProviderState = {
+  themeId: string
   theme: Theme
-  setTheme: (theme: Theme) => void
+  themes: Theme[]
+  setTheme: (id: string) => void
+  setLightTheme: () => void
+  setDarkTheme: () => void
 }
 
 const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undefined)
 
-const STORAGE_KEY = "song-kara-theme"
-
 export function ThemeProvider({
   children,
-  defaultTheme = "dark",
+  defaultThemeId = DEFAULT_DARK_THEME_ID,
 }: {
   children: React.ReactNode
-  defaultTheme?: Theme
+  defaultThemeId?: string
 }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null
-    return stored ?? defaultTheme
+  const [themeId, setThemeIdState] = useState<string>(() => {
+    try {
+      return readStoredThemeId()
+    } catch {
+      return defaultThemeId
+    }
   })
 
+  const theme = getThemeById(themeId)
+
   useEffect(() => {
-    const root = document.documentElement
-    root.classList.remove("light", "dark")
-    const resolved =
-      theme === "system"
-        ? window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light"
-        : theme
-    root.classList.add(resolved)
+    applyThemeToElement(document.documentElement, theme)
   }, [theme])
 
-  const setTheme = (next: Theme) => {
-    localStorage.setItem(STORAGE_KEY, next)
-    setThemeState(next)
+  const setTheme = (id: string) => {
+    if (!themeById[id]) return
+    persistThemeId(id)
+    setThemeIdState(id)
   }
 
+  const setLightTheme = () => setTheme(DEFAULT_LIGHT_THEME_ID)
+  const setDarkTheme = () => setTheme(DEFAULT_DARK_THEME_ID)
+
   return (
-    <ThemeProviderContext.Provider value={{ theme, setTheme }}>
+    <ThemeProviderContext.Provider
+      value={{ themeId, theme, themes, setTheme, setLightTheme, setDarkTheme }}
+    >
       {children}
     </ThemeProviderContext.Provider>
   )

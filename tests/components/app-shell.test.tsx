@@ -8,7 +8,7 @@ describe("AppShell", () => {
   it("uses React Router Link for brand navigation", () => {
     render(
       <MemoryRouter>
-        <ThemeProvider defaultTheme="dark">
+        <ThemeProvider>
           <AppShell>
             <div>content</div>
           </AppShell>
@@ -19,5 +19,20 @@ describe("AppShell", () => {
     const brand = screen.getByRole("link", { name: "song-kara" })
     expect(brand).toHaveAttribute("href", "/")
     expect(brand.tagName).toBe("A")
+  })
+
+  it("links to themes page from header", () => {
+    render(
+      <MemoryRouter>
+        <ThemeProvider>
+          <AppShell>
+            <div>content</div>
+          </AppShell>
+        </ThemeProvider>
+      </MemoryRouter>,
+    )
+
+    const themesLink = screen.getByRole("link", { name: "Browse themes" })
+    expect(themesLink).toHaveAttribute("href", "/themes")
   })
 })

@@ -1,30 +1,31 @@
-import { Moon, Sun } from "lucide-react"
+import { Link } from "react-router-dom"
+import { Moon, Palette, Sun } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { useTheme } from "@/components/theme-provider"
 
 export function ModeToggle() {
-  const { setTheme } = useTheme()
+  const { theme, setLightTheme, setDarkTheme } = useTheme()
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Toggle theme">
-          <AnimatedIcon icon={Sun} className="dark:hidden" />
-          <AnimatedIcon icon={Moon} className="hidden dark:inline-flex" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>Light</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>Dark</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>System</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex items-center gap-1">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={theme.category === "dark" ? setLightTheme : setDarkTheme}
+        aria-label={theme.category === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+      >
+        {theme.category === "dark" ? (
+          <AnimatedIcon icon={Sun} />
+        ) : (
+          <AnimatedIcon icon={Moon} />
+        )}
+      </Button>
+      <Button variant="ghost" size="icon" asChild>
+        <Link to="/themes" aria-label="Browse themes">
+          <AnimatedIcon icon={Palette} />
+        </Link>
+      </Button>
+    </div>
   )
 }
