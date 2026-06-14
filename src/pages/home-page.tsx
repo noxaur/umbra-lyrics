@@ -3,7 +3,12 @@ import { Link } from "react-router-dom"
 import { AppShell } from "@/components/app-shell"
 import { UrlInput } from "@/components/url-input"
 import { Button } from "@/components/ui/button"
-import { clearRecentSongs, getRecentSongs, type RecentSong } from "@/lib/recent-songs"
+import {
+  clearRecentSongs,
+  formatRecentLabel,
+  getRecentSongs,
+  type RecentSong,
+} from "@/lib/recent-songs"
 
 export function HomePage() {
   const [recent, setRecent] = useState<RecentSong[]>(() => getRecentSongs())
@@ -33,17 +38,22 @@ export function HomePage() {
                 Clear
               </Button>
             </div>
-            <ul className="divide-y divide-border rounded-lg border border-border">
-              {recent.map((song) => (
-                <li key={song.videoId}>
-                  <Link
-                    to={`/play/${song.videoId}`}
-                    className="flex px-4 py-3 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {song.title || song.videoId}
-                  </Link>
-                </li>
-              ))}
+            <ul className="divide-y divide-border rounded-lg border border-border bg-card/30">
+              {recent.map((song) => {
+                const label = formatRecentLabel(song)
+                return (
+                  <li key={song.videoId}>
+                    <Link
+                      to={`/play/${song.videoId}`}
+                      state={{ fromHome: true }}
+                      title={label}
+                      className="block px-4 py-3 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="block truncate">{label}</span>
+                    </Link>
+                  </li>
+                )
+              })}
             </ul>
           </div>
         )}
