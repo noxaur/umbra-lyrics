@@ -5,8 +5,7 @@
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
     "ignoreDeprecations": "6.0",
-    "types": ["vite/client", "vitest/globals"],
-    "baseUrl": ".",
+    "types": ["vite/client"],
     "paths": {
       "@/*": ["./src/*"]
     },

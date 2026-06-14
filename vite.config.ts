@@ -1,20 +1,20 @@
-/// <reference types="vitest/config" />
+/// <reference types="@voidzero-dev/vite-plus-test" />
 import path from "path"
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
-import { lyricsProxyMiddleware } from "./vite.lyrics-proxy"
+import { cloudflare } from "@cloudflare/vite-plugin"
+import { defineConfig } from "vite-plus"
 
 export default defineConfig({
+  lint: {
+    jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
+    rules: { "vite-plus/prefer-vite-plus-imports": "error" },
+    options: { typeAware: true, typeCheck: true },
+  },
   plugins: [
     react(),
     tailwindcss(),
-    {
-      name: "lyrics-api-proxy",
-      configureServer(server) {
-        server.middlewares.use(lyricsProxyMiddleware())
-      },
-    },
+    ...(process.env.VITEST ? [] : [cloudflare()]),
   ],
   resolve: {
     alias: {
