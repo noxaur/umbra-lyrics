@@ -20,6 +20,30 @@
 - **Depends on:** Task 13 (player page)
 - **Slot:** Wave 4.5 #3
 
+### FB-lyrics-001: Smart title parsing and LRCLIB search cascade (P0)
+- **Effort:** M
+- **Files:** `src/lib/parse-track-title.ts`, `src/lib/lyrics-service.ts`
+- **Depends on:** Task 9 (lyrics service)
+- **Slot:** Wave 4.5 #4
+
+### FB-lyrics-002: Manual artist and track edit with retry (P0)
+- **Effort:** S
+- **Files:** `src/components/lyrics-stage.tsx`, `src/pages/player-page.tsx`
+- **Depends on:** FB-lyrics-001
+- **Slot:** Wave 4.5 #5
+
+### FB-lyrics-003: Instrumental and empty lyrics handling
+- **Effort:** S
+- **Files:** `src/lib/lyrics-service.ts`, `src/components/lyrics-stage.tsx`
+- **Depends on:** FB-lyrics-001
+- **Slot:** Wave 4.5 #6
+
+### FB-lyrics-004: Manual LRC or plain lyrics paste fallback
+- **Effort:** M
+- **Files:** `src/components/lyrics-stage.tsx`, `src/lib/lrc-parser.ts`
+- **Depends on:** FB-lyrics-003
+- **Slot:** Wave 4.5 #7
+
 ## Deferred (v2)
 
 ### FB-ux-002: Instant URL paste with auto-submit
@@ -57,3 +81,6 @@
 
 ### FB-perf-003: Prefetch lyrics on paste
 - Effort M, complexity
+
+### FB-lyrics-005: MusicBrainz canonical metadata for LRCLIB lookup
+- Effort M; optional enrichment when LRCLIB cascade fails
