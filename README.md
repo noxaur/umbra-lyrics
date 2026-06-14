@@ -1,73 +1,48 @@
-# React + TypeScript + Vite
+# song-kara
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A client-side karaoke player: paste a YouTube URL, sing along with synced lyrics from [LRCLIB](https://lrclib.net), with optional bilingual display and theme switching.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- YouTube playback via `@bogdanrn/yt-embed`
+- Synced LRC lyrics with word-level highlight; plain-lyrics fallback
+- Bilingual mode (native / English / both) with Chrome Translator API fallback
+- Dark-first theme with light/system modes
+- Hide video (lyrics-only mode)
+- Keyboard shortcuts (Space, arrows, +/-)
+- Recent songs (localStorage)
+- Tap lyric line to seek
 
-## React Compiler
+## Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open http://127.0.0.1:5173
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Test & build
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm test
+npm run build
+npm run preview
 ```
+
+## Deploy (Cloudflare)
+
+```bash
+npm run deploy
+```
+
+Or connect the repo to Cloudflare Pages. Static assets are configured in `wrangler.jsonc` with SPA fallback.
+
+## Attribution
+
+- Lyrics data from [LRCLIB](https://lrclib.net) — please respect their API usage guidelines.
+- Chrome Translator API requires Chromium 138+ with built-in AI features enabled.
+
+## License
+
+MIT

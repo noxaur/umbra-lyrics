@@ -1,0 +1,6 @@
+export { AnimatedIcon as PlayIcon } from "./animated-icon"
+export { AnimatedIcon as PauseIcon } from "./animated-icon"
+export { AnimatedIcon as MoonIcon } from "./animated-icon"
+export { AnimatedIcon as SunIcon } from "./animated-icon"
+export { AnimatedIcon as EyeOffIcon } from "./animated-icon"
+export { AnimatedIcon as MusicIcon } from "./animated-icon"
