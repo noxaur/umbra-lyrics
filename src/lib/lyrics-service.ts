@@ -1,13 +1,20 @@
 import type { LyricsResult } from "@/types/lyrics"
+import { simplifyTrackName } from "@/lib/parse-track-title"
 
 const BASE = "https://lrclib.net/api"
-const CLIENT_HEADER = "Lrclib-Client: song-kara/1.0.0 (https://github.com/song-kara)"
+const CLIENT_HEADER = "song-kara/1.0.0 (https://github.com/song-kara)"
+
+const DURATION_TOLERANCE_SEC = 8
 
 type SearchResult = {
   id: number
   trackName: string
   artistName: string
+  albumName?: string
   duration: number
+  instrumental?: boolean
+  plainLyrics?: string | null
+  syncedLyrics?: string | null
 }
 
 export type FetchLyricsParams = {
@@ -17,49 +24,140 @@ export type FetchLyricsParams = {
   durationSec: number
 }
 
-async function searchLyrics(params: FetchLyricsParams): Promise<SearchResult[]> {
-  const q = new URLSearchParams({
-    track_name: params.track,
-    artist_name: params.artist,
+function lrclibFetch(path: string): Promise<Response> {
+  return fetch(`${BASE}${path}`, {
+    headers: {
+      "Lrclib-Client": CLIENT_HEADER,
+      "User-Agent": CLIENT_HEADER,
+    },
   })
-  const res = await fetch(`${BASE}/search?${q}`, {
-    headers: { "Lrclib-Client": CLIENT_HEADER },
-  })
+}
+
+function hasLyrics(result: SearchResult): boolean {
+  return Boolean(result.plainLyrics?.trim() || result.syncedLyrics?.trim())
+}
+
+function searchResultToLyrics(result: SearchResult): LyricsResult {
+  return {
+    id: result.id,
+    plainLyrics: result.plainLyrics ?? null,
+    syncedLyrics: result.syncedLyrics ?? null,
+  }
+}
+
+async function searchByParams(track: string, artist: string): Promise<SearchResult[]> {
+  const q = new URLSearchParams({ track_name: track, artist_name: artist })
+  const res = await lrclibFetch(`/search?${q}`)
   if (!res.ok) return []
   return res.json()
 }
 
-function pickBestMatch(results: SearchResult[], durationSec: number): SearchResult | null {
-  if (results.length === 0) return null
-  let best = results[0]
-  let bestDelta = Math.abs(best.duration - durationSec)
-  for (const r of results) {
-    const delta = Math.abs(r.duration - durationSec)
-    if (delta < bestDelta) {
-      best = r
-      bestDelta = delta
-    }
-  }
-  return bestDelta <= 2 ? best : results[0]
+async function searchByQuery(query: string): Promise<SearchResult[]> {
+  const q = new URLSearchParams({ q: query })
+  const res = await lrclibFetch(`/search?${q}`)
+  if (!res.ok) return []
+  return res.json()
 }
 
-export async function fetchLyrics(params: FetchLyricsParams): Promise<LyricsResult | null> {
-  const results = await searchLyrics(params)
-  const match = pickBestMatch(results, params.durationSec)
-  if (!match) return null
+function buildSearchStrategies(params: FetchLyricsParams): Array<{ track: string; artist: string }> {
+  const strategies: Array<{ track: string; artist: string }> = []
+  const seen = new Set<string>()
+  const add = (track: string, artist: string) => {
+    const key = `${track}\0${artist}`
+    if (!track.trim() || seen.has(key)) return
+    seen.add(key)
+    strategies.push({ track: track.trim(), artist: artist.trim() })
+  }
 
+  const simplifiedTrack = simplifyTrackName(params.track)
+  add(params.track, params.artist)
+  add(simplifiedTrack, params.artist)
+  if (params.artist) {
+    add(simplifiedTrack, "")
+    add(params.track, "")
+  }
+  add(simplifiedTrack, params.artist.split(/\s+/)[0] ?? params.artist)
+
+  if (params.artist && params.track) {
+    add(params.artist, params.track)
+  }
+
+  return strategies
+}
+
+async function collectSearchResults(params: FetchLyricsParams): Promise<SearchResult[]> {
+  const byId = new Map<number, SearchResult>()
+
+  for (const { track, artist } of buildSearchStrategies(params)) {
+    for (const result of await searchByParams(track, artist)) {
+      byId.set(result.id, result)
+    }
+  }
+
+  const query = [params.track, params.artist].filter(Boolean).join(" ")
+  if (query) {
+    for (const result of await searchByQuery(query)) {
+      byId.set(result.id, result)
+    }
+  }
+
+  const simplifiedQuery = [simplifyTrackName(params.track), params.artist].filter(Boolean).join(" ")
+  if (simplifiedQuery && simplifiedQuery !== query) {
+    for (const result of await searchByQuery(simplifiedQuery)) {
+      byId.set(result.id, result)
+    }
+  }
+
+  return [...byId.values()]
+}
+
+function durationScore(result: SearchResult, durationSec: number): number {
+  if (durationSec <= 0) return 0
+  const delta = Math.abs(result.duration - durationSec)
+  return delta <= DURATION_TOLERANCE_SEC ? delta : delta + 100
+}
+
+function pickBestMatch(results: SearchResult[], durationSec: number): SearchResult | null {
+  if (results.length === 0) return null
+
+  const scored = results
+    .map((result) => {
+      let score = durationScore(result, durationSec)
+      if (result.instrumental) score += 50
+      if (!hasLyrics(result)) score += 200
+      return { result, score }
+    })
+    .sort((a, b) => a.score - b.score)
+
+  const withLyrics = scored.find(({ result }) => hasLyrics(result) && !result.instrumental)
+  if (withLyrics) return withLyrics.result
+
+  const anyLyrics = scored.find(({ result }) => hasLyrics(result))
+  if (anyLyrics) return anyLyrics.result
+
+  return scored[0]?.result ?? null
+}
+
+async function fetchLyricsById(id: number): Promise<LyricsResult | null> {
+  const res = await lrclibFetch(`/get/${id}`)
+  if (!res.ok) return null
+  const data = await res.json()
+  return {
+    id: data.id,
+    plainLyrics: data.plainLyrics ?? null,
+    syncedLyrics: data.syncedLyrics ?? null,
+  }
+}
+
+async function fetchLyricsByMetadata(match: SearchResult): Promise<LyricsResult | null> {
   const q = new URLSearchParams({
-    track_name: params.track,
-    artist_name: params.artist,
-    album_name: params.album,
+    track_name: match.trackName,
+    artist_name: match.artistName,
+    album_name: match.albumName ?? "",
     duration: String(match.duration),
   })
 
-  const res = await fetch(`${BASE}/get?${q}`, {
-    headers: { "Lrclib-Client": CLIENT_HEADER },
-  })
-
-  if (res.status === 404) return null
+  const res = await lrclibFetch(`/get?${q}`)
   if (!res.ok) return null
 
   const data = await res.json()
@@ -68,6 +166,38 @@ export async function fetchLyrics(params: FetchLyricsParams): Promise<LyricsResu
     plainLyrics: data.plainLyrics ?? null,
     syncedLyrics: data.syncedLyrics ?? null,
   }
+}
+
+export async function fetchLyrics(params: FetchLyricsParams): Promise<LyricsResult | null> {
+  const results = await collectSearchResults(params)
+  const match = pickBestMatch(results, params.durationSec)
+  if (!match) return null
+
+  if (hasLyrics(match)) {
+    const byMetadata = await fetchLyricsByMetadata(match)
+    if (byMetadata && (byMetadata.plainLyrics || byMetadata.syncedLyrics)) {
+      return byMetadata
+    }
+
+    const byId = await fetchLyricsById(match.id)
+    if (byId && (byId.plainLyrics || byId.syncedLyrics)) {
+      return byId
+    }
+
+    return searchResultToLyrics(match)
+  }
+
+  const byId = await fetchLyricsById(match.id)
+  if (byId && (byId.plainLyrics || byId.syncedLyrics)) {
+    return byId
+  }
+
+  const byMetadata = await fetchLyricsByMetadata(match)
+  if (byMetadata && (byMetadata.plainLyrics || byMetadata.syncedLyrics)) {
+    return byMetadata
+  }
+
+  return null
 }
 
 export async function searchEnglishLyrics(

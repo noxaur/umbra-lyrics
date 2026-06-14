@@ -1,10 +1,16 @@
 import { useEffect, useRef } from "react"
 import { LyricLine } from "@/components/lyric-line"
+import { LyricsRetry } from "@/components/lyrics-retry"
 import { usePlayerStore } from "@/stores/player-store"
 import { getActiveLineIndex, getWordProgress } from "@/lib/sync-engine"
 
-export function LyricsStage() {
+type LyricsStageProps = {
+  onRetry?: (artist: string, track: string) => void
+}
+
+export function LyricsStage({ onRetry }: LyricsStageProps) {
   const status = usePlayerStore((s) => s.status)
+  const error = usePlayerStore((s) => s.error)
   const lyrics = usePlayerStore((s) => s.lyrics)
   const englishLines = usePlayerStore((s) => s.englishLines)
   const displayMode = usePlayerStore((s) => s.displayMode)
@@ -39,10 +45,14 @@ export function LyricsStage() {
     )
   }
 
+  if (status === "error" && onRetry) {
+    return <LyricsRetry onRetry={onRetry} />
+  }
+
   if (status === "error") {
     return (
       <div className="flex flex-1 items-center justify-center p-8 text-center text-muted-foreground">
-        <p>No lyrics found — try editing artist/title</p>
+        <p>{error ?? "No lyrics found — try editing artist/title"}</p>
       </div>
     )
   }

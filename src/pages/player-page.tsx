@@ -53,37 +53,45 @@ export function PlayerPage() {
   }, [bindControls, play, pause, seekTo, isPlaying])
 
   useEffect(() => {
-    if (!ready || loadedRef.current || !videoId) return
-    loadedRef.current = true
+    loadedRef.current = false
+    setStatus("idle")
+    setLyrics([], true)
+    setEnglishLines([])
+    setMeta({ title: "", artist: "", track: "" })
+  }, [videoId, setStatus, setLyrics, setEnglishLines, setMeta])
 
-    const load = async () => {
+  const loadLyrics = useCallback(
+    async (artist: string, track: string, title: string, durationSec: number) => {
       setStatus("loading")
       try {
-        const title = await getVideoTitle()
-        const { artist, track } = parseTrackTitle(title)
         setMeta({ title, artist, track })
 
         const result = await fetchLyrics({
           track,
           artist,
           album: "",
-          durationSec: Math.round(duration) || 0,
+          durationSec: Math.round(durationSec) || 0,
         })
 
         if (!result) {
-          setStatus("error")
+          setStatus("error", "No lyrics found for this artist and track")
           return
         }
 
         let parsed =
           result.syncedLyrics && result.syncedLyrics.trim()
-            ? parseLrc(result.syncedLyrics, duration * 1000)
+            ? parseLrc(result.syncedLyrics, durationSec * 1000)
             : result.plainLyrics
-              ? parsePlainLyrics(result.plainLyrics, duration * 1000)
+              ? parsePlainLyrics(result.plainLyrics, durationSec * 1000)
               : { lines: [], synced: false }
 
         if (parsed.lines.length === 0 && result.plainLyrics) {
-          parsed = parsePlainLyrics(result.plainLyrics, duration * 1000)
+          parsed = parsePlainLyrics(result.plainLyrics, durationSec * 1000)
+        }
+
+        if (parsed.lines.length === 0) {
+          setStatus("error", "Lyrics were found but contain no lines to display")
+          return
         }
 
         setLyrics(parsed.lines, parsed.synced)
@@ -93,7 +101,7 @@ export function PlayerPage() {
         setLanguageCode(lang)
 
         if (!isEnglish(lang)) {
-          const enResult = await searchEnglishLyrics(track, artist, Math.round(duration))
+          const enResult = await searchEnglishLyrics(track, artist, Math.round(durationSec))
           if (enResult?.plainLyrics) {
             const enLines = enResult.plainLyrics.split("\n").filter(Boolean)
             setEnglishLines(enLines)
@@ -103,22 +111,39 @@ export function PlayerPage() {
         addRecentSong({ videoId, title: title || track })
         setStatus("ready")
       } catch {
-        setStatus("error")
+        setStatus("error", "Failed to load lyrics")
       }
+    },
+    [
+      videoId,
+      setStatus,
+      setMeta,
+      setLyrics,
+      setEnglishLines,
+      setLanguageCode,
+    ],
+  )
+
+  useEffect(() => {
+    if (!ready || loadedRef.current || !videoId || duration <= 0) return
+    loadedRef.current = true
+
+    const load = async () => {
+      const title = await getVideoTitle()
+      const { artist, track } = parseTrackTitle(title)
+      await loadLyrics(artist, track, title, duration)
     }
 
     void load()
-  }, [
-    ready,
-    videoId,
-    duration,
-    getVideoTitle,
-    setStatus,
-    setMeta,
-    setLyrics,
-    setEnglishLines,
-    setLanguageCode,
-  ])
+  }, [ready, videoId, duration, getVideoTitle, loadLyrics])
+
+  const handleRetry = useCallback(
+    (artist: string, track: string) => {
+      const title = usePlayerStore.getState().title
+      void loadLyrics(artist, track, title, duration)
+    },
+    [duration, loadLyrics],
+  )
 
   const handleTranslate = async () => {
     const translated = await translateLines(lyrics.map((l) => l.text))
@@ -152,7 +177,7 @@ export function PlayerPage() {
               <span className="text-xs text-amber-500">Line count mismatch</span>
             )}
           </div>
-          <LyricsStage />
+          <LyricsStage onRetry={handleRetry} />
           <TransportControls
             duration={duration}
             currentTime={currentTime}

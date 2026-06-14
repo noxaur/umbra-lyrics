@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { parseTrackTitle } from "@/lib/parse-track-title"
+import { parseTrackTitle, simplifyTrackName, stripDecorativeTitle } from "@/lib/parse-track-title"
 
 describe("parseTrackTitle", () => {
   it("parses artist - track with suffix", () => {
@@ -28,5 +28,44 @@ describe("parseTrackTitle", () => {
       artist: "",
       track: "SingleTitle",
     })
+  })
+
+  it("parses Japanese MV title as track - artist", () => {
+    expect(parseTrackTitle("【Original Anime MV】別世界 - 天音かなた【ホロライブ】")).toEqual({
+      artist: "天音かなた",
+      track: "別世界",
+    })
+  })
+
+  it("parses bare Japanese track - artist title", () => {
+    expect(parseTrackTitle("別世界 - 天音かなた")).toEqual({
+      artist: "天音かなた",
+      track: "別世界",
+    })
+  })
+
+  it("strips feat suffix from track", () => {
+    expect(parseTrackTitle("Artist - Song Name (feat. Guest)")).toEqual({
+      artist: "Artist",
+      track: "Song Name",
+    })
+  })
+})
+
+describe("stripDecorativeTitle", () => {
+  it("removes fullwidth brackets", () => {
+    expect(stripDecorativeTitle("【Original Anime MV】別世界 - 天音かなた【ホロライブ】")).toBe(
+      "別世界 - 天音かなた",
+    )
+  })
+
+  it("removes corner quotes and fullwidth parens", () => {
+    expect(stripDecorativeTitle("「MV」別世界（TV size） - 天音かなた")).toBe("別世界 - 天音かなた")
+  })
+})
+
+describe("simplifyTrackName", () => {
+  it("removes remix suffix", () => {
+    expect(simplifyTrackName("Song Name (Remix)")).toBe("Song Name")
   })
 })
