@@ -6,7 +6,7 @@ const CLIENT_HEADER = "song-kara/1.0.0 (https://github.com/song-kara)"
 
 const DURATION_TOLERANCE_SEC = 15
 
-type SearchResult = {
+export type SearchResult = {
   id: number
   trackName: string
   artistName: string
@@ -24,7 +24,7 @@ export type FetchLyricsParams = {
   durationSec: number
 }
 
-function lrclibFetch(path: string): Promise<Response> {
+export function lrclibFetch(path: string): Promise<Response> {
   return fetch(`${BASE}${path}`, {
     headers: {
       "Lrclib-Client": CLIENT_HEADER,
@@ -33,7 +33,7 @@ function lrclibFetch(path: string): Promise<Response> {
   })
 }
 
-function hasLyrics(result: SearchResult): boolean {
+export function hasLyrics(result: SearchResult): boolean {
   return Boolean(result.plainLyrics?.trim() || result.syncedLyrics?.trim())
 }
 
@@ -45,14 +45,14 @@ function searchResultToLyrics(result: SearchResult): LyricsResult {
   }
 }
 
-async function searchByParams(track: string, artist: string): Promise<SearchResult[]> {
+export async function searchByParams(track: string, artist: string): Promise<SearchResult[]> {
   const q = new URLSearchParams({ track_name: track, artist_name: artist })
   const res = await lrclibFetch(`/search?${q}`)
   if (!res.ok) return []
   return res.json()
 }
 
-async function searchByQuery(query: string): Promise<SearchResult[]> {
+export async function searchByQuery(query: string): Promise<SearchResult[]> {
   const q = new URLSearchParams({ q: query })
   const res = await lrclibFetch(`/search?${q}`)
   if (!res.ok) return []
@@ -129,7 +129,11 @@ function durationScore(result: SearchResult, durationSec: number): number {
   return delta <= DURATION_TOLERANCE_SEC ? delta : delta + 100
 }
 
-function pickBestMatch(results: SearchResult[], durationSec: number, artist: string): SearchResult | null {
+export function pickBestMatch(
+  results: SearchResult[],
+  durationSec: number,
+  artist: string,
+): SearchResult | null {
   if (results.length === 0) return null
 
   const scored = results
@@ -156,7 +160,7 @@ function pickBestMatch(results: SearchResult[], durationSec: number, artist: str
   return scored[0]?.result ?? null
 }
 
-async function fetchLyricsById(id: number): Promise<LyricsResult | null> {
+export async function fetchLyricsById(id: number): Promise<LyricsResult | null> {
   const res = await lrclibFetch(`/get/${id}`)
   if (!res.ok) return null
   const data = await res.json()
@@ -167,7 +171,7 @@ async function fetchLyricsById(id: number): Promise<LyricsResult | null> {
   }
 }
 
-async function fetchLyricsByMetadata(match: SearchResult): Promise<LyricsResult | null> {
+export async function fetchLyricsByMetadata(match: SearchResult): Promise<LyricsResult | null> {
   const q = new URLSearchParams({
     track_name: match.trackName,
     artist_name: match.artistName,
