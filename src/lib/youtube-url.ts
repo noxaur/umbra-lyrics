@@ -10,3 +10,11 @@ export function extractYouTubeVideoId(input: string): string | null {
   if (/^[\w-]{11}$/.test(trimmed)) return trimmed
   return null
 }
+
+export function youTubeWatchUrl(videoId: string): string {
+  return `https://www.youtube.com/watch?v=${videoId}`
+}
+
+export function youTubeMusicWatchUrl(videoId: string): string {
+  return `https://music.youtube.com/watch?v=${videoId}`
+}
