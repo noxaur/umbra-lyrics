@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react"
-import { Link, useLocation, useParams } from "react-router-dom"
+import { Link, useLocation, useParams, useSearchParams } from "react-router-dom"
 import { AppShell } from "@/components/app-shell"
 import { LyricsStage } from "@/components/lyrics-stage"
 import { NowPlayingHeader } from "@/components/now-playing-header"
@@ -42,8 +42,13 @@ function applyLyricsText(
   return null
 }
 
+/** Minimum embed size YouTube needs to start playback while visually hidden. */
+const HIDDEN_EMBED_CLASS = "w-[320px] h-[180px]"
+
 export function PlayerPage() {
   const { videoId = "" } = useParams()
+  const [searchParams] = useSearchParams()
+  const debugPlayer = searchParams.get("debug") === "1"
   const location = useLocation()
   const fromHome = Boolean(
     (location.state as { fromHome?: boolean } | null)?.fromHome,
@@ -574,6 +579,17 @@ export function PlayerPage() {
           <Link to="/" className="text-muted-foreground hover:text-foreground">
             ← Home
           </Link>
+          {debugPlayer && (
+            <span
+              className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-600 dark:text-amber-400"
+              role="status"
+            >
+              yt:{ready ? "ready" : "loading"} · {isPlaying ? "playing" : "paused"} ·{" "}
+              {currentTime.toFixed(1)}/{duration.toFixed(1)}s · vid:
+              {videoHidden ? "hidden" : "shown"}
+              {playbackHint ? ` · ${playbackHint}` : ""}
+            </span>
+          )}
           {!isEnglish(languageCode) && englishLines.length === 0 && (available || translating) && (
             <Button
               variant="outline"
@@ -595,7 +611,7 @@ export function PlayerPage() {
             className={cn(
               "flex shrink-0 flex-col lg:w-[42%] lg:min-h-0",
               videoHidden &&
-                "pointer-events-none fixed left-0 top-0 h-px w-px overflow-hidden opacity-0",
+                `pointer-events-none fixed top-0 overflow-hidden opacity-0 -left-[9999px] ${HIDDEN_EMBED_CLASS}`,
               !videoHidden && "px-4 py-2 lg:border-r lg:border-border lg:p-4",
             )}
             aria-hidden={videoHidden}

@@ -24,7 +24,7 @@ export function YouTubePanel({
       className={cn(
         "relative w-full shrink-0 overflow-hidden bg-black",
         hidden
-          ? "h-full w-full min-h-px min-w-px opacity-0"
+          ? "h-[180px] w-[320px] shrink-0 opacity-0"
           : "opacity-100",
         !hidden &&
           resolvedLayout === "strip" &&

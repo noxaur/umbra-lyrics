@@ -9,8 +9,8 @@ describe("YouTubePanel", () => {
     const { container } = render(<YouTubePanel containerRef={ref} hidden />)
 
     const panel = container.firstChild as HTMLElement
-    expect(panel).toHaveClass("min-h-px", "min-w-px", "opacity-0")
-    expect(panel).not.toHaveClass("h-0")
+    expect(panel).toHaveClass("h-[180px]", "w-[320px]", "opacity-0")
+    expect(panel).not.toHaveClass("h-0", "h-px", "w-px")
     expect(panel).toHaveAttribute("aria-hidden", "true")
   })
 
