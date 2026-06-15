@@ -51,7 +51,7 @@ export const BUILDER_TOKEN_FIELDS = [
   { key: "karaokeStageBg", label: "Stage background" },
   { key: "karaokeActive", label: "Active lyric" },
   { key: "karaokeMuted", label: "Inactive lyric" },
-  { key: "karaokeUnsung", label: "Unsung wipe" },
+  { key: "karaokeUnsung", label: "Unsung lyric" },
   { key: "primary", label: "Accent / primary" },
   { key: "foreground", label: "Foreground" },
   { key: "mutedForeground", label: "Muted text" },

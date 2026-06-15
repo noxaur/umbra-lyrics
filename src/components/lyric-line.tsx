@@ -1,10 +1,12 @@
-import { forwardRef, useSyncExternalStore } from "react"
+import { forwardRef, useState, useSyncExternalStore } from "react"
 import {
   motion,
+  useMotionValueEvent,
   useReducedMotion,
   useSpring,
-  useTransform,
 } from "motion/react"
+import { KaraokeWordProgress } from "@/components/karaoke-word-progress"
+import { formatLyricTimestamp } from "@/lib/format-time"
 import { getLyricLineVisual, lyricLineSpring } from "@/lib/lyric-line-visual"
 import { cn } from "@/lib/utils"
 import type { LyricWord } from "@/types/lyrics"
@@ -15,6 +17,8 @@ type LyricLineProps = {
   englishText?: string
   sectionLabel?: string
   kind?: "lyric" | "section"
+  startMs?: number
+  showTimestamp?: boolean
   active: boolean
   distanceFromActive: number
   progress: number
@@ -26,14 +30,14 @@ type LyricLineProps = {
 }
 
 const ACTIVE_SIZE =
-  "max-w-full text-[clamp(1.35rem,3.5vw,2.5rem)] leading-snug lg:text-[clamp(3.5rem,4.5vw,7rem)] lg:leading-tight"
+  "max-w-full text-[clamp(1.35rem,3.5vw,2.5rem)] leading-snug lg:text-[clamp(3rem,4.5vw,6rem)] lg:leading-tight"
 const TV_ACTIVE_SIZE = "max-w-full text-[clamp(2.5rem,6vw,5rem)] leading-tight lg:text-[clamp(5rem,8vw,8rem)] lg:leading-none"
 const INACTIVE_SIZE = "max-w-full text-[clamp(1rem,2.8vw,1.65rem)] leading-snug"
 const TV_INACTIVE_SIZE = "max-w-full text-[clamp(1.1rem,3vw,2rem)] leading-snug"
 const LINE_TEXT =
   "block w-full break-words [overflow-wrap:anywhere] text-balance hyphens-auto"
 const SECTION_LABEL_CLASS =
-  "block py-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground/70"
+  "block py-1 text-center text-[0.7rem] font-medium tracking-wide text-muted-foreground"
 
 function subscribeCompactStage(onStoreChange: () => void) {
   if (typeof window.matchMedia !== "function") return () => {}
@@ -55,34 +59,25 @@ function WordProgressText({ text, progress }: { text: string; progress: number }
     mass: 0.45,
     restDelta: 0.001,
   })
-  const backgroundImage = useTransform(
-    smoothProgress,
-    (value) =>
-      `linear-gradient(to right, var(--karaoke-active-line) ${value * 100}%, var(--karaoke-unsung) ${value * 100}%)`,
-  )
 
   if (reducedMotion) {
-    const pct = `${progress * 100}%`
-    return (
-      <span
-        className="bg-clip-text [-webkit-background-clip:text] text-transparent"
-        style={{
-          backgroundImage: `linear-gradient(to right, var(--karaoke-active-line) ${pct}, var(--karaoke-unsung) ${pct})`,
-        }}
-      >
-        {text}
-      </span>
-    )
+    return <KaraokeWordProgress text={text} progress={progress} />
   }
 
-  return (
-    <motion.span
-      className="bg-clip-text [-webkit-background-clip:text] text-transparent"
-      style={{ backgroundImage }}
-    >
-      {text}
-    </motion.span>
-  )
+  return <SmoothKaraokeProgress text={text} progress={smoothProgress} />
+}
+
+function SmoothKaraokeProgress({
+  text,
+  progress,
+}: {
+  text: string
+  progress: ReturnType<typeof useSpring>
+}) {
+  const [value, setValue] = useState(() => progress.get())
+  useMotionValueEvent(progress, "change", setValue)
+
+  return <KaraokeWordProgress text={text} progress={value} />
 }
 
 function PerWordText({
@@ -131,6 +126,8 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
     englishText,
     sectionLabel,
     kind = "lyric",
+    startMs,
+    showTimestamp = false,
     active,
     distanceFromActive,
     progress,
@@ -155,6 +152,9 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
   const staggerDelay = reducedMotion ? 0 : Math.min(Math.abs(distanceFromActive) * 0.018, 0.12)
   const activeSize = tvMode ? TV_ACTIVE_SIZE : ACTIVE_SIZE
   const inactiveSize = tvMode ? TV_INACTIVE_SIZE : INACTIVE_SIZE
+  const timestampLabel =
+    showTimestamp && startMs != null ? formatLyricTimestamp(startMs) : null
+  const seekLabel = timestampLabel ? `Seek to ${timestampLabel}, ${text}` : text
 
   if (isSectionOnly && sectionLabel) {
     return (
@@ -172,7 +172,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
     if (words && words.length > 0 && wordIndex >= 0) {
       return <PerWordText words={words} wordIndex={wordIndex} progress={progress} />
     }
-    return <span className="text-karaoke-active-line">{text}</span>
+    return <WordProgressText text={text} progress={progress} />
   }
 
   return (
@@ -181,10 +181,14 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
       type="button"
       onClick={onSeek}
       className={cn(
-        "mx-auto w-full max-w-full origin-center scroll-my-6 rounded-lg px-3 py-2.5 text-center will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none sm:px-4 sm:py-3",
+        "mx-auto w-full max-w-full origin-center scroll-my-6 rounded-lg py-2.5 will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none sm:py-3",
+        showTimestamp
+          ? "grid grid-cols-[minmax(3.75rem,4.25rem)_1fr] items-baseline gap-x-2 px-2 sm:gap-x-3 sm:px-3"
+          : "px-3 text-center sm:px-4",
         active ? "text-karaoke-active-line" : "text-karaoke-muted hover:text-foreground",
         tvMode && !active && "opacity-80",
       )}
+      aria-label={seekLabel}
       aria-current={active ? "true" : undefined}
       animate={{
         scale: visual.scale,
@@ -205,33 +209,48 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
           : "none",
       }}
     >
-      {sectionLabel && (
-        <span className={cn(SECTION_LABEL_CLASS, "mb-1 text-left normal-case tracking-[0.12em]")}>
-          {sectionLabel}
-        </span>
-      )}
-      {showNative && (
-        <span
+      {timestampLabel ? (
+        <time
+          dateTime={`PT${Math.max(0, startMs!) / 1000}S`}
           className={cn(
-            LINE_TEXT,
-            "font-semibold",
-            active ? activeSize : inactiveSize,
+            "self-center font-mono text-[0.6875rem] tabular-nums leading-none sm:text-xs",
+            active ? "text-karaoke-active-line/80" : "text-muted-foreground",
           )}
         >
-          {renderNativeText()}
-        </span>
-      )}
-      {showEnglish && (
-        <span
-          className={cn(
-            LINE_TEXT,
-            tvMode ? "mt-1 text-[clamp(1rem,2vw,2rem)] text-muted-foreground" : "mt-1 text-sm text-muted-foreground",
-            active && synced && "text-karaoke-active-line/80",
-          )}
-        >
-          {active && synced ? <WordProgressText text={englishText} progress={progress} /> : englishText}
-        </span>
-      )}
+          {timestampLabel}
+        </time>
+      ) : null}
+      <span className={cn("min-w-0", showTimestamp ? "text-center" : "contents")}>
+        {sectionLabel && (
+          <span className={cn(SECTION_LABEL_CLASS, "mb-1")}>{sectionLabel}</span>
+        )}
+        {showNative && (
+          <span
+            className={cn(
+              LINE_TEXT,
+              "font-semibold",
+              active ? activeSize : inactiveSize,
+            )}
+          >
+            {renderNativeText()}
+          </span>
+        )}
+        {showEnglish && (
+          <span
+            className={cn(
+              LINE_TEXT,
+              tvMode ? "mt-1 text-[clamp(1rem,2vw,2rem)] text-muted-foreground" : "mt-1 text-sm text-muted-foreground",
+              active && synced && "text-karaoke-active-line/80",
+            )}
+          >
+            {active && synced ? (
+              <WordProgressText text={englishText} progress={progress} />
+            ) : (
+              englishText
+            )}
+          </span>
+        )}
+      </span>
     </motion.button>
   )
 })

@@ -19,7 +19,9 @@ export function ShortcutsHelp({ children }: { children: React.ReactNode }) {
         <ul className="space-y-1 text-sm text-muted-foreground">
           {SHORTCUTS.map((s) => (
             <li key={s.key} className="flex justify-between gap-4">
-              <kbd className="rounded border px-1.5 py-0.5 font-mono text-xs">{s.key}</kbd>
+              <kbd className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                {s.key}
+              </kbd>
               <span>{s.action}</span>
             </li>
           ))}

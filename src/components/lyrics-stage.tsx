@@ -3,7 +3,12 @@ import { MotionConfig } from "motion/react"
 import { LyricLine } from "@/components/lyric-line"
 import { LyricsRetry } from "@/components/lyrics-retry"
 import { LyricsSearchProgress } from "@/components/lyrics-search-progress"
-import { getScrollBehavior, isOutsideCenterThird } from "@/lib/lyric-scroll"
+import {
+  getDistanceFromActive,
+  getScrollBehavior,
+  isOutsideCenterThird,
+  scrollLineToCenter,
+} from "@/lib/lyric-scroll"
 import { usePlayerStore } from "@/stores/player-store"
 import { getLyricStageState } from "@/lib/sync-engine"
 
@@ -52,12 +57,14 @@ export function LyricsStage({
   const syncOffsetMs = usePlayerStore((s) => s.syncOffsetMs)
   const lyricsSynced = usePlayerStore((s) => s.lyricsSynced)
   const tvMode = usePlayerStore((s) => s.tvMode)
+  const showTimestamps = usePlayerStore((s) => s.showTimestamps)
   const loadedFromCache = usePlayerStore((s) => s.loadedFromCache)
   const setActive = usePlayerStore((s) => s.setActive)
   const setLoadedFromCache = usePlayerStore((s) => s.setLoadedFromCache)
   const seekToMs = usePlayerStore((s) => s.seekToMs)
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef<HTMLButtonElement>(null)
+  const lastLineChangeRef = useRef(0)
   const [showCacheBadge, setShowCacheBadge] = useState(false)
 
   const timeMs = currentTime * 1000
@@ -76,18 +83,62 @@ export function LyricsStage({
     setActive(activeIndex, stage.wordProgress)
   }, [activeIndex, stage.wordProgress, setActive])
 
+  const scrollActiveLine = useCallback(
+    (force = false, lineChangeIntervalMs?: number) => {
+      const element = activeRef.current
+      const container = scrollRef.current
+      if (!element || !container || activeIndex < 0) return
+
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      const behavior = getScrollBehavior(prefersReducedMotion, lineChangeIntervalMs)
+      scrollLineToCenter(element, container, behavior, { force })
+    },
+    [activeIndex],
+  )
+
+  useEffect(() => {
+    if (activeIndex < 0) return
+
+    const now = performance.now()
+    const lineChangeIntervalMs =
+      lastLineChangeRef.current > 0 ? now - lastLineChangeRef.current : undefined
+    lastLineChangeRef.current = now
+
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => scrollActiveLine(true, lineChangeIntervalMs))
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [activeIndex, scrollActiveLine])
+
+  useEffect(() => {
+    if (activeIndex < 0) return
+
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => scrollActiveLine(true))
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [displayMode, activeIndex, scrollActiveLine])
+
   useEffect(() => {
     const element = activeRef.current
     const container = scrollRef.current
     if (!element || !container || activeIndex < 0) return
-    if (!isOutsideCenterThird(element, container)) return
 
-    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    element.scrollIntoView({
-      block: "center",
-      behavior: getScrollBehavior(prefersReducedMotion),
+    const observer = new ResizeObserver(() => {
+      if (!isOutsideCenterThird(element, container)) return
+      scrollLineToCenter(element, container, "auto")
     })
-  }, [activeIndex])
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [activeIndex, displayMode])
 
   useEffect(() => {
     if (!loadedFromCache) return
@@ -170,11 +221,11 @@ export function LyricsStage({
 
       <MotionConfig reducedMotion="user">
         <div
-          className="mx-auto w-full max-w-3xl overflow-x-hidden"
-          style={{ perspective: "1200px", perspectiveOrigin: "50% 42%" }}
+          className="mx-auto w-full max-w-3xl overflow-x-clip overflow-y-visible"
+          style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
         >
           <div
-            className="flex flex-col gap-1.5 sm:gap-2"
+            className="flex flex-col gap-2 sm:gap-3"
             style={{ transformStyle: "preserve-3d" }}
           >
             {lyrics.map((line, i) => (
@@ -185,9 +236,11 @@ export function LyricsStage({
                 words={line.words}
                 sectionLabel={line.sectionLabel}
                 kind={line.kind}
+                startMs={line.startMs - syncOffsetMs}
+                showTimestamp={showTimestamps && line.kind !== "section"}
                 englishText={englishLines[i]}
                 active={i === activeIndex}
-                distanceFromActive={activeIndex >= 0 ? i - activeIndex : i + 8}
+                distanceFromActive={getDistanceFromActive(i, activeIndex)}
                 synced={lyricsSynced}
                 progress={i === activeIndex ? stage.wordProgress : 0}
                 wordIndex={i === activeIndex ? stage.wordIndex : -1}
