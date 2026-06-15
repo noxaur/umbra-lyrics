@@ -23,7 +23,7 @@ async function getFfmpeg(onLog?: (message: string) => void): Promise<FFmpeg> {
   if (!ffmpegLoading) {
     ffmpegLoading = (async () => {
       const ffmpeg = new FFmpeg()
-      ffmpeg.on("log", ({ message }) => onLog?.(message))
+      ffmpeg.on("log", ({ message }: { message: string }) => onLog?.(message))
 
       await ffmpeg.load({
         coreURL: await toBlobURL(`${FFMPEG_CDN}/ffmpeg-core.js`, "text/javascript"),
