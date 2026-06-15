@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { LyricsPasteModal } from "@/components/lyrics-paste-modal"
 import { PROVIDER_FALLBACK_ORDER } from "@/lib/lyrics-providers"
+import { youTubeMusicWatchUrl, youTubeWatchUrl } from "@/lib/youtube-url"
 import { usePlayerStore } from "@/stores/player-store"
 import { LYRICS_PROVIDER_LABELS, type LyricsProviderId } from "@/types/lyrics"
 
@@ -21,6 +22,7 @@ export function LyricsRetry({ onRetry, onPaste, variant = "not_found" }: LyricsR
   const lyricsProvidersSearched = usePlayerStore((s) => s.lyricsProvidersSearched)
   const lrclibTrackId = usePlayerStore((s) => s.lrclibTrackId)
   const networkRetryCount = usePlayerStore((s) => s.networkRetryCount)
+  const videoId = usePlayerStore((s) => s.videoId)
   const [artistInput, setArtistInput] = useState(artist)
   const [trackInput, setTrackInput] = useState(track)
   const [pasteOpen, setPasteOpen] = useState(false)
@@ -108,6 +110,21 @@ export function LyricsRetry({ onRetry, onPaste, variant = "not_found" }: LyricsR
           >
             View on LRCLIB →
           </a>
+        ) : null}
+
+        {videoId ? (
+          <div className="flex w-full max-w-md flex-col gap-2 sm:flex-row">
+            <Button variant="outline" className="flex-1" asChild>
+              <a href={youTubeWatchUrl(videoId)} target="_blank" rel="noreferrer">
+                Open on YouTube
+              </a>
+            </Button>
+            <Button variant="outline" className="flex-1" asChild>
+              <a href={youTubeMusicWatchUrl(videoId)} target="_blank" rel="noreferrer">
+                Open on YouTube Music
+              </a>
+            </Button>
+          </div>
         ) : null}
 
         <div className="flex w-full max-w-md flex-col gap-3">

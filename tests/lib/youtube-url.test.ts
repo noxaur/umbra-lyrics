@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest"
-import { extractYouTubeVideoId } from "@/lib/youtube-url"
+import {
+  extractYouTubeVideoId,
+  youTubeMusicWatchUrl,
+  youTubeWatchUrl,
+} from "@/lib/youtube-url"
 
 describe("extractYouTubeVideoId", () => {
   it("parses watch URLs", () => {
@@ -31,5 +35,21 @@ describe("extractYouTubeVideoId", () => {
   it("returns null for invalid input", () => {
     expect(extractYouTubeVideoId("not-a-url")).toBeNull()
     expect(extractYouTubeVideoId("")).toBeNull()
+  })
+})
+
+describe("youTubeWatchUrl", () => {
+  it("builds a YouTube watch URL", () => {
+    expect(youTubeWatchUrl("dQw4w9WgXcQ")).toBe(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    )
+  })
+})
+
+describe("youTubeMusicWatchUrl", () => {
+  it("builds a YouTube Music watch URL", () => {
+    expect(youTubeMusicWatchUrl("dQw4w9WgXcQ")).toBe(
+      "https://music.youtube.com/watch?v=dQw4w9WgXcQ",
+    )
   })
 })
