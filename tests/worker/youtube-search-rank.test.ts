@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
+import { mapSearchVideos } from "../../worker/lib/youtube-search-map"
 import { rankSongSearchHits, scoreSongSearchHit, type SongSearchHit } from "../../worker/lib/youtube-search-rank"
+import { searchCandidateLimit } from "../../worker/lib/youtube-innertube"
 
 function hit(overrides: Partial<SongSearchHit> = {}): SongSearchHit {
   return {
@@ -24,5 +26,24 @@ describe("youtube-search-rank", () => {
       hit({ videoId: "aaaaaaaaaaa", title: "Song - Official Karaoke" }),
     ])
     expect(ranked[0]?.videoId).toBe("aaaaaaaaaaa")
+  })
+
+  it("can promote a better match beyond the response limit", () => {
+    const limit = 5
+    const videos = Array.from({ length: 15 }, (_, index) => ({
+      video_id: `id${String(index).padStart(9, "0")}`,
+      title: {
+        toString: () =>
+          index === 12 ? "Song - Official Karaoke" : `Song reaction video ${index}`,
+      },
+      author: { name: "Channel" },
+      duration: { seconds: 240 },
+    }))
+
+    const mapped = mapSearchVideos(videos, searchCandidateLimit(limit))
+    const ranked = rankSongSearchHits(mapped).slice(0, limit)
+
+    expect(mapped.length).toBeGreaterThan(limit)
+    expect(ranked[0]?.title).toContain("Karaoke")
   })
 })
