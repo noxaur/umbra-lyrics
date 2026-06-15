@@ -345,7 +345,7 @@ export function LyricsStage({
       cancelAnimationFrame(raf1)
       cancelAnimationFrame(raf2)
     }
-  }, [displayMode, activeIndex, lyricsFollowMode, scrollActiveLine])
+  }, [displayMode, lyricsFollowMode, scrollActiveLine])
 
   useEffect(() => {
     const element = activeRef.current
