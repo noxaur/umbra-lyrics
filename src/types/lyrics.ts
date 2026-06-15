@@ -1,4 +1,12 @@
-export type LyricLine = { startMs: number; endMs: number; text: string }
+export type LyricLine = {
+  startMs: number
+  endMs: number
+  text: string
+  /** Small muted section label shown above lyric (Spotify-style) */
+  sectionLabel?: string
+  /** `section` = standalone structure tag row, not highlighted as sung content */
+  kind?: "lyric" | "section"
+}
 export type ParsedLyrics = { lines: LyricLine[]; synced: boolean; autoTimed?: boolean }
 
 export type LyricDisplayMode = "native" | "english" | "both"

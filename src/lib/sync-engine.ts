@@ -25,14 +25,26 @@ export function getActiveLineIndex(
     else hi = mid - 1
   }
 
-  const idx = lo - 1
+  let idx = lo - 1
   if (idx < 0) return -1
+
+  while (idx >= 0 && !isHighlightableLine(lines[idx])) {
+    idx--
+  }
+  if (idx < 0) return -1
+
   if (t >= lines[idx].startMs && t < lines[idx].endMs) return idx
   if (idx === lines.length - 1 && t >= lines[idx].startMs) return idx
   return -1
 }
 
+function isHighlightableLine(line: LyricLine): boolean {
+  if (line.kind === "section") return false
+  return line.text.trim().length > 0
+}
+
 export function getWordProgress(line: LyricLine, timeMs: number): number {
+  if (line.kind === "section" || !line.text.trim()) return 0
   const duration = line.endMs - line.startMs
   if (duration <= 0) return 0
   const progress = (timeMs - line.startMs) / duration

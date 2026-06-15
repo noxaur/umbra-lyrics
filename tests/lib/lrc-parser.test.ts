@@ -12,6 +12,13 @@ describe("parseLrc", () => {
     expect(result.lines[0].endMs).toBe(20500)
     expect(result.lines[1].endMs).toBeGreaterThan(20500)
   })
+
+  it("parses structure tags in synced lyrics", () => {
+    const result = parseLrc("[00:00.50][Intro]\n[00:05.00] First vocal")
+    expect(result.lines[0].kind).toBe("section")
+    expect(result.lines[0].sectionLabel).toBe("Intro")
+    expect(result.lines[1].text).toBe("First vocal")
+  })
 })
 
 describe("parsePlainLyrics", () => {
