@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react"
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom"
 import { AppShell } from "@/components/app-shell"
+import { MisroutedRouteView } from "@/components/misrouted-route-view"
 import { LyricsStage } from "@/components/lyrics-stage"
 import { NowPlayingHeader } from "@/components/now-playing-header"
 import { PlayerError } from "@/components/player-error"
@@ -23,6 +24,7 @@ import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
 import { syncMkvExportFromUrl } from "@/lib/beta-features"
 import { parseTrackTitle } from "@/lib/parse-track-title"
 import { addRecentSong, enrichRecentSongEnglish } from "@/lib/recent-songs"
+import { analyzeRoute, isValidPlayVideoId } from "@/lib/route-suggestions"
 import { fetchYouTubeAuthor } from "@/lib/youtube-oembed"
 import { usePlayerStore, type LyricsSource } from "@/stores/player-store"
 import type { LyricLine, LyricsAlternate, LyricsProviderId } from "@/types/lyrics"
@@ -49,6 +51,16 @@ const HIDDEN_EMBED_CLASS = "w-[320px] h-[180px]"
 
 export function PlayerPage() {
   const { videoId = "" } = useParams()
+  const location = useLocation()
+
+  if (!isValidPlayVideoId(videoId)) {
+    return <MisroutedRouteView issue={analyzeRoute(location.pathname, location.search)} />
+  }
+
+  return <PlayerPageContent videoId={videoId} />
+}
+
+function PlayerPageContent({ videoId }: { videoId: string }) {
   const [searchParams] = useSearchParams()
   const debugPlayer = searchParams.get("debug") === "1"
   const location = useLocation()

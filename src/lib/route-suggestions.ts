@@ -1,9 +1,24 @@
-import { extractYouTubeVideoId, YOUTUBE_VIDEO_ID_RE } from "@/lib/youtube-url"
+import {
+  extractYouTubeVideoId,
+  KARAOKE_PUBLIC_ORIGIN,
+  YOUTUBE_VIDEO_ID_RE,
+} from "@/lib/youtube-url"
 
 export type RouteSuggestion = {
   href: string
   label: string
   reason: string
+  videoId?: string
+}
+
+export type RouteIssueKind = "not_found" | "typo" | "invalid_video_id"
+
+export type RouteIssue = {
+  kind: RouteIssueKind
+  title: string
+  message: string
+  attempted: string
+  suggestions: RouteSuggestion[]
 }
 
 type KnownRoute = {
@@ -11,6 +26,18 @@ type KnownRoute = {
   label: string
   aliases: string[]
 }
+
+export const PLAY_ROUTE_ALIASES = [
+  "play",
+  "player",
+  "song",
+  "songs",
+  "karaoke",
+  "video",
+  "videos",
+  "ply",
+  "p",
+] as const
 
 const KNOWN_ROUTES: KnownRoute[] = [
   { path: "/", label: "Home", aliases: ["home", "index", "start"] },
@@ -23,7 +50,9 @@ const KNOWN_ROUTES: KnownRoute[] = [
   { path: "/watch", label: "Watch link", aliases: ["watch"] },
 ]
 
-const PLAY_ALIASES = ["play", "player", "song", "songs", "karaoke", "video", "videos", "p"]
+const PLAY_ALIASES = [...PLAY_ROUTE_ALIASES]
+
+const VALID_EXACT_PATHS = new Set(["/", "/themes", "/themes/build", "/watch"])
 
 function levenshtein(a: string, b: string): number {
   if (a === b) return 0
@@ -49,7 +78,11 @@ function bestAliasScore(segment: string, aliases: string[]): number {
   let best = Infinity
   for (const alias of aliases) {
     if (segment === alias) return 0
-    if (segment.startsWith(alias) || alias.startsWith(segment)) {
+    // Single-char aliases like "p" must match exactly — otherwise "profile" looks like /play.
+    if (
+      alias.length >= 2 &&
+      (segment.startsWith(alias) || alias.startsWith(segment))
+    ) {
       best = Math.min(best, 1)
       continue
     }
@@ -66,44 +99,64 @@ function normalizePathname(pathname: string): string {
   return trimmed || "/"
 }
 
+function extractVideoIdFromPath(pathname: string, search = ""): string | null {
+  const fullPath = `${pathname}${search}`
+  const fromUrl = extractYouTubeVideoId(fullPath)
+  if (fromUrl) return fromUrl
+
+  try {
+    const v = new URL(fullPath, KARAOKE_PUBLIC_ORIGIN).searchParams.get("v")?.trim()
+    if (v && YOUTUBE_VIDEO_ID_RE.test(v)) return v
+  } catch {
+    // ignore
+  }
+
+  const segments = normalizePathname(pathname).split("/").filter(Boolean)
+  if (segments.length >= 2 && YOUTUBE_VIDEO_ID_RE.test(segments[1])) {
+    return segments[1]
+  }
+
+  return null
+}
+
+export function isValidPlayVideoId(videoId: string): boolean {
+  return YOUTUBE_VIDEO_ID_RE.test(videoId.trim())
+}
+
+export function isPlayRouteTypo(segment: string): boolean {
+  if (!segment || segment === "play") return false
+  return bestAliasScore(segment.toLowerCase(), PLAY_ALIASES) <= 2
+}
+
 export function suggestRoutes(pathname: string, search = ""): RouteSuggestion[] {
   const suggestions: RouteSuggestion[] = []
   const seen = new Set<string>()
 
-  const add = (href: string, label: string, reason: string) => {
+  const add = (href: string, label: string, reason: string, videoId?: string) => {
     if (seen.has(href)) return
     seen.add(href)
-    suggestions.push({ href, label, reason })
+    suggestions.push({ href, label, reason, videoId })
   }
 
   const normalized = normalizePathname(pathname)
-  const fullPath = `${pathname}${search}`
   const segments = normalized.split("/").filter(Boolean)
   const first = segments[0]?.toLowerCase() ?? ""
 
-  const videoId =
-    extractYouTubeVideoId(fullPath) ??
-    (() => {
-      try {
-        const v = new URL(fullPath, "https://song.opsec.rent").searchParams.get("v")?.trim()
-        return v && YOUTUBE_VIDEO_ID_RE.test(v) ? v : null
-      } catch {
-        return null
-      }
-    })()
+  const videoId = extractVideoIdFromPath(pathname, search)
   if (videoId) {
-    add(`/play/${videoId}`, "Open player", "We spotted a YouTube video ID in that URL")
-  }
-
-  if (segments.length >= 2 && YOUTUBE_VIDEO_ID_RE.test(segments[1])) {
-    add(`/play/${segments[1]}`, "Open player", "That path looks like a song link")
+    add(`/play/${videoId}`, "Open player", "We spotted a YouTube video ID in that URL", videoId)
   }
 
   const playScore = bestAliasScore(first, PLAY_ALIASES)
   if (playScore <= 2 && first) {
     if (segments[1] && YOUTUBE_VIDEO_ID_RE.test(segments[1])) {
-      add(`/play/${segments[1]}`, "Open player", "Did you mean the karaoke player?")
-    } else {
+      add(
+        `/play/${segments[1]}`,
+        "Open player",
+        first === "play" ? "That path looks like a song link" : "Did you mean the karaoke player?",
+        segments[1],
+      )
+    } else if (first !== "play") {
       add("/", "Home", "Paste a YouTube link to start singing")
     }
   }
@@ -113,7 +166,9 @@ export function suggestRoutes(pathname: string, search = ""): RouteSuggestion[] 
     if (second && bestAliasScore(second, ["build", "builder", "custom", "create"]) <= 2) {
       add("/themes/build", "Theme builder", "You might be looking for the theme builder")
     }
-    add("/themes", "Themes", "Browse karaoke stage themes")
+    if (normalized !== "/themes" && normalized !== "/themes/build") {
+      add("/themes", "Themes", "Browse karaoke stage themes")
+    }
   }
 
   for (const route of KNOWN_ROUTES) {
@@ -138,4 +193,90 @@ export function suggestRoutes(pathname: string, search = ""): RouteSuggestion[] 
   }
 
   return suggestions.slice(0, 4)
+}
+
+export function analyzeRoute(pathname: string, search = ""): RouteIssue {
+  const attempted = `${pathname}${search}`
+  const normalized = normalizePathname(pathname)
+  const segments = normalized.split("/").filter(Boolean)
+  const first = segments[0]?.toLowerCase() ?? ""
+  const suggestions = suggestRoutes(pathname, search)
+
+  if (VALID_EXACT_PATHS.has(normalized)) {
+    return {
+      kind: "not_found",
+      title: "404",
+      message: "This page never made it to the stage.",
+      attempted,
+      suggestions,
+    }
+  }
+
+  if (first === "play") {
+    if (segments.length === 2) {
+      const id = segments[1]
+      if (!isValidPlayVideoId(id)) {
+        return {
+          kind: "invalid_video_id",
+          title: "That link doesn't look right",
+          message: `“${id}” isn't a valid YouTube video ID — they are exactly 11 characters.`,
+          attempted,
+          suggestions,
+        }
+      }
+    } else {
+      return {
+        kind: "not_found",
+        title: "404",
+        message: "This page never made it to the stage.",
+        attempted,
+        suggestions,
+      }
+    }
+  }
+
+  if (isPlayRouteTypo(first)) {
+    const id = segments[1]
+    const hasValidId = Boolean(id && isValidPlayVideoId(id))
+    return {
+      kind: "typo",
+      title: "Wrong stage door",
+      message: hasValidId
+        ? `“/${first}” looks like a typo for /play — the song is waiting backstage.`
+        : `“/${first}” looks like a typo for /play.`,
+      attempted,
+      suggestions,
+    }
+  }
+
+  if (first === "theme" && normalized !== "/themes") {
+    return {
+      kind: "typo",
+      title: "Almost there",
+      message: "“/theme” isn't a route — did you mean themes?",
+      attempted,
+      suggestions,
+    }
+  }
+
+  if (first === "themes" && segments[1] && normalized !== "/themes/build") {
+    const second = segments[1].toLowerCase()
+    if (bestAliasScore(second, ["build", "builder", "custom", "create"]) <= 2) {
+      return {
+        kind: "typo",
+        title: "Almost there",
+        message: `“/${first}/${segments[1]}” isn't quite right — did you mean the theme builder?`,
+        attempted,
+        suggestions,
+      }
+    }
+  }
+
+  return {
+    kind: "not_found",
+    title: "404",
+    message: "This page never made it to the stage.",
+    attempted,
+    suggestions,
+  }
 }
