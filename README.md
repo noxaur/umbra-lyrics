@@ -15,7 +15,7 @@ A client-side karaoke player: paste a YouTube URL, sing along with synced lyrics
 
 ## Beta: MKV export
 
-Enable with `?beta=mkv-export` on the player page (e.g. `/play/VIDEO_ID?beta=mkv-export`). Opt in to keep the **MKV** download button via the header toggle.
+On the player page, once lyrics load, use the **MKV Beta** button in the transport bar (bottom controls) to download an MKV with synced subtitles and section chapters.
 
 Exports an MKV file with:
 
