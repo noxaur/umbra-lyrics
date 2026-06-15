@@ -1,5 +1,5 @@
 import { jsonResponse } from "../cors"
-import { isValidVideoId, resolveYouTubeStream } from "./youtube-stream"
+import { isAllowedStreamUrl, isValidVideoId, resolveYouTubeStream } from "./youtube-stream"
 
 /** Max audio bytes fetched server-side (~4–5 min typical m4a). */
 export const MAX_AUDIO_BYTES = 10 * 1024 * 1024
@@ -164,6 +164,9 @@ export async function transcribeYouTubeAudio(
   if (!resolved) {
     throw new Error("STREAM_UNAVAILABLE")
   }
+  if (!isAllowedStreamUrl(resolved.url)) {
+    throw new Error("STREAM_UNAVAILABLE")
+  }
 
   const { bytes, partial: fetchPartial } = await fetchAudioBytes(resolved.url, MAX_AUDIO_BYTES)
   if (bytes.byteLength === 0) {
@@ -180,14 +183,15 @@ export async function transcribeYouTubeAudio(
     throw new Error("EMPTY_TRANSCRIPT")
   }
 
-  const durationPartial =
+  const lastSegmentEndSec = result.segments.reduce((max, seg) => Math.max(max, seg.end), 0)
+  const coveragePartial =
     typeof request.durationSec === "number" &&
-    request.durationSec > CHUNK_DURATION_SEC * 5 &&
-    fetchPartial
+    request.durationSec > 30 &&
+    lastSegmentEndSec < request.durationSec - 30
 
   return {
     ...result,
-    partial: fetchPartial || durationPartial || undefined,
+    partial: fetchPartial || coveragePartial || undefined,
   }
 }
 

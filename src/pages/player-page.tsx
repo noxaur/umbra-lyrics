@@ -74,6 +74,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const oembedAuthorRef = useRef<string | null>(null)
   const transcribeAbortRef = useRef<AbortController | null>(null)
   const alignAbortRef = useRef<AbortController | null>(null)
+  const alignRequestRef = useRef(0)
   const {
     containerRef,
     ready,
@@ -384,7 +385,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       } catch (err) {
         if (signal?.aborted) return false
         if (err instanceof TranscriptionError) {
-          setLyricsOutcome("not_found")
+          const isTransient = err.status >= 502 && err.status <= 504
+          setLyricsOutcome(isTransient ? "network_error" : "not_found")
           setStatus("error", err.message)
           return false
         }
@@ -413,6 +415,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       durationSec: number,
       signal?: AbortSignal,
     ) => {
+      const requestId = ++alignRequestRef.current
       try {
         const transcript = await transcribeFromYouTube({
           videoId,
@@ -429,6 +432,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         })
 
         if (signal?.aborted || transcript.segments.length === 0) return
+        if (requestId !== alignRequestRef.current) return
 
         const words = transcript.segments.flatMap((seg) => {
           const tokens = seg.text.split(/\s+/).filter(Boolean)
@@ -448,7 +452,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         if (!hasWordTiming) return
 
         const state = usePlayerStore.getState()
-        if (state.videoId !== videoId) return
+        if (state.videoId !== videoId || requestId !== alignRequestRef.current) return
 
         setLyrics(aligned, true, state.lyricsSource ?? "lrclib", false, true)
 

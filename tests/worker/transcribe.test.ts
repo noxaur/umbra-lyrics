@@ -4,6 +4,7 @@ import {
   handleTranscribe,
   mergeTranscriptSegments,
   transcribeAudioBuffer,
+  transcribeYouTubeAudio,
 } from "../../worker/handlers/transcribe"
 import { handleApiRequest } from "../../worker/router"
 
@@ -135,5 +136,57 @@ describe("transcribe handler", () => {
 
     expect(result.segments).toHaveLength(1)
     expect(result.text).toBe("line one")
+  })
+
+  it("rejects disallowed stream URLs before fetch", async () => {
+    mockResolve.mockResolvedValue({
+      url: "https://evil.example/videoplayback?x=1",
+      mimeType: "audio/mp4",
+      client: "IOS",
+    })
+
+    const fetchSpy = vi.fn()
+    vi.stubGlobal("fetch", fetchSpy)
+
+    await expect(
+      transcribeYouTubeAudio(
+        { AI: { run: vi.fn() } },
+        { videoId: "dQw4w9WgXcQ", durationSec: 200 },
+      ),
+    ).rejects.toThrow("STREAM_UNAVAILABLE")
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it("marks partial when transcript coverage is shorter than track duration", async () => {
+    mockResolve.mockResolvedValue({
+      url: "https://rr3---sn-abc.googlevideo.com/videoplayback?x=1",
+      mimeType: "audio/mp4",
+      client: "IOS",
+    })
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(new Uint8Array([1, 2, 3, 4]), {
+          status: 206,
+          headers: { "Content-Range": "bytes 0-3/4" },
+        }),
+      ),
+    )
+
+    const ai = {
+      run: vi.fn(async () => ({
+        text: "short clip",
+        segments: [{ start: 0, end: 45, text: "short clip" }],
+      })),
+    }
+
+    const result = await transcribeYouTubeAudio(
+      { AI: ai },
+      { videoId: "dQw4w9WgXcQ", durationSec: 600 },
+    )
+
+    expect(result.partial).toBe(true)
   })
 })
