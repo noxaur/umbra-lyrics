@@ -359,6 +359,7 @@ export async function transcribeAudioBuffer(
   }
 }
 
+/** Byte-plan chunking helper — not used for YouTube MP4 streams (see transcribeYouTubeAudio). */
 export async function transcribeChunkedStream(
   ai: NonNullable<TranscribeEnv["AI"]>,
   streamUrl: string,
@@ -441,7 +442,6 @@ export async function transcribeYouTubeAudio(
     streamUrl = resolved.url
   }
 
-  const totalBytes = await probeStreamSize(streamUrl)
   const whisperOptions = {
     language: request.language,
     artist: request.artist,
@@ -449,27 +449,21 @@ export async function transcribeYouTubeAudio(
     durationSec: request.durationSec,
   }
 
-  let result: TranscribeResult
+  // Progressive MP4/M4A from YouTube cannot be split at arbitrary byte offsets —
+  // only the first range includes the moov atom. Fetch up to MAX_AUDIO_BYTES once
+  // and run a single Whisper call (see transcribeChunkedStream for byte-plan helpers).
+  const { bytes, partial: fetchPartial, totalBytes: fetchedTotal } = await fetchAudioBytes(
+    streamUrl,
+    MAX_AUDIO_BYTES,
+  )
+  if (bytes.byteLength === 0) {
+    throw new Error("EMPTY_AUDIO")
+  }
 
-  if (totalBytes != null && totalBytes > CHUNK_BYTE_SIZE) {
-    result = await transcribeChunkedStream(env.AI, streamUrl, {
-      ...whisperOptions,
-      totalBytes,
-    })
-  } else {
-    const { bytes, partial: fetchPartial, totalBytes: fetchedTotal } = await fetchAudioBytes(
-      streamUrl,
-      MAX_AUDIO_BYTES,
-    )
-    if (bytes.byteLength === 0) {
-      throw new Error("EMPTY_AUDIO")
-    }
-
-    result = await transcribeAudioBuffer(env.AI, bytes, whisperOptions)
-    result = { ...result, partial: fetchPartial || undefined, chunks: 1 }
-    if (fetchedTotal != null && fetchedTotal > bytes.byteLength) {
-      result.partial = true
-    }
+  let result = await transcribeAudioBuffer(env.AI, bytes, whisperOptions)
+  result = { ...result, partial: fetchPartial || undefined, chunks: 1 }
+  if (fetchedTotal != null && fetchedTotal > bytes.byteLength) {
+    result.partial = true
   }
 
   if (result.segments.length === 0 && !result.text) {
@@ -492,18 +486,6 @@ export async function handleTranscribe(
   request: Request,
   env: TranscribeEnv,
 ): Promise<Response> {
-  const ip = clientIp(request)
-  const rate = checkTranscribeRateLimit(ip)
-  if (!rate.allowed) {
-    return jsonResponse(
-      {
-        error: "Transcription rate limit exceeded — try again later",
-        retryAfterSec: rate.retryAfterSec,
-      },
-      429,
-    )
-  }
-
   let body: TranscribeRequest
   try {
     body = (await request.json()) as TranscribeRequest
@@ -520,6 +502,18 @@ export async function handleTranscribe(
     return jsonResponse({ error: "Transcription not available — Workers AI not configured" }, 503)
   }
 
+  const ip = clientIp(request)
+  const rate = checkTranscribeRateLimit(ip)
+  if (!rate.allowed) {
+    return jsonResponse(
+      {
+        error: "Transcription rate limit exceeded — try again later",
+        retryAfterSec: rate.retryAfterSec,
+      },
+      429,
+    )
+  }
+
   try {
     const result = await transcribeYouTubeAudio(env, { ...body, videoId })
     return jsonResponse(result)
@@ -533,12 +527,6 @@ export async function handleTranscribe(
     }
     if (message === "EMPTY_AUDIO") {
       return jsonResponse({ error: "Could not download audio" }, 502)
-    }
-    if (message === "AUDIO_TOO_LONG") {
-      return jsonResponse(
-        { error: "Audio too long for server transcription — try paste lyrics or a shorter clip" },
-        413,
-      )
     }
     if (message === "EMPTY_TRANSCRIPT") {
       return jsonResponse({ error: "No speech detected in audio" }, 422)
