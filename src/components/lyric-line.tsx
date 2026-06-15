@@ -11,8 +11,11 @@ import { cn } from "@/lib/utils"
 type LyricLineProps = {
   text: string
   englishText?: string
+  sectionLabel?: string
+  kind?: "lyric" | "section"
   active: boolean
   distanceFromActive: number
+  viewportDistance?: number
   progress: number
   synced: boolean
   displayMode: "native" | "english" | "both"
@@ -21,6 +24,8 @@ type LyricLineProps = {
 
 const ACTIVE_SIZE = "text-[clamp(1.5rem,4vw,3rem)] lg:text-[clamp(5rem,5vw,7rem)]"
 const INACTIVE_SIZE = "text-[clamp(1.1rem,3vw,1.75rem)]"
+const SECTION_LABEL_CLASS =
+  "block py-1 text-center text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground/70"
 
 function WordProgressText({ text, progress }: { text: string; progress: number }) {
   const reducedMotion = useReducedMotion()
@@ -33,7 +38,7 @@ function WordProgressText({ text, progress }: { text: string; progress: number }
   const backgroundImage = useTransform(
     smoothProgress,
     (value) =>
-      `linear-gradient(to right, var(--karaoke-active) ${value * 100}%, var(--karaoke-unsung) ${value * 100}%)`,
+      `linear-gradient(to right, var(--karaoke-active-line) ${value * 100}%, var(--karaoke-unsung) ${value * 100}%)`,
   )
 
   if (reducedMotion) {
@@ -42,7 +47,7 @@ function WordProgressText({ text, progress }: { text: string; progress: number }
       <span
         className="bg-clip-text [-webkit-background-clip:text] text-transparent"
         style={{
-          backgroundImage: `linear-gradient(to right, var(--karaoke-active) ${pct}, var(--karaoke-unsung) ${pct})`,
+          backgroundImage: `linear-gradient(to right, var(--karaoke-active-line) ${pct}, var(--karaoke-unsung) ${pct})`,
         }}
       >
         {text}
@@ -64,8 +69,11 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
   {
     text,
     englishText,
+    sectionLabel,
+    kind = "lyric",
     active,
     distanceFromActive,
+    viewportDistance,
     progress,
     synced,
     displayMode,
@@ -74,10 +82,19 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
   ref,
 ) {
   const reducedMotion = useReducedMotion()
+  const isSectionOnly = kind === "section"
   const showNative = displayMode !== "english"
   const showEnglish = displayMode !== "native" && englishText
-  const visual = getLyricLineVisual(distanceFromActive, Boolean(reducedMotion))
+  const visual = getLyricLineVisual(distanceFromActive, Boolean(reducedMotion), viewportDistance)
   const staggerDelay = reducedMotion ? 0 : Math.min(Math.abs(distanceFromActive) * 0.018, 0.12)
+
+  if (isSectionOnly && sectionLabel) {
+    return (
+      <div className="px-4 py-2" aria-hidden>
+        <span className={SECTION_LABEL_CLASS}>{sectionLabel}</span>
+      </div>
+    )
+  }
 
   return (
     <motion.button
@@ -86,7 +103,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
       onClick={onSeek}
       className={cn(
         "w-full rounded-lg px-4 py-3 text-left will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none",
-        active ? "text-karaoke-active" : "text-karaoke-muted hover:text-foreground",
+        active ? "text-karaoke-active-line" : "text-karaoke-muted hover:text-foreground",
       )}
       aria-current={active ? "true" : undefined}
       animate={{
@@ -103,10 +120,15 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
       style={{
         transformStyle: "preserve-3d",
         textShadow: active
-          ? "0 0 28px color-mix(in oklch, var(--karaoke-active) 42%, transparent), 0 0 56px color-mix(in oklch, var(--karaoke-active) 18%, transparent)"
+          ? "0 0 28px color-mix(in oklch, var(--karaoke-active-line) 42%, transparent), 0 0 56px color-mix(in oklch, var(--karaoke-active-line) 18%, transparent)"
           : "none",
       }}
     >
+      {sectionLabel && (
+        <span className={cn(SECTION_LABEL_CLASS, "mb-1 text-left normal-case tracking-[0.12em]")}>
+          {sectionLabel}
+        </span>
+      )}
       {showNative && (
         <span
           className={cn(

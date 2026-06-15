@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest"
-import { getLyricLineVisual } from "@/lib/lyric-line-visual"
+import {
+  getEffectiveLineDistance,
+  getLyricLineVisual,
+  normalizeViewportDistance,
+} from "@/lib/lyric-line-visual"
+
+describe("normalizeViewportDistance", () => {
+  it("maps pixel offset to line-distance units", () => {
+    expect(normalizeViewportDistance(72, 72)).toBe(1)
+    expect(normalizeViewportDistance(0, 72)).toBe(0)
+  })
+})
+
+describe("getEffectiveLineDistance", () => {
+  it("uses the smaller of index and viewport distance", () => {
+    expect(getEffectiveLineDistance(4, 1)).toBe(1)
+    expect(getEffectiveLineDistance(1, 4)).toBe(1)
+    expect(getEffectiveLineDistance(3, 0)).toBe(0)
+  })
+})
 
 describe("getLyricLineVisual", () => {
   it("emphasizes the active line in full motion mode", () => {
@@ -30,5 +49,21 @@ describe("getLyricLineVisual", () => {
     expect(active.z).toBe(0)
     expect(far.blur).toBe(0)
     expect(far.opacity).toBeLessThan(active.opacity)
+  })
+
+  it("pops centered lines forward via viewport distance", () => {
+    const indexFar = getLyricLineVisual(4, false)
+    const centered = getLyricLineVisual(4, false, 0)
+    expect(centered.scale).toBeGreaterThan(indexFar.scale)
+    expect(centered.opacity).toBeGreaterThan(indexFar.opacity)
+    expect(centered.z).toBeGreaterThan(indexFar.z)
+  })
+
+  it("interpolates between active and near for fractional viewport distance", () => {
+    const half = getLyricLineVisual(2, false, 0.5)
+    const active = getLyricLineVisual(0, false)
+    const near = getLyricLineVisual(1, false)
+    expect(half.scale).toBeGreaterThan(near.scale)
+    expect(half.scale).toBeLessThan(active.scale)
   })
 })
