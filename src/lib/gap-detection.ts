@@ -57,18 +57,6 @@ export function isInGap(lines: LyricLine[], timeMs: number): boolean {
   return false
 }
 
-export function isInSoftGap(lines: LyricLine[], timeMs: number): boolean {
-  for (let i = 0; i < lines.length - 1; i++) {
-    const gap = gapBetween(lines, i)
-    if (gap === null || gap >= GAP_THRESHOLD_MS) continue
-    if (gap > SOFT_GAP_HOLD_MS) continue
-    const gapStart = lines[i].endMs
-    const gapEnd = lines[i + 1].startMs
-    if (timeMs >= gapStart && timeMs < gapEnd) return true
-  }
-  return false
-}
-
 export function getFirstLyricStartMs(lines: LyricLine[]): number | null {
   for (const line of lines) {
     if (line.kind !== "section" && line.text.trim()) return line.startMs
