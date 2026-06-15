@@ -7,6 +7,8 @@ export type TranscribeResponse = {
   language?: string
   source: "whisper"
   partial?: boolean
+  chunks?: number
+  retryAfterSec?: number
 }
 
 export type TranscribeOptions = {
