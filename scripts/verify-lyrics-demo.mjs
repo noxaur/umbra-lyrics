@@ -24,23 +24,28 @@ async function sleep(ms) {
   await new Promise((r) => setTimeout(r, ms))
 }
 
-async function waitForLyrics(page, timeoutMs = 90_000) {
+async function waitForLyrics(page, timeoutMs = 120_000) {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
-    const stage = page.locator('[data-testid="lyrics-stage"], .lyrics-stage, [class*="lyrics"]').first()
     const text = await page.locator("main").innerText().catch(() => "")
-    if (text.toLowerCase().includes("loading lyrics")) {
+    const lower = text.toLowerCase()
+    if (lower.includes("loading lyrics") || lower.includes("searching")) {
       await sleep(2000)
       continue
     }
-    const lines = await page.locator("button").filter({ hasText: /\w{4,}/ }).allInnerTexts().catch(() => [])
-    const body = lines.join("\n").toLowerCase()
-    if (body.length > 80 && !body.includes("paste lyrics") && !body.includes("no lyrics")) {
-      return body
+    const sourceMatch = lower.match(/lrclib|synced|web scrapers|genius|transcription/)
+    const lyricButtons = await page
+      .locator('[data-lyric-line], button[class*="lyric"], .lyrics-stage button')
+      .allInnerTexts()
+      .catch(() => [])
+    const body = lyricButtons.join("\n").toLowerCase()
+    if (body.length > 40 && sourceMatch) {
+      return { text: body, source: sourceMatch[0], header: lower }
     }
     await sleep(2000)
   }
-  return (await page.locator("main").innerText().catch(() => "")).toLowerCase()
+  const header = (await page.locator("main").innerText().catch(() => "")).toLowerCase()
+  return { text: header, source: "unknown", header }
 }
 
 async function main() {
@@ -52,6 +57,13 @@ async function main() {
     viewport: { width: 1280, height: 800 },
     recordVideo: { dir: VIDEO_DIR, size: { width: 1280, height: 800 } },
     colorScheme: "dark",
+  })
+
+  await context.addInitScript(() => {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i)
+      if (key?.startsWith("song-kara-")) localStorage.removeItem(key)
+    }
   })
   const page = await context.newPage()
 
@@ -70,15 +82,15 @@ async function main() {
       await playBtn.click()
     }
 
-    const lyricsText = await waitForLyrics(page)
+    const { text: lyricsText, source } = await waitForLyrics(page)
     const ok = lyricsText.includes(track.mustContain.toLowerCase())
     const hasJunk =
       lyricsText.includes("contributors") ||
       lyricsText.includes("translationsdeutsch") ||
       lyricsText.includes("document.write")
 
-    results.push({ ...track, ok, hasJunk, snippet: lyricsText.slice(0, 200) })
-    console.log(ok ? "PASS" : "FAIL", "must contain:", track.mustContain)
+    results.push({ ...track, ok, hasJunk, source, snippet: lyricsText.slice(0, 200) })
+    console.log(ok ? "PASS" : "FAIL", "must contain:", track.mustContain, "| source:", source)
     console.log("junk:", hasJunk)
     console.log("snippet:", lyricsText.slice(0, 160).replace(/\n/g, " | "))
 
