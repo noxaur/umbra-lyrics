@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { usePlayerStore } from "@/stores/player-store"
 import { ShortcutsHelp } from "@/components/shortcuts-help"
+import { MkvExportButton } from "@/components/mkv-export-button"
 import { isEnglish } from "@/lib/language-service"
 import type { LyricDisplayMode } from "@/types/lyrics"
 
@@ -205,6 +206,8 @@ export function TransportControls({
               <HelpCircle className="size-4" />
             </Button>
           </ShortcutsHelp>
+
+          <MkvExportButton durationSec={duration} />
         </div>
 
         {!hasEnglish && !isEnglish(languageCode) && (

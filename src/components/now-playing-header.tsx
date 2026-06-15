@@ -2,7 +2,6 @@ import { AlertTriangle } from "lucide-react"
 import { usePlayerStore } from "@/stores/player-store"
 import { LYRICS_PROVIDER_LABELS, type LyricsAlternate, type LyricsProviderId } from "@/types/lyrics"
 import { LyricsSourcePicker } from "@/components/lyrics-source-picker"
-import { MkvExportButton } from "@/components/mkv-export-button"
 
 const TRANSLATION_BACKEND_LABELS: Record<string, string> = {
   browser: "Browser",
@@ -55,10 +54,9 @@ function getTimingNoticeText(autoTimed: boolean): { short: string; full: string 
 
 type NowPlayingHeaderProps = {
   onSelectAlternate?: (alternate: LyricsAlternate) => void
-  durationSec?: number
 }
 
-export function NowPlayingHeader({ onSelectAlternate, durationSec = 0 }: NowPlayingHeaderProps) {
+export function NowPlayingHeader({ onSelectAlternate }: NowPlayingHeaderProps) {
   const track = usePlayerStore((s) => s.track)
   const artist = usePlayerStore((s) => s.artist)
   const title = usePlayerStore((s) => s.title)
@@ -121,7 +119,6 @@ export function NowPlayingHeader({ onSelectAlternate, durationSec = 0 }: NowPlay
           </span>
         ) : null}
         {onSelectAlternate ? <LyricsSourcePicker onSelectAlternate={onSelectAlternate} /> : null}
-        <MkvExportButton durationSec={durationSec} />
       </div>
       {timingNotice ? (
         <div

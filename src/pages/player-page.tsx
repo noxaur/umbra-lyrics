@@ -20,6 +20,7 @@ import { detectLanguage, inferPreferredLanguage, isEnglish } from "@/lib/languag
 import { sanitizeLyricsText } from "@/lib/sanitize-lyrics"
 import { translateLinesWithFallback } from "@/lib/translation-service"
 import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
+import { syncMkvExportFromUrl } from "@/lib/beta-features"
 import { parseTrackTitle } from "@/lib/parse-track-title"
 import { addRecentSong, enrichRecentSongEnglish } from "@/lib/recent-songs"
 import { fetchYouTubeAuthor } from "@/lib/youtube-oembed"
@@ -105,6 +106,10 @@ export function PlayerPage() {
   useEffect(() => {
     bindControls({ play, pause, seek: seekTo, isPlaying })
   }, [bindControls, play, pause, seekTo, isPlaying])
+
+  useEffect(() => {
+    syncMkvExportFromUrl()
+  }, [])
 
   useEffect(() => {
     if (!videoId) return
@@ -642,9 +647,7 @@ export function PlayerPage() {
           </div>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            {!focusMode && (
-              <NowPlayingHeader onSelectAlternate={handleSelectAlternate} durationSec={duration} />
-            )}
+            {!focusMode && <NowPlayingHeader onSelectAlternate={handleSelectAlternate} />}
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               {youtubeError ? (

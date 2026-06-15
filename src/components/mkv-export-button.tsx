@@ -1,8 +1,6 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Download, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { isMkvExportEnabled, isMkvExportParamActive, setMkvExportOptIn } from "@/lib/beta-features"
 import { useMkvExport } from "@/hooks/use-mkv-export"
 import { usePlayerStore } from "@/stores/player-store"
 import type { MkvExportProgress } from "@/lib/mkv-export/types"
@@ -23,7 +21,7 @@ type MkvExportDialogProps = {
 }
 
 export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogProps) {
-  const { progress, error, exportSong, cancel, reset, isExporting } = useMkvExport()
+  const { progress, error, exportSong, cancel, isExporting } = useMkvExport()
   const [includeVideo, setIncludeVideo] = useState(false)
   const [includeEnglish, setIncludeEnglish] = useState(true)
   const [acknowledged, setAcknowledged] = useState(false)
@@ -38,22 +36,6 @@ export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogP
   const syncOffsetMs = usePlayerStore((s) => s.syncOffsetMs)
   const lyricsSynced = usePlayerStore((s) => s.lyricsSynced)
   const lyricsAutoTimed = usePlayerStore((s) => s.lyricsAutoTimed)
-
-  useEffect(() => {
-    if (!open) return
-    setAcknowledged(false)
-    reset()
-    setIncludeEnglish(englishLines.length > 0)
-  }, [open, englishLines.length, reset])
-
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !isExporting) onClose()
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [open, onClose, isExporting])
 
   if (!open) return null
 
@@ -186,51 +168,39 @@ export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogP
 
 type MkvExportButtonProps = {
   durationSec: number
-  className?: string
 }
 
-export function MkvExportButton({ durationSec, className }: MkvExportButtonProps) {
+export function MkvExportButton({ durationSec }: MkvExportButtonProps) {
   const [open, setOpen] = useState(false)
-  const [showBetaToggle, setShowBetaToggle] = useState(isMkvExportParamActive())
 
   const status = usePlayerStore((s) => s.status)
   const lyrics = usePlayerStore((s) => s.lyrics)
-  const enabled = isMkvExportEnabled()
 
-  if (!enabled) return null
   if (status !== "ready" || lyrics.length === 0) return null
 
   return (
     <>
-      <div className={cn("flex items-center gap-2", className)}>
-        {showBetaToggle ? (
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              defaultChecked={isMkvExportEnabled()}
-              onChange={(e) => {
-                setMkvExportOptIn(e.target.checked)
-                setShowBetaToggle(isMkvExportParamActive())
-              }}
-              className="size-3 accent-primary"
-            />
-            Keep beta export
-          </label>
-        ) : null}
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 gap-1.5 px-2 text-xs"
-          onClick={() => setOpen(true)}
-        >
-          <Download className="size-3.5" aria-hidden />
-          <span>MKV</span>
-          <span className="rounded bg-violet-500/15 px-1 py-0.5 text-[0.6rem] font-semibold uppercase text-violet-700 dark:text-violet-300">
-            Beta
-          </span>
-        </Button>
-      </div>
-      <MkvExportDialog open={open} durationSec={durationSec} onClose={() => setOpen(false)} />
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-9 gap-1.5 px-2 text-xs"
+        onClick={() => {
+          setOpen(true)
+        }}
+        aria-label="Download MKV with synced lyrics (beta)"
+        title="Download MKV with synced lyrics (beta)"
+      >
+        <Download className="size-3.5" aria-hidden />
+        <span className="hidden sm:inline">MKV</span>
+        <span className="rounded bg-violet-500/15 px-1 py-0.5 text-[0.6rem] font-semibold uppercase text-violet-700 dark:text-violet-300">
+          Beta
+        </span>
+      </Button>
+      <MkvExportDialog
+        open={open}
+        durationSec={durationSec}
+        onClose={() => setOpen(false)}
+      />
     </>
   )
 }
