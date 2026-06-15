@@ -47,6 +47,7 @@ export type LyricsProviderId =
   | "lyricswiki"
   | "songmeanings"
   | "letras"
+  | "transcription"
 
 export const LYRICS_PROVIDER_LABELS: Record<LyricsProviderId, string> = {
   lrclib: "LRCLIB",
@@ -63,6 +64,7 @@ export const LYRICS_PROVIDER_LABELS: Record<LyricsProviderId, string> = {
   lyricswiki: "Lyrics Wiki",
   songmeanings: "SongMeanings",
   letras: "Letras.mus.br",
+  transcription: "Transcribed",
 }
 
 export type LyricsResult = {

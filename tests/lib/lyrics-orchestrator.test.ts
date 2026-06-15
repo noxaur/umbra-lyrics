@@ -32,6 +32,11 @@ describe("orchestrateLyricsSearch", () => {
     expect(phases.at(-1)).toMatch(/paste|edit|timed out|No lyrics/i)
   })
 
+  it("does not include transcription in parallel provider search", async () => {
+    const { PROVIDER_FALLBACK_ORDER } = await import("@/lib/lyrics-providers")
+    expect(PROVIDER_FALLBACK_ORDER).not.toContain("transcription")
+  })
+
   it("finds lyrics via lrclib in parallel search", async () => {
     vi.stubGlobal(
       "fetch",

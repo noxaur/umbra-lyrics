@@ -3,6 +3,9 @@ import { httpsRedirect, karaokeWatchRedirect, withSecurityHeaders } from "./head
 
 type Env = {
   ASSETS: { fetch: (request: Request) => Promise<Response> }
+  AI?: {
+    run: (model: string, inputs: Record<string, unknown>) => Promise<unknown>
+  }
   LIBRETRANSLATE_URL?: string
   LIBRETRANSLATE_API_KEY?: string
 }

@@ -10,6 +10,7 @@ import { getLyricStageState } from "@/lib/sync-engine"
 type LyricsStageProps = {
   onRetry?: (artist: string, track: string) => void
   onPaste?: (text: string) => void
+  onTranscribe?: () => void
   videoId?: string
   videoReady?: boolean
   durationMs?: number
@@ -34,7 +35,14 @@ function StagePlaceholder({ label }: { label: string }) {
   )
 }
 
-export function LyricsStage({ onRetry, onPaste, videoId, videoReady, durationMs = 0 }: LyricsStageProps) {
+export function LyricsStage({
+  onRetry,
+  onPaste,
+  onTranscribe,
+  videoId,
+  videoReady,
+  durationMs = 0,
+}: LyricsStageProps) {
   const status = usePlayerStore((s) => s.status)
   const lyricsOutcome = usePlayerStore((s) => s.lyricsOutcome)
   const lyrics = usePlayerStore((s) => s.lyrics)
@@ -111,7 +119,7 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady, durationMs 
           : lyricsOutcome === "partial"
             ? "partial"
             : "not_found"
-    return <LyricsRetry onRetry={onRetry} onPaste={onPaste} variant={variant} />
+    return <LyricsRetry onRetry={onRetry} onPaste={onPaste} onTranscribe={onTranscribe} variant={variant} />
   }
 
   if (status === "error" && onRetry) {

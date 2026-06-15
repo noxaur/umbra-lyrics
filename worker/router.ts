@@ -20,6 +20,7 @@ import {
   handleLibreTranslate,
   handleMyMemory,
 } from "./handlers/translate"
+import { handleTranscribe } from "./handlers/transcribe"
 import { handleYouTubeStreamInfo, handleYouTubeStreamProxy, handleYouTubeProxyUrl } from "./handlers/youtube-stream"
 
 function proxySearchRoute(
@@ -36,6 +37,9 @@ function proxySearchRoute(
 }
 
 type ApiEnv = {
+  AI?: {
+    run: (model: string, inputs: Record<string, unknown>) => Promise<unknown>
+  }
   LIBRETRANSLATE_URL?: string
   LIBRETRANSLATE_API_KEY?: string
 }
@@ -127,6 +131,10 @@ export async function handleApiRequest(
   if (pathname === "/api/beta/youtube/proxy-url") {
     const encoded = url.searchParams.get("u") ?? ""
     return handleYouTubeProxyUrl(encoded, request)
+  }
+
+  if (pathname === "/api/lyrics/transcribe" && request.method === "POST") {
+    return handleTranscribe(request, env)
   }
 
   if (pathname === "/api/translate/libretranslate" && request.method === "POST") {

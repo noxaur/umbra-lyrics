@@ -11,17 +11,19 @@ const TRANSLATION_BACKEND_LABELS: Record<string, string> = {
   google: "Google",
 }
 
-type SyncBadge = "Synced" | "Auto-timed" | "Approximate" | "Plain"
+type SyncBadge = "Synced" | "Auto-timed" | "Transcribed" | "Approximate" | "Plain"
 
 function getSyncBadge(
   status: string,
   lyricsSynced: boolean,
   lyricsAutoTimed: boolean,
+  lyricsAligned: boolean,
   lyricsCount: number,
   lyricsSource: ReturnType<typeof usePlayerStore.getState>["lyricsSource"],
 ): SyncBadge | null {
   if (status === "loading") return "Plain"
   if (status !== "ready" || lyricsCount === 0) return null
+  if (lyricsSource === "transcription" || (lyricsAligned && lyricsSynced)) return "Transcribed"
   if (lyricsSynced) return "Synced"
   if (lyricsAutoTimed) return "Auto-timed"
   if (lyricsSource === "pasted") return "Approximate"
@@ -36,11 +38,22 @@ function getSourceLabel(source: ReturnType<typeof usePlayerStore.getState>["lyri
 const badgeStyles: Record<SyncBadge, string> = {
   Synced: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
   "Auto-timed": "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  Transcribed: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
   Approximate: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   Plain: "bg-muted text-muted-foreground",
 }
 
-function getTimingNoticeText(autoTimed: boolean): { short: string; full: string } {
+function getTimingNoticeText(
+  autoTimed: boolean,
+  lyricsSource: ReturnType<typeof usePlayerStore.getState>["lyricsSource"],
+  lyricsAligned: boolean,
+): { short: string; full: string } | null {
+  if (lyricsSource === "transcription" || lyricsAligned) {
+    return {
+      short: "Transcribed from audio — timing may be approximate",
+      full: "Lyrics transcribed from YouTube audio via speech recognition. Words may differ from official lyrics; use ±0.5s below to adjust.",
+    }
+  }
   if (autoTimed) {
     return {
       short: "Auto-timed estimate — use ±0.5s below",
@@ -72,6 +85,7 @@ export function NowPlayingHeader({
   const status = usePlayerStore((s) => s.status)
   const lyricsSynced = usePlayerStore((s) => s.lyricsSynced)
   const lyricsAutoTimed = usePlayerStore((s) => s.lyricsAutoTimed)
+  const lyricsAligned = usePlayerStore((s) => s.lyricsAligned)
   const lyricsSource = usePlayerStore((s) => s.lyricsSource)
   const lyrics = usePlayerStore((s) => s.lyrics)
   const englishSource = usePlayerStore((s) => s.englishSource)
@@ -80,10 +94,22 @@ export function NowPlayingHeader({
 
   const videoId = usePlayerStore((s) => s.videoId)
   const displayTrack = track || title
-  const badge = getSyncBadge(status, lyricsSynced, lyricsAutoTimed, lyrics.length, lyricsSource)
+  const badge = getSyncBadge(
+    status,
+    lyricsSynced,
+    lyricsAutoTimed,
+    lyricsAligned,
+    lyrics.length,
+    lyricsSource,
+  )
   const sourceLabel = getSourceLabel(lyricsSource)
-  const showTimingNotice = status === "ready" && !lyricsSynced && lyrics.length > 0
-  const timingNotice = showTimingNotice ? getTimingNoticeText(lyricsAutoTimed) : null
+  const showTimingNotice =
+    status === "ready" &&
+    lyrics.length > 0 &&
+    (lyricsSource === "transcription" || lyricsAligned || !lyricsSynced)
+  const timingNotice = showTimingNotice
+    ? getTimingNoticeText(lyricsAutoTimed, lyricsSource, lyricsAligned)
+    : null
 
   if (!displayTrack && !artist && status === "idle" && !videoId) return null
 
