@@ -1,10 +1,11 @@
 import { useEffect } from "react"
-import { Eye, EyeOff, Focus, HelpCircle, Monitor, Pause, Play, RotateCcw } from "lucide-react"
+import { HelpCircle, Pause, Play, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { usePlayerStore } from "@/stores/player-store"
 import { ShortcutsHelp } from "@/components/shortcuts-help"
 import { MkvExportButton } from "@/components/mkv-export-button"
+import { PlayerViewMenu } from "@/components/player-view-menu"
 import { isEnglish } from "@/lib/language-service"
 import type { LyricDisplayMode } from "@/types/lyrics"
 
@@ -31,12 +32,6 @@ export function TransportControls({
   const adjustOffset = usePlayerStore((s) => s.adjustOffset)
   const setSyncOffset = usePlayerStore((s) => s.setSyncOffset)
   const resetSyncOffset = usePlayerStore((s) => s.resetSyncOffset)
-  const videoHidden = usePlayerStore((s) => s.videoHidden)
-  const setVideoHidden = usePlayerStore((s) => s.setVideoHidden)
-  const focusMode = usePlayerStore((s) => s.focusMode)
-  const setFocusMode = usePlayerStore((s) => s.setFocusMode)
-  const tvMode = usePlayerStore((s) => s.tvMode)
-  const setTvMode = usePlayerStore((s) => s.setTvMode)
   const displayMode = usePlayerStore((s) => s.displayMode)
   const setDisplayMode = usePlayerStore((s) => s.setDisplayMode)
   const languageCode = usePlayerStore((s) => s.languageCode)
@@ -64,8 +59,14 @@ export function TransportControls({
   ]
 
   return (
-    <div className="shrink-0 border-t border-border bg-card/95 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
-      <div className="mx-auto flex max-w-3xl flex-col gap-2">
+    <div className="shrink-0 border-t border-border bg-card px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <div className="mx-auto flex max-w-3xl flex-col gap-2.5">
+        {playbackHint ? (
+          <p className="text-center text-xs text-muted-foreground" role="status">
+            {playbackHint}
+          </p>
+        ) : null}
+
         <div className="flex items-center gap-2">
           <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
             {formatTime(currentTime)}
@@ -85,24 +86,43 @@ export function TransportControls({
           </span>
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center justify-center gap-2">
-          {playbackHint ? (
-            <p className="w-full text-center text-xs text-muted-foreground" role="status">
-              {playbackHint}
-            </p>
-          ) : null}
-          <Button
-            variant="default"
-            size="icon"
-            className="size-11 rounded-full"
-            onClick={isPlaying ? onPause : onPlay}
-            aria-label={isPlaying ? "Pause" : "Play"}
-          >
-            <AnimatedIcon icon={isPlaying ? Pause : Play} active={isPlaying} />
-          </Button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex items-center justify-center gap-2 sm:justify-start">
+            <Button
+              variant="default"
+              size="icon"
+              className="size-11 rounded-full"
+              onClick={isPlaying ? onPause : onPlay}
+              aria-label={isPlaying ? "Pause" : "Play"}
+            >
+              <AnimatedIcon icon={isPlaying ? Pause : Play} active={isPlaying} />
+            </Button>
 
-          <fieldset className="flex min-w-0 flex-1 flex-col gap-1 border-0 p-0 sm:max-w-[220px]" aria-labelledby="lyrics-timing-label">
-            <legend id="lyrics-timing-label" className="text-center text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+            {!isEnglish(languageCode) && (
+              <select
+                value={displayMode}
+                onChange={(e) => setDisplayMode(e.target.value as LyricDisplayMode)}
+                className="h-9 rounded-md border border-input bg-background px-2 text-xs"
+                aria-label="Lyric display mode"
+                aria-describedby={!hasEnglish ? "bilingual-helper" : undefined}
+              >
+                {modes.map((m) => (
+                  <option key={m.value} value={m.value} disabled={m.disabled}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <fieldset
+            className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg border border-border/70 bg-muted/20 px-2 py-1.5 sm:px-3"
+            aria-labelledby="lyrics-timing-label"
+          >
+            <legend
+              id="lyrics-timing-label"
+              className="px-1 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground"
+            >
               Lyrics timing
             </legend>
             <div className="flex items-center gap-1">
@@ -150,64 +170,15 @@ export function TransportControls({
             </span>
           </fieldset>
 
-          {!isEnglish(languageCode) && (
-            <select
-              value={displayMode}
-              onChange={(e) => setDisplayMode(e.target.value as LyricDisplayMode)}
-              className="h-9 rounded-md border border-input bg-background px-2 text-xs"
-              aria-label="Lyric display mode"
-              aria-describedby={!hasEnglish ? "bilingual-helper" : undefined}
-            >
-              {modes.map((m) => (
-                <option key={m.value} value={m.value} disabled={m.disabled}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-9"
-            onClick={() => setTvMode(!tvMode)}
-            aria-label={tvMode ? "Disable TV mode" : "Enable TV mode"}
-            aria-pressed={tvMode}
-            title="TV mode"
-          >
-            <Monitor className="size-4" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-9"
-            onClick={() => setFocusMode(!focusMode)}
-            aria-label={focusMode ? "Exit focus mode" : "Focus mode"}
-            aria-pressed={focusMode}
-            title="Focus mode"
-          >
-            <Focus className="size-4" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-9"
-            onClick={() => setVideoHidden(!videoHidden)}
-            aria-label={videoHidden ? "Show video" : "Hide video"}
-            aria-pressed={videoHidden}
-          >
-            <AnimatedIcon icon={videoHidden ? Eye : EyeOff} />
-          </Button>
-
-          <ShortcutsHelp>
-            <Button variant="ghost" size="icon" className="size-9" aria-label="Keyboard shortcuts">
-              <HelpCircle className="size-4" />
-            </Button>
-          </ShortcutsHelp>
-
-          <MkvExportButton durationSec={duration} />
+          <div className="flex items-center justify-center gap-1.5 sm:justify-end">
+            <PlayerViewMenu />
+            <ShortcutsHelp>
+              <Button variant="ghost" size="icon" className="size-9" aria-label="Keyboard shortcuts">
+                <HelpCircle className="size-4" />
+              </Button>
+            </ShortcutsHelp>
+            <MkvExportButton durationSec={duration} />
+          </div>
         </div>
 
         {!hasEnglish && !isEnglish(languageCode) && (

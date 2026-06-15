@@ -6,7 +6,6 @@ import { NowPlayingHeader } from "@/components/now-playing-header"
 import { PlayerError } from "@/components/player-error"
 import { TransportControls } from "@/components/transport-controls"
 import { YouTubePanel } from "@/components/youtube-panel"
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useYouTubePlayer } from "@/hooks/use-youtube-player"
 import { useLyricsSync } from "@/hooks/use-lyrics-sync"
@@ -598,37 +597,30 @@ export function PlayerPage() {
           <p className="text-sm text-muted-foreground">Opening player…</p>
         </div>
       )}
-      <div className="flex h-[calc(100dvh-3.25rem)] min-h-0 flex-col overflow-hidden">
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5 text-sm">
-          <Link to="/" className="text-muted-foreground hover:text-foreground">
-            ← Home
-          </Link>
-          {debugPlayer && (
-            <span
-              className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-600 dark:text-amber-400"
-              role="status"
-            >
-              yt:{ready ? "ready" : "loading"} · {isPlaying ? "playing" : "paused"} ·{" "}
-              {currentTime.toFixed(1)}/{duration.toFixed(1)}s · vid:
-              {videoHidden ? "hidden" : "shown"}
-              {playbackHint ? ` · ${playbackHint}` : ""}
-            </span>
-          )}
-          {!isEnglish(languageCode) && englishLines.length === 0 && (available || translating) && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => void handleTranslate()}
-              disabled={translating}
-            >
-              {translating ? "Translating…" : "Translate to English"}
-            </Button>
-          )}
-          {englishLines.length > 0 && englishLines.length !== lyrics.length && (
-            <span className="text-xs text-amber-500">Line count mismatch</span>
-          )}
-        </div>
+      <div
+        className={cn(
+          "flex min-h-0 flex-col overflow-hidden",
+          focusMode ? "h-dvh" : "h-[calc(100dvh-3.25rem)]",
+        )}
+      >
+        {focusMode && (
+          <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5 text-sm">
+            <Link to="/" className="text-muted-foreground hover:text-foreground">
+              ← Home
+            </Link>
+            {debugPlayer && (
+              <span
+                className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-600 dark:text-amber-400"
+                role="status"
+              >
+                yt:{ready ? "ready" : "loading"} · {isPlaying ? "playing" : "paused"} ·{" "}
+                {currentTime.toFixed(1)}/{duration.toFixed(1)}s · vid:
+                {videoHidden ? "hidden" : "shown"}
+                {playbackHint ? ` · ${playbackHint}` : ""}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           <div
@@ -654,7 +646,18 @@ export function PlayerPage() {
           </div>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            {!focusMode && <NowPlayingHeader onSelectAlternate={handleSelectAlternate} />}
+            {!focusMode && (
+              <NowPlayingHeader
+                onSelectAlternate={handleSelectAlternate}
+                onTranslate={() => void handleTranslate()}
+                translating={translating}
+                showTranslate={
+                  !isEnglish(languageCode) &&
+                  englishLines.length === 0 &&
+                  (available || translating)
+                }
+              />
+            )}
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               {youtubeError ? (
