@@ -8,7 +8,7 @@ describe("LyricLine", () => {
       <LyricLine
         text="Hello world"
         active
-        distanceFromActive={0}
+        distanceFromCenter={0}
         synced
         progress={0.5}
         displayMode="native"
@@ -24,7 +24,7 @@ describe("LyricLine", () => {
       <LyricLine
         text="Approximate line"
         active
-        distanceFromActive={0}
+        distanceFromCenter={0}
         synced={false}
         progress={0.5}
         displayMode="native"
@@ -35,57 +35,35 @@ describe("LyricLine", () => {
     expect(screen.getAllByText("Approximate line")).toHaveLength(1)
   })
 
-  it("uses tiered active size classes based on line length", () => {
-    render(
+  it("uses one base font size for every line", () => {
+    const { rerender } = render(
       <LyricLine
         text="Big line"
         active
-        distanceFromActive={0}
+        distanceFromCenter={0}
         synced
         progress={0}
         displayMode="native"
       />,
     )
-    const line = screen.getByRole("button", { name: "Big line" })
-    const outerSpan = line.querySelector(".font-semibold")
-    expect(outerSpan?.className).toContain("text-[clamp(1.5rem,6.5cqw,3rem)]")
-  })
+    const activeClass = screen.getByRole("button", { name: "Big line" }).querySelector(".font-semibold")
+      ?.className
 
-  it("shrinks font tier for long active lines", () => {
-    const longText =
-      "This is a very long lyric line that should use a smaller tier so it fits on screen without overflowing"
-    render(
+    rerender(
       <LyricLine
-        text={longText}
-        active
-        distanceFromActive={0}
+        text="Small line"
+        active={false}
+        distanceFromCenter={2}
         synced
         progress={0}
         displayMode="native"
       />,
     )
-    const line = screen.getByRole("button", { name: longText })
-    const outerSpan = line.querySelector(".font-semibold")
-    expect(outerSpan?.className).toContain("text-[clamp(0.95rem,3.8cqw,1.45rem)]")
-  })
+    const inactiveClass = screen.getByRole("button", { name: "Small line" }).querySelector(".font-semibold")
+      ?.className
 
-  it("uses container-query sizing for TV English subtitles", () => {
-    render(
-      <LyricLine
-        text="Native line"
-        englishText="English subtitle"
-        active
-        distanceFromActive={0}
-        synced
-        progress={0}
-        displayMode="both"
-        tvMode
-      />,
-    )
-    const line = screen.getByRole("button", { name: "Native line" })
-    const englishSpan = line.querySelector("span.mt-1")
-    expect(englishSpan?.className).toContain("text-[clamp(1.1rem,4cqw,1.75rem)]")
-    expect(englishSpan?.className).not.toContain("2vw")
+    expect(activeClass).toBe(inactiveClass)
+    expect(activeClass).toContain("clamp")
   })
 
   it("shows LRC timestamp when enabled", () => {
@@ -95,7 +73,7 @@ describe("LyricLine", () => {
         startMs={65_430}
         showTimestamp
         active={false}
-        distanceFromActive={2}
+        distanceFromCenter={2}
         synced
         progress={0}
         displayMode="native"

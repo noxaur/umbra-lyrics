@@ -3,132 +3,110 @@ export type LyricLineVisual = {
   opacity: number
   z: number
   blur: number
-  y: number
 }
 
-export type LyricTextTier = "short" | "medium" | "long" | "xlong"
+export type LyricVisualMode = "default" | "tv"
 
-const ACTIVE_SCALE = 1.06
-const ACTIVE_SCALE_COMPACT = 1.03
-const NEAR_SCALE = 0.92
-const MIN_SCALE = 0.72
-const NEAR_OPACITY = 0.82
-const MIN_OPACITY = 0.38
-const ACTIVE_Z = 56
-const NEAR_Z = 32
-const FAR_Z_STEP = -26
-const MAX_BLUR = 2
-const NEAR_Y = 3
-const FAR_Y_STEP = 4
+const FULL_OPACITY = 1
 
-/** Character count tiers — CJK counts per grapheme via spread. */
-export function getLyricTextTier(text: string): LyricTextTier {
-  const len = [...text.trim()].length
-  if (len <= 20) return "short"
-  if (len <= 40) return "medium"
-  if (len <= 60) return "long"
-  return "xlong"
+/** Opacity fades 2× as fast as scale falls from 1.0 — center 1.0, scale 0.78 → opacity 0.56. */
+export function opacityFromScale(scale: number, minOpacity = 0): number {
+  return Math.max(minOpacity, 2 * scale - 1)
 }
 
-const ACTIVE_SIZE_BY_TIER: Record<LyricTextTier, string> = {
-  short: "text-[clamp(1.5rem,6.5cqw,3rem)] leading-snug",
-  medium: "text-[clamp(1.35rem,5.5cqw,2.5rem)] leading-snug",
-  long: "text-[clamp(1.1rem,4.5cqw,1.85rem)] leading-tight",
-  xlong: "text-[clamp(0.95rem,3.8cqw,1.45rem)] leading-tight",
+function withStackOpacity(visual: Pick<LyricLineVisual, "scale" | "z" | "blur">): LyricLineVisual {
+  return { ...visual, opacity: opacityFromScale(visual.scale) }
 }
 
-const INACTIVE_SIZE_BY_TIER: Record<LyricTextTier, string> = {
-  short: "text-[clamp(0.95rem,3.8cqw,1.35rem)] leading-snug",
-  medium: "text-[clamp(0.9rem,3.4cqw,1.2rem)] leading-snug",
-  long: "text-[clamp(0.85rem,3cqw,1.1rem)] leading-snug",
-  xlong: "text-[clamp(0.8rem,2.6cqw,1rem)] leading-snug",
+/** Spotify-ish stack keyed by distance from viewport center (symmetric ±d). */
+const DEFAULT_STACK: Array<Pick<LyricLineVisual, "scale" | "z" | "blur">> = [
+  { scale: 1, z: 0, blur: 0 },
+  { scale: 0.92, z: -12, blur: 0.5 },
+  { scale: 0.85, z: -24, blur: 1 },
+  { scale: 0.78, z: -36, blur: 2 },
+]
+
+const TV_STACK: Array<Pick<LyricLineVisual, "scale" | "z" | "blur">> = [
+  { scale: 1, z: 0, blur: 0 },
+  { scale: 0.95, z: -10, blur: 0.35 },
+  { scale: 0.9, z: -20, blur: 0.65 },
+  { scale: 0.85, z: -30, blur: 1 },
+]
+
+function stackForMode(mode: LyricVisualMode) {
+  return mode === "tv" ? TV_STACK : DEFAULT_STACK
 }
 
-const TV_ACTIVE_SIZE_BY_TIER: Record<LyricTextTier, string> = {
-  short: "text-[clamp(1.75rem,7cqw,3.25rem)] leading-tight",
-  medium: "text-[clamp(1.5rem,6cqw,2.75rem)] leading-tight",
-  long: "text-[clamp(1.25rem,5cqw,2.25rem)] leading-tight",
-  xlong: "text-[clamp(1.1rem,4.2cqw,1.85rem)] leading-tight",
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t
 }
 
-const TV_INACTIVE_SIZE_BY_TIER: Record<LyricTextTier, string> = {
-  short: "text-[clamp(1.1rem,4cqw,1.75rem)] leading-snug",
-  medium: "text-[clamp(1rem,3.5cqw,1.5rem)] leading-snug",
-  long: "text-[clamp(0.95rem,3cqw,1.3rem)] leading-snug",
-  xlong: "text-[clamp(0.85rem,2.6cqw,1.15rem)] leading-snug",
-}
-
-export function getLyricTextSizeClass(
-  text: string,
-  active: boolean,
-  tvMode: boolean,
-): string {
-  const tier = getLyricTextTier(text)
-  if (tvMode) {
-    return active ? TV_ACTIVE_SIZE_BY_TIER[tier] : TV_INACTIVE_SIZE_BY_TIER[tier]
+function interpolateStackAtDistance(
+  fractionalDistance: number,
+  mode: LyricVisualMode,
+): LyricLineVisual {
+  const stack = stackForMode(mode)
+  const d = Math.max(0, fractionalDistance)
+  const maxIdx = stack.length - 1
+  if (d >= maxIdx) {
+    return withStackOpacity(stack[maxIdx])
   }
-  return active ? ACTIVE_SIZE_BY_TIER[tier] : INACTIVE_SIZE_BY_TIER[tier]
+
+  const lower = Math.floor(d)
+  const upper = Math.min(lower + 1, maxIdx)
+  const t = d - lower
+  const from = stack[lower]
+  const to = stack[upper]
+  return withStackOpacity({
+    scale: lerp(from.scale, to.scale, t),
+    z: lerp(from.z, to.z, t),
+    blur: lerp(from.blur, to.blur, t),
+  })
+}
+
+function visualForDistance(distance: number, mode: LyricVisualMode): LyricLineVisual {
+  return interpolateStackAtDistance(Math.abs(distance), mode)
+}
+
+/** Continuous depth from pixel distance to stage center (smooth while scrolling). */
+export function getLyricLineVisualFromViewport(
+  distancePx: number,
+  lineHeightPx: number,
+  reducedMotion: boolean,
+  tvMode = false,
+): LyricLineVisual {
+  if (reducedMotion) {
+    return { scale: 1, opacity: FULL_OPACITY, z: 0, blur: 0 }
+  }
+  const pitch = Math.max(lineHeightPx, 40)
+  return interpolateStackAtDistance(
+    distancePx / pitch,
+    tvMode ? "tv" : "default",
+  )
 }
 
 export function getLyricLineVisual(
-  distanceFromActive: number,
+  distanceFromCenter: number,
   reducedMotion: boolean,
-  compact = false,
+  tvMode = false,
 ): LyricLineVisual {
-  const distance = Math.abs(distanceFromActive)
-  const direction = Math.sign(distanceFromActive)
-
   if (reducedMotion) {
-    return {
-      scale: 1,
-      opacity: distance === 0 ? 1 : distance === 1 ? NEAR_OPACITY : MIN_OPACITY,
-      z: 0,
-      blur: 0,
-      y: 0,
-    }
+    return { scale: 1, opacity: FULL_OPACITY, z: 0, blur: 0 }
   }
-
-  if (distance === 0) {
-    return {
-      scale: compact ? ACTIVE_SCALE_COMPACT : ACTIVE_SCALE,
-      opacity: 1,
-      z: ACTIVE_Z,
-      blur: 0,
-      y: 0,
-    }
-  }
-
-  if (distance === 1) {
-    return {
-      scale: NEAR_SCALE,
-      opacity: NEAR_OPACITY,
-      z: NEAR_Z,
-      blur: 0,
-      y: direction * NEAR_Y,
-    }
-  }
-
-  const depth = distance - 1
-  return {
-    scale: Math.max(MIN_SCALE, NEAR_SCALE - depth * 0.04),
-    opacity: Math.max(MIN_OPACITY, NEAR_OPACITY - depth * 0.1),
-    z: NEAR_Z + FAR_Z_STEP * depth,
-    blur: Math.min(MAX_BLUR, depth * 0.5),
-    y: direction * (NEAR_Y + FAR_Y_STEP * depth),
-  }
+  return visualForDistance(distanceFromCenter, tvMode ? "tv" : "default")
 }
 
-/** Spring for 3D line focus swaps — responsive with minimal bounce. */
 export const lyricLineSpring = {
   type: "spring" as const,
-  stiffness: 280,
-  damping: 32,
-  mass: 0.7,
+  stiffness: 400,
+  damping: 35,
+  mass: 0.8,
 }
 
-export const lyricLineOpacitySpring = {
+/** Soft spring for 3D depth — follows scroll without tier snapping. */
+export const lyricDepthSpring = {
   type: "spring" as const,
-  stiffness: 240,
-  damping: 32,
-  mass: 0.5,
+  stiffness: 180,
+  damping: 24,
+  mass: 0.45,
 }

@@ -1,5 +1,7 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
+import { FileMusic, Mic2, Music2, WifiOff } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { LyricsPasteModal } from "@/components/lyrics-paste-modal"
@@ -53,6 +55,17 @@ export function LyricsRetry({ onRetry, onPaste, onTranscribe, variant = "not_fou
       ? `Auto-retry attempted ${networkRetryCount} time${networkRetryCount === 1 ? "" : "s"}`
       : null
 
+  const variantIcon: LucideIcon =
+    variant === "network_error"
+      ? WifiOff
+      : variant === "instrumental"
+        ? Mic2
+        : variant === "partial"
+          ? FileMusic
+          : Music2
+
+  const VariantIcon = variantIcon
+
   return (
     <>
       <div
@@ -60,6 +73,9 @@ export function LyricsRetry({ onRetry, onPaste, onTranscribe, variant = "not_fou
         role="alert"
       >
         <div className="max-w-md text-center">
+          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-muted/35">
+            <VariantIcon className="size-8 text-muted-foreground/85" aria-hidden />
+          </div>
           <p className="font-medium text-foreground">{headline}</p>
           <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
           {subline ? <p className="mt-2 text-sm text-muted-foreground/80">{subline}</p> : null}

@@ -38,6 +38,8 @@ export function TransportControls({
   const languageCode = usePlayerStore((s) => s.languageCode)
   const englishLines = usePlayerStore((s) => s.englishLines)
   const englishSource = usePlayerStore((s) => s.englishSource)
+  const lyricsFollowMode = usePlayerStore((s) => s.lyricsFollowMode)
+  const requestLyricsScrollSync = usePlayerStore((s) => s.requestLyricsScrollSync)
 
   const hasEnglish = englishLines.length > 0
 
@@ -98,6 +100,17 @@ export function TransportControls({
             >
               <AnimatedIcon icon={isPlaying ? Pause : Play} active={isPlaying} />
             </Button>
+
+            {lyricsFollowMode === "manual" ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-9 sm:hidden"
+                onClick={() => requestLyricsScrollSync()}
+              >
+                Sync lyrics
+              </Button>
+            ) : null}
 
             {!isEnglish(languageCode) && (
               <select
