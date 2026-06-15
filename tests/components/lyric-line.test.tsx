@@ -47,6 +47,6 @@ describe("LyricLine", () => {
       />,
     )
     const outerSpan = screen.getByText("Big line").parentElement
-    expect(outerSpan?.className).toContain("lg:text-[clamp(5rem,5vw,7rem)]")
+    expect(outerSpan?.className).toContain("lg:text-[clamp(3.5rem,4.5vw,7rem)]")
   })
 })

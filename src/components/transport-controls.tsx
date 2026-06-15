@@ -78,7 +78,7 @@ export function TransportControls({
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-center gap-2">
           {playbackHint ? (
             <p className="w-full text-center text-xs text-muted-foreground" role="status">
               {playbackHint}

@@ -629,10 +629,10 @@ export function PlayerPage() {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <NowPlayingHeader onSelectAlternate={handleSelectAlternate} />
 
-            <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               {youtubeError ? (
                 <PlayerError
                   title="Video couldn't load"

@@ -128,7 +128,7 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
   return (
     <div
       ref={scrollRef}
-      className="relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-karaoke-stage-bg px-4 py-8"
+      className="relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain scroll-py-8 bg-karaoke-stage-bg px-3 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-8"
     >
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {activeLineText}
@@ -144,10 +144,13 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
       )}
       <MotionConfig reducedMotion="user">
         <div
-          className="mx-auto w-full max-w-3xl"
+          className="mx-auto w-full max-w-3xl overflow-x-hidden"
           style={{ perspective: "1200px", perspectiveOrigin: "50% 42%" }}
         >
-          <div className="flex flex-col gap-1" style={{ transformStyle: "preserve-3d" }}>
+          <div
+            className="flex flex-col gap-1.5 sm:gap-2"
+            style={{ transformStyle: "preserve-3d" }}
+          >
             {lyrics.map((line, i) => (
               <LyricLine
                 key={`${line.startMs}-${i}`}

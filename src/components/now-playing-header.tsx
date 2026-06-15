@@ -79,8 +79,8 @@ export function NowPlayingHeader({ onSelectAlternate }: NowPlayingHeaderProps) {
 
   return (
     <div className="shrink-0 border-b border-border px-4 py-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <h1 className="min-w-0 truncate text-base font-semibold leading-tight">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        <h1 className="min-w-0 max-w-full flex-1 basis-full truncate text-base font-semibold leading-tight sm:basis-auto sm:flex-none">
           {displayTrack || "Loading track…"}
         </h1>
         {artist ? (

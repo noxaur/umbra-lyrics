@@ -5,8 +5,9 @@ export type LyricLineVisual = {
   blur: number
 }
 
-const ACTIVE_SCALE = 1.08
-const NEAR_SCALE = 0.92
+const ACTIVE_SCALE = 1.04
+const ACTIVE_SCALE_COMPACT = 1
+const NEAR_SCALE = 0.94
 const MIN_SCALE = 0.7
 const NEAR_OPACITY = 0.85
 const MIN_OPACITY = 0.35
@@ -18,6 +19,7 @@ const MAX_BLUR = 2
 export function getLyricLineVisual(
   distanceFromActive: number,
   reducedMotion: boolean,
+  compact = false,
 ): LyricLineVisual {
   const distance = Math.abs(distanceFromActive)
 
@@ -31,7 +33,12 @@ export function getLyricLineVisual(
   }
 
   if (distance === 0) {
-    return { scale: ACTIVE_SCALE, opacity: 1, z: ACTIVE_Z, blur: 0 }
+    return {
+      scale: compact ? ACTIVE_SCALE_COMPACT : ACTIVE_SCALE,
+      opacity: 1,
+      z: ACTIVE_Z,
+      blur: 0,
+    }
   }
 
   if (distance === 1) {
