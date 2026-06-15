@@ -21,7 +21,7 @@ import { sanitizeLyricsText } from "@/lib/sanitize-lyrics"
 import { translateLinesWithFallback } from "@/lib/translation-service"
 import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
 import { parseTrackTitle } from "@/lib/parse-track-title"
-import { addRecentSong } from "@/lib/recent-songs"
+import { addRecentSong, enrichRecentSongEnglish } from "@/lib/recent-songs"
 import { fetchYouTubeAuthor } from "@/lib/youtube-oembed"
 import { usePlayerStore, type LyricsSource } from "@/stores/player-store"
 import type { LyricLine, LyricsAlternate, LyricsProviderId } from "@/types/lyrics"
@@ -151,6 +151,7 @@ export function PlayerPage() {
         artist: cached.artist,
         track: cached.track,
       })
+      void enrichRecentSongEnglish(videoId)
     }
 
     void fetchYouTubeAuthor(videoId).then((author) => {
@@ -238,6 +239,7 @@ export function PlayerPage() {
         artist: meta.artist,
         track: meta.track,
       })
+      void enrichRecentSongEnglish(videoId)
       setStatus("ready")
       if (cachePayload) setLyricsCache(cachePayload)
       void loadEnglishTranslation(

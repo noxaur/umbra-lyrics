@@ -1,17 +1,48 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { AppShell } from "@/components/app-shell"
 import { UrlInput } from "@/components/url-input"
 import { Button } from "@/components/ui/button"
 import {
   clearRecentSongs,
+  enrichRecentSongEnglish,
   formatRecentLabel,
   getRecentSongs,
+  needsEnglishSubtitle,
   type RecentSong,
 } from "@/lib/recent-songs"
+import { youtubeThumbnailUrl } from "@/lib/youtube-thumbnail"
 
 export function HomePage() {
   const [recent, setRecent] = useState<RecentSong[]>(() => getRecentSongs())
+
+  useEffect(() => {
+    let cancelled = false
+
+    const refresh = () => {
+      if (!cancelled) setRecent(getRecentSongs())
+    }
+
+    const pending = recent
+      .filter((song) => {
+        const meta = `${song.artist} ${song.track}`.trim()
+        return (
+          needsEnglishSubtitle(meta) &&
+          !(song.englishArtist?.trim() && song.englishTrack?.trim())
+        )
+      })
+      .map((song) =>
+        enrichRecentSongEnglish(song.videoId).then((updated) => {
+          if (updated) refresh()
+        }),
+      )
+
+    void Promise.all(pending)
+
+    return () => {
+      cancelled = true
+    }
+  }, [recent])
 
   return (
     <AppShell>
@@ -47,9 +78,18 @@ export function HomePage() {
                       to={`/play/${song.videoId}`}
                       state={{ fromHome: true }}
                       title={label}
-                      className="block px-4 py-3 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <span className="block truncate">{label}</span>
+                      <img
+                        src={youtubeThumbnailUrl(song.videoId)}
+                        alt=""
+                        width={68}
+                        height={38}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-[2.375rem] w-[4.25rem] shrink-0 rounded-md border border-border/60 bg-muted object-cover"
+                      />
+                      <span className="min-w-0 flex-1 truncate">{label}</span>
                     </Link>
                   </li>
                 )
