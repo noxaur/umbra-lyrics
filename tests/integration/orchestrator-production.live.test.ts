@@ -1,10 +1,13 @@
-import { describe, expect, it } from "vitest"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
 
 const runLive = process.env.RUN_LIVE_LYRICS === "1"
-const API_BASE = process.env.LYRICS_API_BASE ?? "https://song-kara.nox-heights.workers.dev"
+const apiBase = process.env.LYRICS_API_BASE ?? "https://song-kara.nox-heights.workers.dev"
 
 describe.runIf(runLive)("orchestrator live on production", () => {
+  beforeAll(() => {
+    vi.stubEnv("VITE_LYRICS_API_BASE", apiBase)
+  })
   it("picks LRCLIB synced lyrics for Rick Astley", async () => {
     const result = await orchestrateLyricsSearch({
       track: "Never Gonna Give You Up",
@@ -18,7 +21,7 @@ describe.runIf(runLive)("orchestrator live on production", () => {
     expect(result.synced).toBe(true)
     const text = `${result.lyrics?.plainLyrics ?? ""}\n${result.lyrics?.syncedLyrics ?? ""}`
     expect(text.toLowerCase()).toContain("strangers to love")
-  }, 60_000)
+  }, 90_000)
 
   it("picks LRCLIB synced lyrics for Queen", async () => {
     const result = await orchestrateLyricsSearch({
@@ -33,5 +36,5 @@ describe.runIf(runLive)("orchestrator live on production", () => {
     expect(result.synced).toBe(true)
     const text = `${result.lyrics?.plainLyrics ?? ""}\n${result.lyrics?.syncedLyrics ?? ""}`
     expect(text.toLowerCase()).toMatch(/scaramouche|real life/)
-  }, 60_000)
+  }, 90_000)
 })

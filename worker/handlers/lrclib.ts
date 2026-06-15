@@ -13,7 +13,8 @@ export async function handleLrclib(pathname: string, search: string): Promise<Re
         "Lrclib-Client": CLIENT_HEADER,
         "User-Agent": CLIENT_HEADER,
       },
-      signal: AbortSignal.timeout(15_000),
+      // Headroom above typical 10–15s edge latency; client LRCLIB budget is 45s.
+      signal: AbortSignal.timeout(20_000),
     })
 
     const body = await res.text()
