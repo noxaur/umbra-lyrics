@@ -1,4 +1,5 @@
 import type { StreamFormat } from "@/lib/mkv-export/stream-fetch"
+import { INNERTUBE_CLIENT_CHAIN } from "@/lib/youtube-innertube-clients"
 
 export type ClientResolvedStream = {
   url: string
@@ -23,9 +24,10 @@ export async function resolveYouTubeStreamInBrowser(
 ): Promise<ClientResolvedStream | null> {
   const { Innertube, ClientType } = await loadInnertube()
 
-  const clients = [ClientType.IOS, ClientType.ANDROID, ClientType.MWEB, ClientType.WEB]
+  for (const clientName of INNERTUBE_CLIENT_CHAIN) {
+    const clientType = ClientType[clientName]
+    if (clientType == null) continue
 
-  for (const clientType of clients) {
     try {
       const yt = await Innertube.create({
         generate_session_locally: true,
@@ -43,7 +45,8 @@ export async function resolveYouTubeStreamInBrowser(
       })
 
       const info = await yt.getBasicInfo(videoId)
-      if (info.playability_status?.status !== "OK") continue
+      const status = info.playability_status?.status
+      if (status && status !== "OK" && status !== "CONTENT_CHECK_REQUIRED") continue
 
       const chosen = info.chooseFormat({
         type: format,
@@ -64,7 +67,7 @@ export async function resolveYouTubeStreamInBrowser(
       return {
         url,
         mimeType: chosen?.mime_type ?? (format === "audio" ? "audio/mp4" : "video/mp4"),
-        client: String(clientType),
+        client: String(clientName),
       }
     } catch {
       // try next client

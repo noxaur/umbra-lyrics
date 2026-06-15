@@ -30,6 +30,28 @@ export function isAllowedStreamUrl(rawUrl: string): boolean {
   }
 }
 
+/** Decode a client-provided stream reference (proxy path or direct googlevideo URL). */
+export function decodeStreamReference(streamRef: string): string | null {
+  const trimmed = streamRef.trim()
+  if (!trimmed) return null
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return isAllowedStreamUrl(trimmed) ? trimmed : null
+  }
+
+  try {
+    const pathAndQuery = trimmed.startsWith("/") ? trimmed : `/${trimmed}`
+    const url = new URL(pathAndQuery, "https://song.example")
+    if (url.pathname !== "/api/beta/youtube/proxy-url") return null
+    const encoded = url.searchParams.get("u")
+    if (!encoded) return null
+    const target = atob(encoded)
+    return isAllowedStreamUrl(target) ? target : null
+  } catch {
+    return null
+  }
+}
+
 function encodeProxyUrl(targetUrl: string, requestUrl: URL): string {
   const proxy = new URL("/api/beta/youtube/proxy-url", requestUrl.origin)
   proxy.searchParams.set("u", btoa(targetUrl))

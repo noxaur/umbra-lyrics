@@ -385,7 +385,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       } catch (err) {
         if (signal?.aborted) return false
         if (err instanceof TranscriptionError) {
-          const isTransient = err.status >= 502 && err.status <= 504
+          const isTransient = err.status === 429 || (err.status >= 502 && err.status <= 504)
           setLyricsOutcome(isTransient ? "network_error" : "not_found")
           setStatus("error", err.message)
           return false
