@@ -14,7 +14,7 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { useTranslation } from "@/hooks/use-translation"
 import { parseLrc, parsePlainLyrics } from "@/lib/lrc-parser"
 import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
-import { getLyricsCache, setLyricsCache } from "@/lib/lyrics-cache"
+import { getLyricsCache, reparseCachedLyrics, setLyricsCache } from "@/lib/lyrics-cache"
 import { searchEnglishLyrics } from "@/lib/lyrics-service"
 import { detectLanguage, inferPreferredLanguage, isEnglish } from "@/lib/language-service"
 import { prepareLyricsText } from "@/lib/prepare-lyrics-text"
@@ -106,6 +106,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const englishLines = usePlayerStore((s) => s.englishLines)
   const lyrics = usePlayerStore((s) => s.lyrics)
   const resetSyncOffset = usePlayerStore((s) => s.resetSyncOffset)
+  const setSyncOffset = usePlayerStore((s) => s.setSyncOffset)
   const focusMode = usePlayerStore((s) => s.focusMode)
 
   const { available, translating } = useTranslation(languageCode)
@@ -163,7 +164,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       setLyricsOutcome("found")
       setStatus("ready")
       setLoadedFromCache(true)
-      loadedRef.current = true
+      // Duration-aware reparse happens in loadLyrics once YouTube duration is known.
       addRecentSong({
         videoId,
         title: cached.title,
@@ -318,6 +319,10 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         return false
       }
 
+      if (parsed.suggestedOffsetMs) {
+        setSyncOffset(parsed.suggestedOffsetMs)
+      }
+
       const sample = plainRaw ?? syncedRaw ?? parsed.lines.map((l) => l.text).join("\n")
       const lang = detectLanguage(sample)
       setLyricsAlternates(alternates)
@@ -341,11 +346,12 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           title: meta.title,
           artist: meta.artist,
           track: meta.track,
+          parsedDurationMs: durationSec * 1000,
         },
       )
       return true
     },
-    [videoId, applyParsedLyrics, setLyricsAlternates, setLyricsOutcome, setStatus],
+    [videoId, applyParsedLyrics, setLyricsAlternates, setLyricsOutcome, setStatus, setSyncOffset],
   )
 
   const loadLyrics = useCallback(
@@ -382,6 +388,14 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       if (!options?.skipCache) {
         const cached = getLyricsCache(videoId)
         if (cached) {
+          const durationMs = durationSec * 1000
+          const reparsed = reparseCachedLyrics(cached, durationMs)
+          const parsed = reparsed ?? {
+            lines: cached.lines,
+            synced: cached.synced,
+            autoTimed: cached.autoTimed ?? !cached.synced,
+          }
+
           setMeta({
             title: cached.title || title,
             artist: cached.artist || artist,
@@ -390,8 +404,13 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           setEnglishLines(cached.englishLines)
           setLanguageCode(cached.languageCode)
           setLyricsAlternates(cached.alternates ?? [])
+          if (parsed.suggestedOffsetMs) setSyncOffset(parsed.suggestedOffsetMs)
           await applyParsedLyrics(
-            { lines: cached.lines, synced: cached.synced },
+            {
+              lines: parsed.lines,
+              synced: parsed.synced,
+              autoTimed: parsed.autoTimed,
+            },
             cached.providerId ?? cached.lyricsResult.providerId,
             {
               title: cached.title || title,
@@ -400,7 +419,21 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             },
             durationSec,
             cached.lyricsResult.plainLyrics ?? cached.lines.map((l) => l.text).join("\n"),
-            undefined,
+            {
+              videoId,
+              lyricsResult: cached.lyricsResult,
+              providerId: cached.providerId ?? cached.lyricsResult.providerId,
+              lines: parsed.lines,
+              synced: parsed.synced,
+              autoTimed: parsed.autoTimed,
+              alternates: cached.alternates ?? [],
+              englishLines: cached.englishLines,
+              languageCode: cached.languageCode,
+              title: cached.title || title,
+              artist: cached.artist || artist,
+              track: cached.track || track,
+              parsedDurationMs: durationMs,
+            },
             true,
           )
           return
@@ -493,6 +526,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       setLanguageCode,
       setLyricsAlternates,
       setLyricsProvidersSearched,
+      setSyncOffset,
     ],
   )
 

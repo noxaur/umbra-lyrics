@@ -1,9 +1,9 @@
+import { parseLyricStructureTags, type StructureParsedLine } from "@/lib/lyric-structure"
 import type { LyricLine } from "@/types/lyrics"
-import type { StructureParsedLine } from "@/lib/lyric-structure"
 
 /**
  * Syllable/character-weighted timing for plain (unsynced) lyrics.
- * @see docs/superpowers/plans/2026-06-15-lyrics-karaoke-player.md — unsynced fallback
+ * @see docs/plans/spotify-style-lyrics-player.md — unsynced fallback
  */
 export type PlainLyricsTimingOptions = {
   introRatio?: number
@@ -22,11 +22,9 @@ export type PlainLyricsTimingOptions = {
   paragraphBreakWeight?: number
   sectionGapSec?: number
   instrumentalGapSec?: number
-  /** Show standalone structure tags as muted section labels (default true) */
   showSectionLabels?: boolean
 }
 
-/** Alias for orchestrator/docs naming. */
 export type PlainTimingOptions = PlainLyricsTimingOptions
 
 type ResolvedOptions = {
@@ -43,21 +41,22 @@ type ResolvedOptions = {
 }
 
 const DEFAULTS: ResolvedOptions = {
-  introRatio: 0.05,
-  outroRatio: 0.03,
+  introRatio: 0.08,
+  outroRatio: 0.05,
   introSec: null,
   outroSec: null,
-  minLineDurationMs: 1500,
-  maxLineDurationMs: 12000,
+  minLineDurationMs: 1200,
+  maxLineDurationMs: 11000,
   pauseBonusSec: 0.3,
-  paragraphGapSec: 0.8,
-  sectionGapSec: 1.2,
-  instrumentalGapSec: 2.5,
+  paragraphGapSec: 1.4,
+  sectionGapSec: 1.4,
+  instrumentalGapSec: 2.8,
 }
 
 const CJK_RE = /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/g
 const LATIN_VOWEL_GROUPS = /[aeiouy\u00E0-\u00FC]+/gi
-const END_PUNCT_RE = /[.!?…,;:)\]"'。、！？]$/
+const END_PUNCT_RE = /[.!?…]$/ 
+const MID_PUNCT_RE = /[,;:)\]"'。、！？]$/
 
 function resolvedOptions(options: PlainLyricsTimingOptions): ResolvedOptions {
   return {
@@ -86,7 +85,6 @@ function resolvedOptions(options: PlainLyricsTimingOptions): ResolvedOptions {
   }
 }
 
-/** Weight one lyric line for proportional timing (higher = longer slot). */
 export function estimateLineWeight(text: string, pauseBonusSec = DEFAULTS.pauseBonusSec): number {
   const trimmed = text.trim()
   if (!trimmed) return 0
@@ -96,13 +94,21 @@ export function estimateLineWeight(text: string, pauseBonusSec = DEFAULTS.pauseB
   const latinPart = trimmed.replace(CJK_RE, " ")
   const vowelGroups = latinPart.match(LATIN_VOWEL_GROUPS)
   const latinSyllables = vowelGroups?.length ?? 0
-  const wordFallback = latinPart.split(/\s+/).filter(Boolean).length * 0.8
+  const wordFallback = latinPart.split(/\s+/).filter(Boolean).length
 
-  let weight = cjkCount + Math.max(latinSyllables, wordFallback * 0.5)
+  let weight =
+    cjkCount > 0 && cjkCount / trimmed.length > 0.3
+      ? cjkCount * 1.15
+      : Math.max(latinSyllables, wordFallback * 0.85)
+
   if (weight < 1) weight = 1
 
   if (END_PUNCT_RE.test(trimmed)) {
-    weight += pauseBonusSec * 3
+    weight *= 1.35
+    weight += pauseBonusSec * 2
+  } else if (MID_PUNCT_RE.test(trimmed)) {
+    weight *= 1.12
+    weight += pauseBonusSec
   }
 
   return weight
@@ -119,20 +125,40 @@ function normalizeForChorus(text: string): string {
     .trim()
 }
 
-function countLeadingTrailingGaps(lines: string[]): { leading: number; trailing: number } {
-  let leading = 0
-  for (const line of lines) {
-    if (line.trim()) break
-    leading++
+type ParsedParagraph = {
+  lines: StructureParsedLine[]
+  paragraphBreakAfter: boolean
+}
+
+export function splitLyricsParagraphs(text: string): ParsedParagraph[] {
+  const paragraphs = text.split(/\n\s*\n/)
+  return paragraphs.map((paragraph, index) => ({
+    lines: parseLyricStructureTags(paragraph),
+    paragraphBreakAfter: index < paragraphs.length - 1,
+  }))
+}
+
+export function flattenParagraphs(paragraphs: ParsedParagraph[]): {
+  lines: StructureParsedLine[]
+  paragraphBreakAfterVocal: Set<number>
+} {
+  const lines: StructureParsedLine[] = []
+  const paragraphBreakAfterVocal = new Set<number>()
+  let vocalIdx = -1
+
+  for (const paragraph of paragraphs) {
+    for (const line of paragraph.lines) {
+      lines.push(line)
+      if (!line.isStructureOnly && line.text.trim()) {
+        vocalIdx++
+      }
+    }
+    if (paragraph.paragraphBreakAfter && vocalIdx >= 0) {
+      paragraphBreakAfterVocal.add(vocalIdx)
+    }
   }
 
-  let trailing = 0
-  for (let i = lines.length - 1; i >= 0; i--) {
-    if (lines[i].trim()) break
-    trailing++
-  }
-
-  return { leading, trailing }
+  return { lines, paragraphBreakAfterVocal }
 }
 
 function applyMinMaxDurations(
@@ -150,9 +176,7 @@ function applyMinMaxDurations(
   let result = durations.map((d) => Math.min(maxMs, Math.max(effectiveMin, d)))
   let sum = result.reduce((a, b) => a + b, 0)
 
-  if (sum <= totalBudgetMs) {
-    return result
-  }
+  if (sum <= totalBudgetMs) return result
 
   for (let pass = 0; pass < 8 && sum > totalBudgetMs; pass++) {
     const over = sum - totalBudgetMs
@@ -171,25 +195,56 @@ function applyMinMaxDurations(
   return result
 }
 
-/** Chorus lines with identical normalized text get averaged duration. */
-function smoothChorusDurations(texts: string[], durations: number[]): number[] {
+function lockChorusDurations(texts: string[], durations: number[]): number[] {
   const result = [...durations]
-  let i = 0
-  while (i < texts.length) {
-    const key = normalizeForChorus(texts[i])
-    if (!key) {
-      i++
-      continue
+  const groups = new Map<string, number[]>()
+
+  texts.forEach((text, index) => {
+    const key = normalizeForChorus(text)
+    if (!key) return
+    const list = groups.get(key) ?? []
+    list.push(index)
+    groups.set(key, list)
+  })
+
+  for (const indices of groups.values()) {
+    if (indices.length < 2) continue
+    const reference = durations[indices[0]]
+    for (const index of indices) {
+      result[index] = reference
     }
-    let j = i + 1
-    while (j < texts.length && normalizeForChorus(texts[j]) === key) j++
-    if (j - i > 1) {
-      const avg = result.slice(i, j).reduce((a, b) => a + b, 0) / (j - i)
-      for (let k = i; k < j; k++) result[k] = avg
-    }
-    i = j
   }
+
   return result
+}
+
+function normalizeTailDurations(
+  durations: number[],
+  paragraphGapsMs: number[],
+  targetBudgetMs: number,
+): number[] {
+  if (durations.length === 0) return durations
+  const gapTotal = paragraphGapsMs.reduce((sum, gap) => sum + gap, 0)
+  const current = durations.reduce((sum, d) => sum + d, 0) + gapTotal
+  if (current <= 0 || Math.abs(current - targetBudgetMs) < 400) return durations
+
+  const scale = targetBudgetMs / current
+  const pivot = Math.max(1, Math.floor(durations.length * 0.65))
+  const head = durations.slice(0, pivot)
+  const tail = durations.slice(pivot).map((d) => d * scale)
+  const headSum = head.reduce((sum, d) => sum + d, 0)
+  const tailSum = tail.reduce((sum, d) => sum + d, 0)
+  const remaining = Math.max(0, targetBudgetMs - gapTotal - headSum)
+  if (tailSum <= 0) return durations
+
+  const tailScale = remaining / tailSum
+  return [...head, ...tail.map((d) => d * tailScale)]
+}
+
+function structureGapMs(line: StructureParsedLine, opts: ResolvedOptions): number {
+  if (!line.isStructureOnly) return 0
+  if (line.isInstrumentalSection) return opts.instrumentalGapSec * 1000
+  return opts.sectionGapSec * 1000
 }
 
 type TimingSourceLine = string | StructureParsedLine
@@ -201,16 +256,6 @@ function normalizeTimingLine(line: TimingSourceLine): StructureParsedLine {
   return line
 }
 
-function structureGapMs(line: StructureParsedLine, opts: ResolvedOptions): number {
-  if (!line.isStructureOnly) return 0
-  if (line.isInstrumentalSection) return opts.instrumentalGapSec * 1000
-  return opts.sectionGapSec * 1000
-}
-
-function reservedStructureGapMs(parsedLines: StructureParsedLine[], opts: ResolvedOptions): number {
-  return parsedLines.reduce((sum, line) => sum + structureGapMs(line, opts), 0)
-}
-
 export function estimatePlainLyricsTiming(
   lines: TimingSourceLine[],
   durationSec: number,
@@ -220,7 +265,26 @@ export function estimatePlainLyricsTiming(
   const durationMs = Math.max(0, durationSec * 1000)
   if (lines.length === 0) return []
 
-  const parsedLines = lines.map(normalizeTimingLine)
+  let parsedLines: StructureParsedLine[]
+  let paragraphBreakAfterVocal = new Set<number>()
+  let leadingBlankBonus = 0
+
+  if (typeof lines[0] === "string") {
+    const stringLines = lines as string[]
+    if (stringLines.length === 1 && stringLines[0].includes("\n")) {
+      const flattened = flattenParagraphs(splitLyricsParagraphs(stringLines[0]))
+      parsedLines = flattened.lines
+      paragraphBreakAfterVocal = flattened.paragraphBreakAfterVocal
+    } else {
+      parsedLines = stringLines
+        .filter((text) => text.trim().length > 0)
+        .map((text) => ({ text, isStructureOnly: false }))
+      const leadingBlankCount = stringLines.findIndex((text) => text.trim().length > 0)
+      if (leadingBlankCount > 0) leadingBlankBonus = leadingBlankCount
+    }
+  } else {
+    parsedLines = lines.map(normalizeTimingLine)
+  }
 
   const vocalLines = parsedLines
     .map((line, index) => ({ line, index }))
@@ -243,32 +307,32 @@ export function estimatePlainLyricsTiming(
     })
   }
 
-  const rawTextLines = parsedLines.map((line) => line.text)
-  const { leading, trailing } = countLeadingTrailingGaps(rawTextLines)
+  const gapBudgetCap = Math.min(durationMs * 0.15, 45_000)
+  const paragraphGapCount = [...paragraphBreakAfterVocal].length
+  const paragraphGapMs =
+    paragraphGapCount > 0 ? Math.min(opts.paragraphGapSec * 1000, gapBudgetCap / paragraphGapCount) : 0
+
   let introMs =
     opts.introSec != null ? opts.introSec * 1000 : durationMs * opts.introRatio
   let outroMs =
     opts.outroSec != null ? opts.outroSec * 1000 : durationMs * opts.outroRatio
 
-  if (opts.introSec == null && leading > 0) {
-    introMs = Math.min(durationMs * 0.18, introMs + leading * durationMs * 0.025)
-  }
-  if (opts.outroSec == null && trailing > 0) {
-    outroMs = Math.min(durationMs * 0.15, outroMs + trailing * durationMs * 0.02)
+  if (opts.introSec == null && leadingBlankBonus > 0) {
+    introMs = Math.min(durationMs * 0.22, introMs + leadingBlankBonus * durationMs * 0.025)
   }
 
-  const gapReserveMs = Math.min(
-    reservedStructureGapMs(parsedLines, opts),
-    Math.max(0, durationMs - introMs - outroMs) * 0.35,
+  introMs = Math.min(introMs, durationMs * 0.22)
+  outroMs = Math.min(outroMs, durationMs * 0.18)
+
+  const structureGapMsTotal = Math.min(
+    parsedLines.reduce((sum, line) => sum + structureGapMs(line, opts), 0),
+    Math.max(0, durationMs - introMs - outroMs) * 0.3,
   )
 
+  const paragraphReserveMs = paragraphGapCount * paragraphGapMs
   const vocalBudgetMs = Math.max(
-    durationMs - introMs - outroMs - gapReserveMs,
-    vocalLines.length *
-      Math.min(
-        opts.minLineDurationMs,
-        (durationMs - introMs - outroMs - gapReserveMs) / vocalLines.length,
-      ),
+    durationMs - introMs - outroMs - structureGapMsTotal - paragraphReserveMs,
+    vocalLines.length * Math.min(opts.minLineDurationMs, 900),
   )
 
   const vocalWeights = vocalLines.map(({ line }) =>
@@ -278,13 +342,19 @@ export function estimatePlainLyricsTiming(
   const vocalTexts = vocalLines.map(({ line }) => line.text.trim())
 
   let durations = vocalWeights.map((w) => (w / totalWeight) * vocalBudgetMs)
-  durations = smoothChorusDurations(vocalTexts, durations)
+  durations = lockChorusDurations(vocalTexts, durations)
   durations = applyMinMaxDurations(
     durations,
     opts.minLineDurationMs,
     opts.maxLineDurationMs,
     vocalBudgetMs,
   )
+
+  const paragraphGaps = vocalTexts.map((_, index) =>
+    paragraphBreakAfterVocal.has(index) ? paragraphGapMs : 0,
+  )
+  durations = normalizeTailDurations(durations, paragraphGaps, vocalBudgetMs)
+  durations = lockChorusDurations(vocalTexts, durations)
 
   const result: LyricLine[] = []
   let cursor = introMs
@@ -324,13 +394,16 @@ export function estimatePlainLyricsTiming(
       kind: "lyric",
     })
     cursor = endMs
+    if (paragraphBreakAfterVocal.has(vocalIdx)) {
+      cursor += paragraphGapMs
+    }
     vocalIdx++
   }
 
   const vocalResult = result.filter((line) => line.kind !== "section")
   if (vocalResult.length > 0) {
     const last = vocalResult[vocalResult.length - 1]
-    last.endMs = Math.round(Math.min(trackEndMs, Math.max(last.endMs, last.startMs + 500)))
+    last.endMs = Math.round(Math.min(trackEndMs, Math.max(last.endMs, last.startMs + 800)))
   }
 
   return result

@@ -172,7 +172,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
     if (words && words.length > 0 && wordIndex >= 0) {
       return <PerWordText words={words} wordIndex={wordIndex} progress={progress} />
     }
-    return <WordProgressText text={text} progress={progress} />
+    return <span className="text-karaoke-active-line">{text}</span>
   }
 
   return (

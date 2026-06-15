@@ -22,7 +22,13 @@ export type LyricStageState = {
   wordProgress: number
 }
 
-export type ParsedLyrics = { lines: LyricLine[]; synced: boolean; autoTimed?: boolean; aligned?: boolean }
+export type ParsedLyrics = {
+  lines: LyricLine[]
+  synced: boolean
+  autoTimed?: boolean
+  aligned?: boolean
+  suggestedOffsetMs?: number
+}
 
 export type LyricDisplayMode = "native" | "english" | "both"
 

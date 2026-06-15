@@ -1,6 +1,15 @@
-import { canAutoTimePlainLyrics, estimatePlainLyricsTiming } from "@/lib/plain-lyrics-timing"
+import {
+  canAutoTimePlainLyrics,
+  estimatePlainLyricsTiming,
+  flattenParagraphs,
+  splitLyricsParagraphs,
+} from "@/lib/plain-lyrics-timing"
 import { parseLyricStructureTags } from "@/lib/lyric-structure"
-import { capLineEndTimes } from "@/lib/gap-detection"
+import {
+  calibrateSyncedLyrics,
+  estimateIntroSyncOffsetMs,
+  finalizeWordTimings,
+} from "@/lib/lrc-sync-calibration"
 import { parseEnhancedLrcWords } from "@/lib/word-alignment"
 import type { LyricLine, ParsedLyrics } from "@/types/lyrics"
 
@@ -9,8 +18,11 @@ const LRC_LINE_FRAC = /^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$/
 const LRC_LINE_NO_FRAC = /^\[(\d{2}):(\d{2})\](.*)$/
 
 export type LyricsParseOptions = {
-  /** Show standalone structure tags as muted section labels (default true) */
   showSectionLabels?: boolean
+}
+
+export type ParsedLyricsWithOffset = ParsedLyrics & {
+  suggestedOffsetMs?: number
 }
 
 function parseFractionalMs(frac: string): number {
@@ -126,9 +138,15 @@ export function parseLrc(
     }
   }
 
-  const capped = capLineEndTimes(lines)
+  const calibrated = durationMs > 0 ? calibrateSyncedLyrics(lines, durationMs) : finalizeWordTimings(lines)
+  const suggestedOffsetMs = durationMs > 0 ? estimateIntroSyncOffsetMs(calibrated, durationMs) : 0
 
-  return { lines: capped, synced: capped.length > 0, autoTimed: false }
+  return {
+    lines: calibrated,
+    synced: calibrated.length > 0,
+    autoTimed: false,
+    suggestedOffsetMs: suggestedOffsetMs !== 0 ? suggestedOffsetMs : undefined,
+  }
 }
 
 export function parsePlainLyrics(
@@ -137,22 +155,15 @@ export function parsePlainLyrics(
   options: LyricsParseOptions = {},
 ): ParsedLyrics {
   const showSectionLabels = options.showSectionLabels ?? true
-  const structured = parseLyricStructureTags(text)
-
-  if (structured.every((l) => !l.text.trim() && l.isStructureOnly && !showSectionLabels)) {
-    return { lines: [], synced: false, autoTimed: false }
-  }
-
-  if (structured.every((l) => !l.text.trim() && !l.isStructureOnly)) {
-    return { lines: [], synced: false, autoTimed: false }
-  }
-
   const durationSec = durationMs / 1000
+
   if (canAutoTimePlainLyrics(durationSec)) {
+    const structured = flattenParagraphs(splitLyricsParagraphs(text)).lines
     const lines = estimatePlainLyricsTiming(structured, durationSec, { showSectionLabels })
     return { lines, synced: false, autoTimed: true }
   }
 
+  const structured = parseLyricStructureTags(text)
   const vocalOnly = structured.filter((l) => !l.isStructureOnly && l.text.trim())
   const slice = vocalOnly.length > 0 ? durationMs / vocalOnly.length : 0
   const lines: LyricLine[] = []
