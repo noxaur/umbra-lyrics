@@ -10,6 +10,11 @@ describe("parseEnhancedLrcWords", () => {
     expect(words[0].startMs).toBe(1000)
     expect(words[1].text).toBe("world")
   })
+
+  it("uses the parent line end for the last word when provided", () => {
+    const words = parseEnhancedLrcWords("<00:01.00>Hello <00:01.50>world", 1000, 5000)
+    expect(words[words.length - 1].endMs).toBe(5000)
+  })
 })
 
 describe("alignLinesToWords", () => {
