@@ -1,5 +1,13 @@
 import { usePlayerStore } from "@/stores/player-store"
-import { LYRICS_PROVIDER_LABELS, type LyricsProviderId } from "@/types/lyrics"
+import { LYRICS_PROVIDER_LABELS, type LyricsAlternate, type LyricsProviderId } from "@/types/lyrics"
+import { LyricsSourcePicker } from "@/components/lyrics-source-picker"
+
+const TRANSLATION_BACKEND_LABELS: Record<string, string> = {
+  browser: "Browser",
+  libretranslate: "LibreTranslate",
+  mymemory: "MyMemory",
+  google: "Google",
+}
 
 type SyncBadge = "Synced" | "Approximate" | "Plain"
 
@@ -17,7 +25,7 @@ function getSyncBadge(
 }
 
 function getSourceLabel(source: ReturnType<typeof usePlayerStore.getState>["lyricsSource"]): string | null {
-  if (!source || source === "pasted") return null
+  if (!source || source === "pasted" || source === "translated") return null
   return LYRICS_PROVIDER_LABELS[source as LyricsProviderId] ?? source
 }
 
@@ -27,7 +35,11 @@ const badgeStyles: Record<SyncBadge, string> = {
   Plain: "bg-muted text-muted-foreground",
 }
 
-export function NowPlayingHeader() {
+type NowPlayingHeaderProps = {
+  onSelectAlternate?: (alternate: LyricsAlternate) => void
+}
+
+export function NowPlayingHeader({ onSelectAlternate }: NowPlayingHeaderProps) {
   const track = usePlayerStore((s) => s.track)
   const artist = usePlayerStore((s) => s.artist)
   const title = usePlayerStore((s) => s.title)
@@ -35,6 +47,8 @@ export function NowPlayingHeader() {
   const lyricsSynced = usePlayerStore((s) => s.lyricsSynced)
   const lyricsSource = usePlayerStore((s) => s.lyricsSource)
   const lyrics = usePlayerStore((s) => s.lyrics)
+  const englishSource = usePlayerStore((s) => s.englishSource)
+  const translationBackend = usePlayerStore((s) => s.translationBackend)
 
   const videoId = usePlayerStore((s) => s.videoId)
   const displayTrack = track || title
@@ -44,7 +58,7 @@ export function NowPlayingHeader() {
   if (!displayTrack && !artist && status === "idle" && !videoId) return null
 
   return (
-    <div className="border-b border-border px-4 py-3">
+    <div className="shrink-0 border-b border-border px-4 py-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <h1 className="min-w-0 truncate text-base font-semibold leading-tight">
           {displayTrack || "Loading track…"}
@@ -71,6 +85,20 @@ export function NowPlayingHeader() {
             {sourceLabel}
           </span>
         ) : null}
+        {englishSource === "translated" ? (
+          <span
+            className="shrink-0 rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-300"
+            role="status"
+            title={
+              translationBackend
+                ? `Translated via ${TRANSLATION_BACKEND_LABELS[translationBackend] ?? translationBackend}`
+                : "Machine-translated English"
+            }
+          >
+            Translated
+          </span>
+        ) : null}
+        {onSelectAlternate ? <LyricsSourcePicker onSelectAlternate={onSelectAlternate} /> : null}
       </div>
     </div>
   )

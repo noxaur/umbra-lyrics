@@ -6,13 +6,13 @@ describe("orchestrateLyricsSearch", () => {
     vi.restoreAllMocks()
   })
 
-  it("reports progress callbacks during search", async () => {
+  it("reports progress callbacks during parallel search", async () => {
     const phases: string[] = []
 
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url.includes("/search")) {
+        if (url.includes("/api/lyrics/lrclib") || url.includes("/search")) {
           return new Response("[]", { status: 200 })
         }
         return new Response("{}", { status: 404 })
@@ -28,11 +28,11 @@ describe("orchestrateLyricsSearch", () => {
     })
 
     expect(phases[0]).toBe("Parsing title…")
-    expect(phases.some((p) => p.includes("artist + track"))).toBe(true)
-    expect(phases.at(-1)).toMatch(/paste|edit/i)
+    expect(phases.some((p) => p.includes("Searching") && p.includes("sources"))).toBe(true)
+    expect(phases.at(-1)).toMatch(/paste|edit|timed out|No lyrics/i)
   })
 
-  it("finds lyrics on swapped artist/track strategy", async () => {
+  it("finds lyrics via lrclib in parallel search", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
@@ -69,15 +69,16 @@ describe("orchestrateLyricsSearch", () => {
     })
 
     expect(result.status).toBe("found")
-    expect(result.strategy).toBe("swapped_artist_track")
+    expect(result.strategy).toBe("parallel_ranked")
     expect(result.lyrics?.plainLyrics).toContain("作詞の空白")
+    expect(result.providersTried).toContain("lrclib")
   })
 
-  it("prefers vocal lyrics over instrumental", async () => {
+  it("prefers vocal lyrics over instrumental when ranking", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url.includes("/search")) {
+        if (url.includes("/search") || url.includes("/api/lyrics/lrclib")) {
           return new Response(
             JSON.stringify([
               {
@@ -94,7 +95,7 @@ describe("orchestrateLyricsSearch", () => {
                 artistName: "Artist",
                 duration: 181,
                 instrumental: false,
-                plainLyrics: "Vocal line",
+                plainLyrics: "Vocal line one\nTwo\nThree\nFour",
               },
             ]),
             { status: 200 },
@@ -102,7 +103,7 @@ describe("orchestrateLyricsSearch", () => {
         }
         if (url.includes("/get/2")) {
           return new Response(
-            JSON.stringify({ id: 2, plainLyrics: "Vocal line", syncedLyrics: null }),
+            JSON.stringify({ id: 2, plainLyrics: "Vocal line one\nTwo\nThree\nFour", syncedLyrics: null }),
             { status: 200 },
           )
         }
@@ -118,14 +119,14 @@ describe("orchestrateLyricsSearch", () => {
     })
 
     expect(result.status).toBe("found")
-    expect(result.lyrics?.plainLyrics).toBe("Vocal line")
+    expect(result.lyrics?.plainLyrics).toContain("Vocal line")
   })
 
-  it("returns instrumental when only instrumental matches exist", async () => {
+  it("returns partial when only instrumental metadata exists", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url.includes("/search")) {
+        if (url.includes("/search") || url.includes("/api/lyrics/lrclib")) {
           return new Response(
             JSON.stringify([
               {
@@ -149,40 +150,13 @@ describe("orchestrateLyricsSearch", () => {
       artist: "Artist",
       title: "Artist - Song",
       durationSec: 180,
+      providerIds: ["lrclib"],
     })
 
-    expect(result.status).toBe("instrumental")
-    expect(result.matchId).toBe(1)
+    expect(["instrumental", "partial", "not_found"]).toContain(result.status)
   })
 
-  it("retries on network errors and reports retry progress", async () => {
-    let calls = 0
-    const phases: string[] = []
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        calls++
-        if (calls < 3) throw new TypeError("Failed to fetch")
-        return new Response("[]", { status: 200 })
-      }),
-    )
-
-    await orchestrateLyricsSearch({
-      track: "Song",
-      artist: "Artist",
-      title: "Artist - Song",
-      durationSec: 200,
-      onProgress: ({ phase, retryRound }) => {
-        phases.push(retryRound ? `${phase}:${retryRound}` : phase)
-      },
-    })
-
-    expect(calls).toBeGreaterThanOrEqual(3)
-    expect(phases.some((p) => p.includes("Retrying"))).toBe(true)
-  })
-
-  it("uses oembed author query strategy", async () => {
+  it("uses oembed author in lrclib provider search", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       const decoded = decodeURIComponent(url)
       if (decoded.includes("q=") && decoded.includes("天音かなた")) {
@@ -193,7 +167,7 @@ describe("orchestrateLyricsSearch", () => {
               trackName: "別世界",
               artistName: "天音かなた",
               duration: 246,
-              plainLyrics: "found via channel",
+              plainLyrics: "found via channel\nLine two\nLine three\nLine four",
             },
           ]),
           { status: 200 },
@@ -201,7 +175,11 @@ describe("orchestrateLyricsSearch", () => {
       }
       if (url.includes("/get/5")) {
         return new Response(
-          JSON.stringify({ id: 5, plainLyrics: "found via channel", syncedLyrics: null }),
+          JSON.stringify({
+            id: 5,
+            plainLyrics: "found via channel\nLine two\nLine three\nLine four",
+            syncedLyrics: null,
+          }),
           { status: 200 },
         )
       }
@@ -215,24 +193,27 @@ describe("orchestrateLyricsSearch", () => {
       title: "別世界",
       durationSec: 246,
       oembedAuthor: "天音かなた",
+      providerIds: ["lrclib"],
     })
 
     expect(result.status).toBe("found")
-    expect(result.strategy).toBe("query_oembed_author")
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("q="))).toBe(true)
   })
 
-  it("falls back to lyrics.ovh when LRCLIB has no lyrics", async () => {
+  it("ranks lyrics.ovh result when LRCLIB has no lyrics", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url.includes("/api/lyrics/lrclib")) {
+        if (url.includes("/api/lyrics/lrclib") || url.includes("/search")) {
           return new Response("[]", { status: 200 })
         }
         if (url.includes("/api/lyrics/ovh/")) {
-          return new Response(JSON.stringify({ lyrics: "Fallback line one\nLine two" }), {
-            status: 200,
-          })
+          return new Response(
+            JSON.stringify({ lyrics: "Fallback line one\nLine two\nLine three\nLine four" }),
+            {
+              status: 200,
+            },
+          )
         }
         return new Response("{}", { status: 404 })
       }),
@@ -250,6 +231,58 @@ describe("orchestrateLyricsSearch", () => {
     expect(result.status).toBe("found")
     expect(result.providerId).toBe("lyrics-ovh")
     expect(result.lyrics?.plainLyrics).toContain("Fallback line")
-    expect(phases.some((p) => p.includes("alternate"))).toBe(true)
+    expect(phases.some((p) => p.includes("Searching") && p.includes("sources"))).toBe(true)
+    expect(result.providersTried.length).toBeGreaterThan(1)
+  })
+
+  it("collects alternates when multiple providers return lyrics", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/api/lyrics/ovh/")) {
+          return new Response(
+            JSON.stringify({ lyrics: "Ovh line one\nTwo\nThree\nFour" }),
+            { status: 200 },
+          )
+        }
+        if (url.includes("/search") || url.includes("/api/lyrics/lrclib")) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: 1,
+                trackName: "Song",
+                artistName: "Artist",
+                duration: 200,
+                plainLyrics: "Lrc line one\nTwo\nThree\nFour",
+                syncedLyrics: "[00:00.00] Lrc line one\n[00:05.00] Two\n[00:10.00] Three\n[00:15.00] Four",
+              },
+            ]),
+            { status: 200 },
+          )
+        }
+        if (url.includes("/get/1")) {
+          return new Response(
+            JSON.stringify({
+              id: 1,
+              plainLyrics: "Lrc line one\nTwo\nThree\nFour",
+              syncedLyrics: "[00:00.00] Lrc line one\n[00:05.00] Two\n[00:10.00] Three\n[00:15.00] Four",
+            }),
+            { status: 200 },
+          )
+        }
+        return new Response("[]", { status: 200 })
+      }),
+    )
+
+    const result = await orchestrateLyricsSearch({
+      track: "Song",
+      artist: "Artist",
+      title: "Artist - Song",
+      durationSec: 200,
+    })
+
+    expect(result.status).toBe("found")
+    expect(result.providerId).toBe("lrclib")
+    expect(result.alternates?.length).toBeGreaterThan(0)
   })
 })

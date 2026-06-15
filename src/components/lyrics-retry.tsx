@@ -18,6 +18,7 @@ export function LyricsRetry({ onRetry, onPaste, variant = "not_found" }: LyricsR
   const track = usePlayerStore((s) => s.track)
   const error = usePlayerStore((s) => s.error)
   const lyricsAttempts = usePlayerStore((s) => s.lyricsAttempts)
+  const lyricsProvidersSearched = usePlayerStore((s) => s.lyricsProvidersSearched)
   const lrclibTrackId = usePlayerStore((s) => s.lrclibTrackId)
   const networkRetryCount = usePlayerStore((s) => s.networkRetryCount)
   const [artistInput, setArtistInput] = useState(artist)
@@ -68,6 +69,20 @@ export function LyricsRetry({ onRetry, onPaste, variant = "not_found" }: LyricsR
               </>
             ) : null}
           </p>
+        )}
+
+        {lyricsProvidersSearched.length > 0 && (
+          <div className="w-full max-w-md rounded-md border border-border bg-muted/30 px-4 py-3 text-left text-sm">
+            <p className="mb-2 font-medium text-foreground">
+              Searched {lyricsProvidersSearched.length} source
+              {lyricsProvidersSearched.length === 1 ? "" : "s"}
+            </p>
+            <ul className="list-inside list-disc space-y-1 text-muted-foreground">
+              {lyricsProvidersSearched.map((id) => (
+                <li key={id}>{LYRICS_PROVIDER_LABELS[id]}</li>
+              ))}
+            </ul>
+          </div>
         )}
 
         {lastAttempts.length > 0 && (

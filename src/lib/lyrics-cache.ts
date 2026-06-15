@@ -1,7 +1,9 @@
-import type { LyricLine, LyricsProviderId, LyricsResult } from "@/types/lyrics"
+import type { LyricLine, LyricsAlternate, LyricsProviderId, LyricsResult } from "@/types/lyrics"
+import type { TranslationBackend } from "@/lib/translation-service"
+import type { EnglishSource } from "@/stores/player-store"
 
 const STORAGE_PREFIX = "song-kara-lyrics:"
-const CACHE_VERSION = 2
+const CACHE_VERSION = 3
 
 export type LyricsCacheEntry = {
   v: number
@@ -11,10 +13,13 @@ export type LyricsCacheEntry = {
   lines: LyricLine[]
   synced: boolean
   englishLines: string[]
+  englishSource?: EnglishSource
+  translationBackend?: TranslationBackend | null
   languageCode: string
   title: string
   artist: string
   track: string
+  alternates?: LyricsAlternate[]
   cachedAt: number
 }
 
@@ -26,7 +31,7 @@ function isValidEntry(value: unknown): value is LyricsCacheEntry {
   if (!value || typeof value !== "object") return false
   const entry = value as LyricsCacheEntry
   return (
-    entry.v === CACHE_VERSION &&
+    (entry.v === CACHE_VERSION || entry.v === 2) &&
     typeof entry.videoId === "string" &&
     Array.isArray(entry.lines) &&
     typeof entry.synced === "boolean" &&

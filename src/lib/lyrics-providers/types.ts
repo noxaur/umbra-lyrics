@@ -7,6 +7,7 @@ export type ProviderSearchParams = {
   durationSec: number
   title?: string
   oembedAuthor?: string
+  preferredLanguage?: string
 }
 
 export type ProviderLyricsCandidate = {
@@ -20,6 +21,7 @@ export type ProviderLyricsCandidate = {
   syncedLyrics: string | null
   synced: boolean
   confidence: number
+  languageHint?: string
 }
 
 export type NormalizedLyricsResult = {
@@ -30,6 +32,7 @@ export type NormalizedLyricsResult = {
   synced: boolean
   trackName?: string
   artistName?: string
+  languageHint?: string
 }
 
 export type LyricsProvider = {

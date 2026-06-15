@@ -16,12 +16,13 @@ import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
 import { getLyricsCache, setLyricsCache } from "@/lib/lyrics-cache"
 import { searchEnglishLyrics } from "@/lib/lyrics-service"
 import { detectLanguage, isEnglish } from "@/lib/language-service"
+import { translateLinesWithFallback } from "@/lib/translation-service"
 import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
 import { parseTrackTitle } from "@/lib/parse-track-title"
 import { addRecentSong } from "@/lib/recent-songs"
 import { fetchYouTubeAuthor } from "@/lib/youtube-oembed"
 import { usePlayerStore, type LyricsSource } from "@/stores/player-store"
-import type { LyricLine, LyricsProviderId } from "@/types/lyrics"
+import type { LyricLine, LyricsAlternate, LyricsProviderId } from "@/types/lyrics"
 
 function applyLyricsText(
   text: string,
@@ -69,12 +70,15 @@ export function PlayerPage() {
   const setLyrics = usePlayerStore((s) => s.setLyrics)
   const setEnglishLines = usePlayerStore((s) => s.setEnglishLines)
   const setLanguageCode = usePlayerStore((s) => s.setLanguageCode)
+  const setDisplayMode = usePlayerStore((s) => s.setDisplayMode)
   const setLyricsOutcome = usePlayerStore((s) => s.setLyricsOutcome)
   const setLrclibTrackId = usePlayerStore((s) => s.setLrclibTrackId)
   const setLoadedFromCache = usePlayerStore((s) => s.setLoadedFromCache)
   const resetLyricsSearch = usePlayerStore((s) => s.resetLyricsSearch)
   const setLyricsSearchPhase = usePlayerStore((s) => s.setLyricsSearchPhase)
   const setLyricsSearchStep = usePlayerStore((s) => s.setLyricsSearchStep)
+  const setLyricsAlternates = usePlayerStore((s) => s.setLyricsAlternates)
+  const setLyricsProvidersSearched = usePlayerStore((s) => s.setLyricsProvidersSearched)
   const addLyricsAttempt = usePlayerStore((s) => s.addLyricsAttempt)
   const setNetworkRetryCount = usePlayerStore((s) => s.setNetworkRetryCount)
   const bindControls = usePlayerStore((s) => s.bindControls)
@@ -82,7 +86,7 @@ export function PlayerPage() {
   const englishLines = usePlayerStore((s) => s.englishLines)
   const lyrics = usePlayerStore((s) => s.lyrics)
 
-  const { available, translating, translateLines } = useTranslation(languageCode)
+  const { translating } = useTranslation(languageCode)
 
   const getTime = useCallback(() => currentTime, [currentTime])
   useLyricsSync(getTime)
@@ -114,8 +118,13 @@ export function PlayerPage() {
         track: cached.track,
       })
       setLyrics(cached.lines, cached.synced, cached.providerId ?? cached.lyricsResult.providerId)
-      setEnglishLines(cached.englishLines)
+      setEnglishLines(
+        cached.englishLines,
+        cached.englishSource ?? (cached.englishLines.length > 0 ? "found" : null),
+        cached.translationBackend ?? null,
+      )
       setLanguageCode(cached.languageCode)
+      setLyricsAlternates(cached.alternates ?? [])
       setLrclibTrackId(
         typeof cached.lyricsResult.id === "number" ? cached.lyricsResult.id : null,
       )
@@ -146,20 +155,53 @@ export function PlayerPage() {
     setLyricsOutcome,
     resetLyricsSearch,
     setLoadedFromCache,
+    setLyricsAlternates,
   ])
 
   const loadEnglishTranslation = useCallback(
-    async (track: string, artist: string, durationSec: number, sample: string) => {
+    async (
+      track: string,
+      artist: string,
+      durationSec: number,
+      sample: string,
+      lyricLines: string[],
+    ) => {
       const lang = detectLanguage(sample)
       setLanguageCode(lang)
       if (isEnglish(lang)) return
 
       const enResult = await searchEnglishLyrics(track, artist, Math.round(durationSec))
       if (enResult?.plainLyrics) {
-        setEnglishLines(enResult.plainLyrics.split("\n").filter(Boolean))
+        const lines = enResult.plainLyrics.split("\n").filter(Boolean)
+        setEnglishLines(lines, "found", null)
+        setDisplayMode("both")
+        const cached = getLyricsCache(videoId)
+        if (cached) {
+          setLyricsCache({ ...cached, englishLines: lines, englishSource: "found", translationBackend: null })
+        }
+        return
+      }
+
+      const translated = await translateLinesWithFallback(lyricLines, {
+        sourceLang: lang,
+        videoId,
+      })
+      if (!translated) return
+
+      setEnglishLines(translated.lines, "translated", translated.backend)
+      setDisplayMode("both")
+
+      const cached = getLyricsCache(videoId)
+      if (cached) {
+        setLyricsCache({
+          ...cached,
+          englishLines: translated.lines,
+          englishSource: "translated",
+          translationBackend: translated.backend,
+        })
       }
     },
-    [setEnglishLines, setLanguageCode],
+    [videoId, setEnglishLines, setLanguageCode, setDisplayMode],
   )
 
   const applyParsedLyrics = useCallback(
@@ -185,7 +227,13 @@ export function PlayerPage() {
       })
       setStatus("ready")
       if (cachePayload) setLyricsCache(cachePayload)
-      void loadEnglishTranslation(meta.track, meta.artist, durationSec, sample)
+      void loadEnglishTranslation(
+        meta.track,
+        meta.artist,
+        durationSec,
+        sample,
+        parsed.lines.map((l) => l.text),
+      )
     },
     [
       videoId,
@@ -197,6 +245,64 @@ export function PlayerPage() {
       setLoadedFromCache,
       loadEnglishTranslation,
     ],
+  )
+
+  const applyLyricsFromRaw = useCallback(
+    async (
+      lyricsResult: {
+        providerId: LyricsProviderId
+        plainLyrics: string | null
+        syncedLyrics: string | null
+        id: number | string
+      },
+      meta: { title: string; track: string; artist: string },
+      durationSec: number,
+      alternates: LyricsAlternate[] = [],
+    ) => {
+      let parsed =
+        lyricsResult.syncedLyrics?.trim()
+          ? parseLrc(lyricsResult.syncedLyrics, durationSec * 1000)
+          : lyricsResult.plainLyrics
+            ? parsePlainLyrics(lyricsResult.plainLyrics, durationSec * 1000)
+            : { lines: [], synced: false }
+
+      if (parsed.lines.length === 0 && lyricsResult.plainLyrics) {
+        parsed = parsePlainLyrics(lyricsResult.plainLyrics, durationSec * 1000)
+      }
+
+      if (parsed.lines.length === 0) {
+        setLyricsOutcome("partial")
+        setStatus("error", "Lyrics were found but contain no lines to display")
+        return false
+      }
+
+      const sample = lyricsResult.plainLyrics ?? parsed.lines.map((l) => l.text).join("\n")
+      const lang = detectLanguage(sample)
+      setLyricsAlternates(alternates)
+
+      await applyParsedLyrics(
+        parsed,
+        lyricsResult.providerId,
+        meta,
+        durationSec,
+        sample,
+        {
+          videoId,
+          lyricsResult,
+          providerId: lyricsResult.providerId,
+          lines: parsed.lines,
+          synced: parsed.synced,
+          alternates,
+          englishLines: [],
+          languageCode: lang,
+          title: meta.title,
+          artist: meta.artist,
+          track: meta.track,
+        },
+      )
+      return true
+    },
+    [videoId, applyParsedLyrics, setLyricsAlternates, setLyricsOutcome, setStatus],
   )
 
   const loadLyrics = useCallback(
@@ -240,6 +346,7 @@ export function PlayerPage() {
           })
           setEnglishLines(cached.englishLines)
           setLanguageCode(cached.languageCode)
+          setLyricsAlternates(cached.alternates ?? [])
           await applyParsedLyrics(
             { lines: cached.lines, synced: cached.synced },
             cached.providerId ?? cached.lyricsResult.providerId,
@@ -264,13 +371,17 @@ export function PlayerPage() {
           title,
           durationSec: Math.round(durationSec) || 0,
           oembedAuthor: oembedAuthorRef.current ?? undefined,
+          preferredLanguage: usePlayerStore.getState().languageCode,
           providerIds: options?.providerIds,
-          onProgress: ({ phase, step, retryRound, provider }) => {
-            setLyricsSearchPhase(provider ? `${phase}` : phase)
+          onProgress: ({ phase, step, retryRound, providersTried }) => {
+            setLyricsSearchPhase(phase)
             setLyricsSearchStep(step)
+            if (providersTried) setLyricsProvidersSearched(providersTried)
             if (retryRound) setNetworkRetryCount(retryRound)
           },
         })
+
+        setLyricsProvidersSearched(result.providersTried)
 
         for (const attempt of result.attempts) {
           if (attempt.result !== "skipped") {
@@ -281,49 +392,21 @@ export function PlayerPage() {
         if (typeof result.matchId === "number") setLrclibTrackId(result.matchId)
         else setLrclibTrackId(null)
 
-        if (result.status === "found" && result.lyrics) {
-          let parsed =
-            result.lyrics.syncedLyrics?.trim()
-              ? parseLrc(result.lyrics.syncedLyrics, durationSec * 1000)
-              : result.lyrics.plainLyrics
-                ? parsePlainLyrics(result.lyrics.plainLyrics, durationSec * 1000)
-                : { lines: [], synced: false }
-
-          if (parsed.lines.length === 0 && result.lyrics.plainLyrics) {
-            parsed = parsePlainLyrics(result.lyrics.plainLyrics, durationSec * 1000)
-          }
-
-          if (parsed.lines.length === 0) {
-            setLyricsOutcome("partial")
-            setStatus("error", "Lyrics were found but contain no lines to display")
-            return
-          }
-
-          const sample =
-            result.lyrics.plainLyrics ?? parsed.lines.map((l) => l.text).join("\n")
-          const lang = detectLanguage(sample)
-
-          await applyParsedLyrics(
-            parsed,
-            result.lyrics.providerId,
+        if ((result.status === "found" || result.status === "instrumental") && result.lyrics) {
+          const applied = await applyLyricsFromRaw(
+            result.lyrics,
             { title, track, artist },
             durationSec,
-            sample,
-            {
-              videoId,
-              lyricsResult: result.lyrics,
-              providerId: result.lyrics.providerId,
-              lines: parsed.lines,
-              synced: parsed.synced,
-              englishLines: [],
-              languageCode: lang,
-              title,
-              artist,
-              track,
-            },
+            result.alternates ?? [],
           )
+          if (applied && result.status === "instrumental") {
+            setLyricsOutcome("instrumental")
+            setStatus("error", "Song found — marked instrumental")
+          }
           return
         }
+
+        setLyricsAlternates([])
 
         setLyricsOutcome(result.status)
         setLyricsSearchPhase(result.message)
@@ -357,9 +440,49 @@ export function PlayerPage() {
       setLrclibTrackId,
       setLyricsOutcome,
       applyParsedLyrics,
+      applyLyricsFromRaw,
       setEnglishLines,
       setLanguageCode,
+      setLyricsAlternates,
+      setLyricsProvidersSearched,
     ],
+  )
+
+  const handleSelectAlternate = useCallback(
+    (alternate: LyricsAlternate) => {
+      const { title, artist, track } = usePlayerStore.getState()
+      const currentSource = usePlayerStore.getState().lyricsSource
+      const currentAlternates = usePlayerStore.getState().lyricsAlternates
+      const currentResult = getLyricsCache(videoId)?.lyricsResult
+
+      const nextAlternates = currentResult
+        ? [
+            {
+              providerId: currentResult.providerId,
+              id: currentResult.id,
+              synced: usePlayerStore.getState().lyricsSynced,
+              lineCount: usePlayerStore.getState().lyrics.length,
+              rankScore: 0,
+              lyricsResult: currentResult,
+            },
+            ...currentAlternates.filter(
+              (a) => a.providerId !== alternate.providerId || a.id !== alternate.id,
+            ),
+          ]
+        : currentAlternates.filter(
+            (a) => a.providerId !== alternate.providerId || a.id !== alternate.id,
+          )
+
+      void applyLyricsFromRaw(
+        alternate.lyricsResult,
+        { title, track, artist },
+        duration,
+        nextAlternates,
+      )
+      if (typeof alternate.id === "number") setLrclibTrackId(alternate.id)
+      else if (currentSource !== "lrclib") setLrclibTrackId(null)
+    },
+    [videoId, duration, applyLyricsFromRaw, setLrclibTrackId],
   )
 
   useEffect(() => {
@@ -403,8 +526,22 @@ export function PlayerPage() {
   )
 
   const handleTranslate = async () => {
-    const translated = await translateLines(lyrics.map((l) => l.text))
-    setEnglishLines(translated)
+    const result = await translateLinesWithFallback(
+      lyrics.map((l) => l.text),
+      { sourceLang: languageCode, videoId },
+    )
+    if (!result) return
+    setEnglishLines(result.lines, "translated", result.backend)
+    setDisplayMode("both")
+    const cached = getLyricsCache(videoId)
+    if (cached) {
+      setLyricsCache({
+        ...cached,
+        englishLines: result.lines,
+        englishSource: "translated",
+        translationBackend: result.backend,
+      })
+    }
   }
 
   const handleYoutubeRetry = useCallback(() => {
@@ -424,32 +561,40 @@ export function PlayerPage() {
           <p className="text-sm text-muted-foreground">Opening player…</p>
         </div>
       )}
-      <div className="flex flex-1 flex-col lg:flex-row">
-        <div
-          className={`flex flex-col ${videoHidden ? "lg:w-0" : "lg:w-1/2"} w-full border-b border-border lg:border-b-0 lg:border-r`}
-        >
-          <YouTubePanel containerRef={containerRef} hidden={videoHidden} />
+      <div className="flex h-[calc(100dvh-3.25rem)] min-h-0 flex-col overflow-hidden">
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5 text-sm">
+          <Link to="/" className="text-muted-foreground hover:text-foreground">
+            ← Home
+          </Link>
+            {!isEnglish(languageCode) && englishLines.length === 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => void handleTranslate()}
+              disabled={translating}
+            >
+              {translating ? "Translating…" : "Translate to English"}
+            </Button>
+          )}
+          {englishLines.length > 0 && englishLines.length !== lyrics.length && (
+            <span className="text-xs text-amber-500">Line count mismatch</span>
+          )}
         </div>
-        <div className={`flex flex-1 flex-col ${videoHidden ? "w-full" : "lg:w-1/2"}`}>
-          <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-sm">
-            <Link to="/" className="text-muted-foreground hover:text-foreground">
-              ← Home
-            </Link>
-            {!isEnglish(languageCode) && englishLines.length === 0 && available && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleTranslate()}
-                disabled={translating}
-              >
-                {translating ? "Translating…" : "Translate to English"}
-              </Button>
-            )}
-            {englishLines.length > 0 && englishLines.length !== lyrics.length && (
-              <span className="text-xs text-amber-500">Line count mismatch</span>
-            )}
-          </div>
-          <NowPlayingHeader />
+
+        <NowPlayingHeader onSelectAlternate={handleSelectAlternate} />
+
+        <div
+          className={
+            videoHidden
+              ? "hidden"
+              : "shrink-0 px-4 py-2 max-md:relative md:px-4"
+          }
+        >
+          <YouTubePanel containerRef={containerRef} hidden={videoHidden} compact />
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col">
           {youtubeError ? (
             <PlayerError
               title="Video couldn't load"
@@ -464,15 +609,16 @@ export function PlayerPage() {
               videoReady={ready}
             />
           )}
-          <TransportControls
-            duration={duration}
-            currentTime={currentTime}
-            isPlaying={isPlaying}
-            onPlay={play}
-            onPause={pause}
-            onSeek={seekTo}
-          />
         </div>
+
+        <TransportControls
+          duration={duration}
+          currentTime={currentTime}
+          isPlaying={isPlaying}
+          onPlay={play}
+          onPause={pause}
+          onSeek={seekTo}
+        />
       </div>
     </AppShell>
   )
