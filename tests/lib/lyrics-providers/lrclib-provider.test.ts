@@ -11,8 +11,8 @@ vi.mock("@/lib/lyrics-service", () => ({
   pickBestMatch: vi.fn(),
 }))
 
-import { searchByParams, searchByQuery } from "@/lib/lyrics-service"
-import { searchLrclibWithStrategies } from "@/lib/lyrics-providers/lrclib-provider"
+import { searchByParams, searchByQuery, fetchLyricsById, fetchLyricsByMetadata } from "@/lib/lyrics-service"
+import { lrclibProvider, searchLrclibWithStrategies } from "@/lib/lyrics-providers/lrclib-provider"
 
 const baseParams = {
   track: "Song",
@@ -100,5 +100,57 @@ describe("searchLrclibWithStrategies", () => {
 
     expect(results).toHaveLength(1)
     expect(results[0]?.externalId).toBe(2)
+  })
+})
+
+describe("lrclibProvider.search", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(searchByParams).mockResolvedValue([])
+    vi.mocked(searchByQuery).mockResolvedValue([])
+    vi.mocked(fetchLyricsById).mockResolvedValue(null)
+    vi.mocked(fetchLyricsByMetadata).mockResolvedValue(null)
+  })
+
+  it("returns the best search hit immediately when lyrics are already present", async () => {
+    vi.mocked(searchByParams).mockResolvedValue([
+      {
+        id: 1,
+        trackName: "Song",
+        artistName: "Artist",
+        duration: 200,
+        syncedLyrics: "[00:00.00] line",
+      },
+    ])
+
+    const results = await lrclibProvider.search(baseParams)
+
+    expect(results).toHaveLength(1)
+    expect(results[0]?.synced).toBe(true)
+    expect(fetchLyricsById).not.toHaveBeenCalled()
+    expect(fetchLyricsByMetadata).not.toHaveBeenCalled()
+  })
+
+  it("fetches full lyrics when the best search hit has metadata only", async () => {
+    vi.mocked(searchByParams).mockResolvedValue([
+      {
+        id: 1,
+        trackName: "Song",
+        artistName: "Artist",
+        duration: 200,
+      },
+    ])
+    vi.mocked(fetchLyricsById).mockResolvedValue({
+      id: 1,
+      providerId: "lrclib",
+      plainLyrics: "full lyrics",
+      syncedLyrics: null,
+    })
+
+    const results = await lrclibProvider.search(baseParams)
+
+    expect(results).toHaveLength(1)
+    expect(results[0]?.plainLyrics).toBe("full lyrics")
+    expect(fetchLyricsById).toHaveBeenCalled()
   })
 })
