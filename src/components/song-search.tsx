@@ -41,14 +41,17 @@ export function SongSearch() {
   const [activeIndex, setActiveIndex] = useState(-1)
   const navigate = useNavigate()
   const listId = useId()
+  const optionIdPrefix = useId()
   const requestId = useRef(0)
+
+  const optionId = (index: number) => `${optionIdPrefix}-option-${index}`
 
   const goToPlayer = (videoId: string) => {
     setOpening(true)
     navigate(`/play/${videoId}`, { state: { fromHome: true } })
   }
 
-  const runSearch = async (value: string) => {
+  const runSearch = async (value: string, signal?: AbortSignal) => {
     const trimmed = value.trim()
     const videoId = extractYouTubeVideoId(trimmed)
     if (videoId) {
@@ -72,15 +75,16 @@ export function SongSearch() {
     setError(null)
 
     try {
-      const hits = await searchSongs(trimmed, { limit: 10 })
+      const hits = await searchSongs(trimmed, { limit: 10, signal })
       if (currentRequest !== requestId.current) return
       setResults(hits)
       setActiveIndex(hits.length > 0 ? 0 : -1)
       if (hits.length === 0) {
         setError("No songs found. Try different keywords or paste a YouTube link below.")
       }
-    } catch {
+    } catch (err) {
       if (currentRequest !== requestId.current) return
+      if (err instanceof DOMException && err.name === "AbortError") return
       setResults([])
       setActiveIndex(-1)
       setError("Search unavailable right now. Paste a YouTube link below instead.")
@@ -103,12 +107,14 @@ export function SongSearch() {
       return
     }
 
+    const controller = new AbortController()
     const timer = window.setTimeout(() => {
-      void runSearch(trimmed)
+      void runSearch(trimmed, controller.signal)
     }, DEBOUNCE_MS)
 
     return () => {
       window.clearTimeout(timer)
+      controller.abort()
     }
   }, [query, opening])
 
@@ -117,18 +123,20 @@ export function SongSearch() {
     void runSearch(query)
   }
 
-  const onResultKeyDown = (e: KeyboardEvent<HTMLUListElement>) => {
+  const onInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (results.length === 0) return
 
     if (e.key === "ArrowDown") {
       e.preventDefault()
-      setActiveIndex((index) => (index + 1) % results.length)
+      setActiveIndex((index) => (index < 0 ? 0 : (index + 1) % results.length))
       return
     }
 
     if (e.key === "ArrowUp") {
       e.preventDefault()
-      setActiveIndex((index) => (index <= 0 ? results.length - 1 : index - 1))
+      setActiveIndex((index) =>
+        index < 0 ? results.length - 1 : index <= 0 ? results.length - 1 : index - 1,
+      )
       return
     }
 
@@ -143,6 +151,16 @@ export function SongSearch() {
       setResults([])
       setActiveIndex(-1)
       setError(null)
+    }
+  }
+
+  const onPaste = (value: string) => {
+    const videoId = extractYouTubeVideoId(value)
+    if (videoId) {
+      setError(null)
+      setResults([])
+      setActiveIndex(-1)
+      goToPlayer(videoId)
     }
   }
 
@@ -165,12 +183,21 @@ export function SongSearch() {
             placeholder="Search songs…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onInputKeyDown}
+            onPaste={(e) => {
+              const text = e.clipboardData.getData("text")
+              setTimeout(() => onPaste(text), 0)
+            }}
             disabled={opening}
             aria-invalid={!!error && results.length === 0}
             aria-describedby={statusMessage ? "song-search-status" : undefined}
             aria-controls={results.length > 0 ? listId : undefined}
             aria-expanded={results.length > 0}
             aria-autocomplete="list"
+            aria-haspopup="listbox"
+            aria-activedescendant={
+              activeIndex >= 0 && results.length > 0 ? optionId(activeIndex) : undefined
+            }
             role="combobox"
           />
           <Button type="submit" className="shrink-0" disabled={opening || loading}>
@@ -192,12 +219,7 @@ export function SongSearch() {
       ) : null}
 
       {results.length > 0 ? (
-        <ul
-          id={listId}
-          role="listbox"
-          onKeyDown={onResultKeyDown}
-          className="divide-y divide-border rounded-lg border border-border bg-card"
-        >
+        <ul id={listId} role="listbox" className="divide-y divide-border rounded-lg border border-border bg-card">
           {results.map((hit, index) => {
             const label = formatResultLabel(hit)
             const meta = formatResultMeta(hit)
@@ -206,6 +228,7 @@ export function SongSearch() {
             return (
               <li key={hit.videoId} role="presentation">
                 <button
+                  id={optionId(index)}
                   type="button"
                   role="option"
                   aria-selected={active}

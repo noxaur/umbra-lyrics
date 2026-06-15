@@ -65,4 +65,67 @@ describe("SongSearch", () => {
       state: { fromHome: true },
     })
   })
+
+  it("navigates with arrow keys and enter", async () => {
+    mockSearchSongs.mockResolvedValue([
+      {
+        videoId: "aaaaaaaaaaa",
+        title: "First Song",
+        channel: "Channel A",
+        durationSec: 180,
+      },
+      {
+        videoId: "bbbbbbbbbbb",
+        title: "Second Song",
+        channel: "Channel B",
+        durationSec: 200,
+      },
+    ])
+
+    render(
+      <MemoryRouter>
+        <SongSearch />
+      </MemoryRouter>,
+    )
+
+    const input = screen.getByPlaceholderText(/search songs/i)
+    fireEvent.change(input, { target: { value: "test query" } })
+    fireEvent.click(screen.getByRole("button", { name: /search/i }))
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("option")).toHaveLength(2)
+    })
+
+    fireEvent.keyDown(input, { key: "ArrowDown" })
+    fireEvent.keyDown(input, { key: "Enter" })
+
+    expect(mockNavigate).toHaveBeenCalledWith("/play/bbbbbbbbbbb", {
+      state: { fromHome: true },
+    })
+  })
+
+  it("opens pasted YouTube links immediately", async () => {
+    vi.useFakeTimers()
+
+    render(
+      <MemoryRouter>
+        <SongSearch />
+      </MemoryRouter>,
+    )
+
+    const input = screen.getByPlaceholderText(/search songs/i)
+    fireEvent.paste(input, {
+      clipboardData: {
+        getData: () => "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      },
+    })
+
+    await vi.runAllTimersAsync()
+
+    expect(mockNavigate).toHaveBeenCalledWith("/play/dQw4w9WgXcQ", {
+      state: { fromHome: true },
+    })
+
+    vi.useRealTimers()
+  })
 })
