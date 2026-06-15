@@ -28,7 +28,8 @@ export function calibrateSyncedLyrics(lines: LyricLine[], durationMs: number): L
     }))
   }
 
-  const firstStart = vocal[0].startMs
+  const firstVocal = calibrated.find((line) => line.kind !== "section" && line.text.trim())
+  const firstStart = firstVocal?.startMs ?? vocal[0].startMs
   if (firstStart > durationMs * 0.25) {
     const introCap = Math.min(durationMs * 0.12, firstStart * 0.35)
     const shift = Math.max(0, firstStart - introCap)

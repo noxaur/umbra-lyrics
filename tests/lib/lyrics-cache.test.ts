@@ -52,6 +52,16 @@ describe("lyrics-cache", () => {
     expect(getLyricsCache("abc12345678")).toBeNull()
   })
 
+  it("still reads v5 cache entries for migration", () => {
+    localStorage.setItem(
+      "song-kara-lyrics:abc12345678",
+      JSON.stringify({ ...sampleEntry, v: 5, cachedAt: 1 }),
+    )
+    const cached = getLyricsCache("abc12345678")
+    expect(cached).not.toBeNull()
+    expect(cached?.v).toBe(5)
+  })
+
   it("rejects mismatched videoId in payload", () => {
     localStorage.setItem(
       "song-kara-lyrics:abc12345678",

@@ -16,6 +16,17 @@ describe("lrc-sync-calibration", () => {
     expect(calibrated[1].startMs).toBeLessThan(240_000)
   })
 
+  it("does not over-shift intro after timestamps were scaled down", () => {
+    const lines: LyricLine[] = [
+      { startMs: 70_000, endMs: 73_000, text: "Late start" },
+      { startMs: 300_000, endMs: 305_000, text: "End" },
+    ]
+    const calibrated = calibrateSyncedLyrics(lines, 240_000)
+    const first = calibrated.find((line) => line.text === "Late start")
+    expect(first?.startMs).toBeLessThan(70_000)
+    expect(first?.startMs ?? 0).toBeGreaterThan(20_000)
+  })
+
   it("suggests negative offset for late first lyrics", () => {
     const lines: LyricLine[] = [{ startMs: 45_000, endMs: 48_000, text: "Late start" }]
     const offset = estimateIntroSyncOffsetMs(lines, 240_000)
