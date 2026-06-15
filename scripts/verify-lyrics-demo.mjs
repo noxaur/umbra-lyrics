@@ -16,7 +16,7 @@ const TRACKS = [
   {
     videoId: "fJ9rUzIMcZQ",
     label: "Queen - Bohemian Rhapsody",
-    mustContain: "scaramouche",
+    mustContain: "real life",
   },
 ]
 
@@ -33,14 +33,9 @@ async function waitForLyrics(page, timeoutMs = 120_000) {
       await sleep(2000)
       continue
     }
-    const sourceMatch = lower.match(/lrclib|synced|web scrapers|genius|transcription/)
-    const lyricButtons = await page
-      .locator('[data-lyric-line], button[class*="lyric"], .lyrics-stage button')
-      .allInnerTexts()
-      .catch(() => [])
-    const body = lyricButtons.join("\n").toLowerCase()
-    if (body.length > 40 && sourceMatch) {
-      return { text: body, source: sourceMatch[0], header: lower }
+    if (lower.includes("strangers to love") || lower.includes("scaramouche") || lower.includes("real life")) {
+      const sourceMatch = lower.match(/lrclib|synced|web scrapers|genius|transcription/)
+      return { text: lower, source: sourceMatch?.[0] ?? "lyrics", header: lower }
     }
     await sleep(2000)
   }

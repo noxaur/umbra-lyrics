@@ -125,7 +125,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   currentTime: 0,
   syncOffsetMs: 0,
   videoHidden: localStorage.getItem(VIDEO_HIDDEN_KEY) === "true",
-  showTimestamps: localStorage.getItem(SHOW_TIMESTAMPS_KEY) !== "false",
+  showTimestamps: localStorage.getItem(SHOW_TIMESTAMPS_KEY) === "true",
   focusMode: localStorage.getItem(FOCUS_MODE_KEY) === "true",
   tvMode: localStorage.getItem(TV_MODE_KEY) === "true",
   activeIndex: -1,
