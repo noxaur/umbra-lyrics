@@ -1,14 +1,111 @@
+/** YouTube video IDs are always 11 characters: letters, digits, underscore, hyphen. */
+export const YOUTUBE_VIDEO_ID_RE = /^[\w-]{11}$/
+
+/** Public karaoke share origin (custom domain). */
+export const KARAOKE_PUBLIC_ORIGIN = "https://song.opsec.rent"
+
+const YOUTUBE_HOST_RE = /(^|\.)youtube(-nocookie)?\.com$|^youtu\.be$/i
+
+/**
+ * Path-based patterns where the video ID appears as a URL segment.
+ * Covers watch (v= handled separately), youtu.be, embed, shorts, live, legacy paths.
+ */
+const YOUTUBE_PATH_PATTERNS = [
+  /youtu\.be\/([\w-]{11})/,
+  /youtube(?:-nocookie)?\.com\/embed\/([\w-]{11})/,
+  /youtube\.com\/shorts\/([\w-]{11})/,
+  /youtube\.com\/live\/([\w-]{11})/,
+  /youtube\.com\/(?:v|e|vi)\/([\w-]{11})/,
+  /music\.youtube\.com\/watch/,
+  /youtube\.com\/watch/,
+] as const
+
+/** Karaoke app share URLs: song.opsec.rent/play/ID or any host /play/ID (incl. dev). */
+const KARAOKE_PLAY_PATTERN = /\/play\/([\w-]{11})(?:[/?#]|$)/
+
+function matchPathPatterns(input: string): string | null {
+  for (const pattern of YOUTUBE_PATH_PATTERNS) {
+    const match = input.match(pattern)
+    if (match?.[1]) return match[1]
+  }
+  return null
+}
+
+function matchVQueryParam(input: string): string | null {
+  try {
+    const url = new URL(/^https?:\/\//i.test(input) ? input : `https://${input}`)
+    if (!YOUTUBE_HOST_RE.test(url.hostname)) return null
+    const v = url.searchParams.get("v")
+    if (v && YOUTUBE_VIDEO_ID_RE.test(v)) return v
+  } catch {
+    // Not a parseable URL
+  }
+  return null
+}
+
+function matchKaraokePlayUrl(input: string): string | null {
+  const trimmed = input.trim()
+  const relative = trimmed.match(/^\/play\/([\w-]{11})$/)
+  if (relative) return relative[1]
+
+  const match = trimmed.match(KARAOKE_PLAY_PATTERN)
+  if (match?.[1]) return match[1]
+
+  return null
+}
+
+/**
+ * Extract an 11-character YouTube video ID from common share URL formats.
+ *
+ * Supported YouTube formats:
+ * - `youtube.com/watch?v=ID` (with optional `&list=`, `&t=`, `&si=` params)
+ * - `youtu.be/ID` (with optional `?si=` sharing param)
+ * - `youtube.com/embed/ID`, `youtube-nocookie.com/embed/ID`
+ * - `youtube.com/shorts/ID`, `youtube.com/live/ID`
+ * - `music.youtube.com/watch?v=ID`, `m.youtube.com/watch?v=ID`
+ * - Legacy `youtube.com/v/ID`, `/e/ID`, `/vi/ID`
+ * - Bare 11-character video ID
+ *
+ * Supported karaoke share formats:
+ * - `https://song.opsec.rent/play/ID`
+ * - `/play/ID` (relative, e.g. dev server)
+ * - `http://localhost:5173/play/ID`
+ */
 export function extractYouTubeVideoId(input: string): string | null {
   const trimmed = input.trim()
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([\w-]{11})/,
-  ]
-  for (const p of patterns) {
-    const m = trimmed.match(p)
-    if (m) return m[1]
-  }
-  if (/^[\w-]{11}$/.test(trimmed)) return trimmed
+  if (!trimmed) return null
+
+  const karaokeId = matchKaraokePlayUrl(trimmed)
+  if (karaokeId) return karaokeId
+
+  const pathId = matchPathPatterns(trimmed)
+  if (pathId) return pathId
+
+  const queryId = matchVQueryParam(trimmed)
+  if (queryId) return queryId
+
+  if (YOUTUBE_VIDEO_ID_RE.test(trimmed)) return trimmed
+
   return null
+}
+
+export function isYouTubeUrl(input: string): boolean {
+  const trimmed = input.trim()
+  if (!trimmed || YOUTUBE_VIDEO_ID_RE.test(trimmed)) return false
+  return (
+    /youtube|youtu\.be/i.test(trimmed) &&
+    extractYouTubeVideoId(trimmed) !== null &&
+    !isKaraokePlayUrl(trimmed)
+  )
+}
+
+export function isKaraokePlayUrl(input: string): boolean {
+  const trimmed = input.trim()
+  return (
+    /song\.opsec\.rent\/play\//i.test(trimmed) ||
+    /^\/play\/[\w-]{11}$/.test(trimmed) ||
+    /\/play\/[\w-]{11}(?:[/?#]|$)/.test(trimmed)
+  )
 }
 
 export function youTubeWatchUrl(videoId: string): string {
@@ -17,4 +114,21 @@ export function youTubeWatchUrl(videoId: string): string {
 
 export function youTubeMusicWatchUrl(videoId: string): string {
   return `https://music.youtube.com/watch?v=${videoId}`
+}
+
+/** Build a shareable karaoke player URL on the public custom domain. */
+export function karaokePlayUrl(
+  videoId: string,
+  origin: string = KARAOKE_PUBLIC_ORIGIN,
+): string {
+  return `${origin.replace(/\/$/, "")}/play/${videoId}`
+}
+
+/**
+ * Convert any supported YouTube or karaoke URL (or bare video ID) into
+ * `https://song.opsec.rent/play/VIDEO_ID`.
+ */
+export function toKaraokePlayUrl(input: string): string | null {
+  const id = extractYouTubeVideoId(input)
+  return id ? karaokePlayUrl(id) : null
 }
