@@ -65,6 +65,7 @@ export function LyricsStage({
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef<HTMLButtonElement>(null)
   const lastLineChangeRef = useRef(0)
+  const prevDisplayModeRef = useRef(displayMode)
   const [showCacheBadge, setShowCacheBadge] = useState(false)
 
   const timeMs = currentTime * 1000
@@ -116,6 +117,8 @@ export function LyricsStage({
 
   useEffect(() => {
     if (activeIndex < 0) return
+    if (prevDisplayModeRef.current === displayMode) return
+    prevDisplayModeRef.current = displayMode
 
     let raf2 = 0
     const raf1 = requestAnimationFrame(() => {
@@ -137,6 +140,7 @@ export function LyricsStage({
       scrollLineToCenter(element, container, "auto")
     })
     observer.observe(element)
+    observer.observe(container)
     return () => observer.disconnect()
   }, [activeIndex, displayMode])
 
