@@ -13,11 +13,12 @@ export function LyricsSourcePicker({ onSelectAlternate }: LyricsSourcePickerProp
   const lyricsAlternates = usePlayerStore((s) => s.lyricsAlternates)
   const [open, setOpen] = useState(false)
 
-  if (!lyricsSource || lyricsSource === "pasted" || lyricsAlternates.length === 0) {
+  if (!lyricsSource || lyricsSource === "pasted" || lyricsSource === "translated" || lyricsAlternates.length === 0) {
     return null
   }
 
-  const sourceLabel = LYRICS_PROVIDER_LABELS[lyricsSource] ?? lyricsSource
+  const sourceLabel =
+    LYRICS_PROVIDER_LABELS[lyricsSource as keyof typeof LYRICS_PROVIDER_LABELS] ?? lyricsSource
   const altCount = lyricsAlternates.length
 
   return (

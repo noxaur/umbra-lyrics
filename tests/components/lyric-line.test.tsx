@@ -8,6 +8,7 @@ describe("LyricLine", () => {
       <LyricLine
         text="Hello world"
         active
+        distanceFromActive={0}
         synced
         progress={0.5}
         displayMode="native"
@@ -23,6 +24,7 @@ describe("LyricLine", () => {
       <LyricLine
         text="Approximate line"
         active
+        distanceFromActive={0}
         synced={false}
         progress={0.5}
         displayMode="native"
@@ -35,7 +37,14 @@ describe("LyricLine", () => {
 
   it("uses venue-scale classes on active lines", () => {
     render(
-      <LyricLine text="Big line" active synced progress={0} displayMode="native" />,
+      <LyricLine
+        text="Big line"
+        active
+        distanceFromActive={0}
+        synced
+        progress={0}
+        displayMode="native"
+      />,
     )
     const outerSpan = screen.getByText("Big line").parentElement
     expect(outerSpan?.className).toContain("lg:text-[clamp(5rem,5vw,7rem)]")
