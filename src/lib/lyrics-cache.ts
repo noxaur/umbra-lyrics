@@ -7,7 +7,7 @@ import { lyricsLanguageMatchesMetadata } from "@/lib/language-service"
 import { lyricsTextLooksLikeJunk } from "@/lib/sanitize-lyrics"
 
 const STORAGE_PREFIX = "song-kara-lyrics:"
-const CACHE_VERSION = 6
+const CACHE_VERSION = 7
 
 export type LyricsCacheEntry = {
   v: number
@@ -17,6 +17,7 @@ export type LyricsCacheEntry = {
   lines: LyricLine[]
   synced: boolean
   autoTimed?: boolean
+  aligned?: boolean
   parsedDurationMs?: number
   englishLines: string[]
   englishSource?: EnglishSource
@@ -41,7 +42,8 @@ function isValidEntry(value: unknown): value is LyricsCacheEntry {
       entry.v === 2 ||
       entry.v === 3 ||
       entry.v === 4 ||
-      entry.v === 5) &&
+      entry.v === 5 ||
+      entry.v === 6) &&
     typeof entry.videoId === "string" &&
     Array.isArray(entry.lines) &&
     typeof entry.synced === "boolean" &&
