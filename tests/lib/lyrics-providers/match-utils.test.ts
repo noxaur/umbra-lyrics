@@ -36,8 +36,27 @@ describe("match-utils", () => {
         plainLyrics: "correct",
       },
     ]
-    const best = pickBestCandidate(results, 255, "天音かなた")
+    const best = pickBestCandidate(results, 255, "天音かなた", "別世界")
     expect(best?.artistName).toBe("天音かなた")
+  })
+
+  it("prefers track match over unrelated English hit", () => {
+    const results = [
+      {
+        trackName: "Swim",
+        artistName: "Kitri",
+        duration: 246,
+        plainLyrics: "Swim, swim\nWater falling off your skin",
+      },
+      {
+        trackName: "別世界",
+        artistName: "天音かなた",
+        duration: 246,
+        plainLyrics: "作詞の空白を埋めるみたいに",
+      },
+    ]
+    const best = pickBestCandidate(results, 246, "天音かなた", "別世界")
+    expect(best?.trackName).toBe("別世界")
   })
 
   it("ranks synced hits above plain text", () => {

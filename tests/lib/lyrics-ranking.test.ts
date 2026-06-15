@@ -131,6 +131,34 @@ describe("lyrics-ranking", () => {
     expect(alternates[0].score).toBeLessThanOrEqual(alternates[1].score)
   })
 
+  it("penalizes language mismatch for Japanese metadata", () => {
+    const english = candidate({
+      providerId: "aggregated-scraper",
+      externalId: "swim",
+      trackName: "Swim",
+      artistName: "Kitri",
+      plainLyrics: "Swim, swim\nWater falling off your skin\nLine three\nLine four",
+    })
+    const japanese = candidate({
+      providerId: "lrclib",
+      externalId: 2,
+      trackName: "別世界",
+      artistName: "天音かなた",
+      plainLyrics: "作詞の空白を埋めるみたいに\n遠い遠い別世界まで\nLine three\nLine four",
+    })
+
+    const jpContext = {
+      ...rankContext,
+      artist: "天音かなた",
+      track: "別世界",
+      preferredLanguage: "ja" as const,
+    }
+
+    expect(rankLyricsCandidate(japanese, jpContext)).toBeLessThan(
+      rankLyricsCandidate(english, jpContext),
+    )
+  })
+
   it("documents weight constants for plain-not-synced penalty", () => {
     expect(RANK_WEIGHTS.PLAIN_NOT_SYNCED).toBe(500)
     expect(RANK_WEIGHTS.PROVIDER_PRIORITY_MULT).toBe(10)

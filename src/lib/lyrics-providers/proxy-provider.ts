@@ -84,13 +84,14 @@ export function createProxyLyricsProvider(config: ProxyProviderConfig): LyricsPr
               },
               params.durationSec,
               params.artist,
+              params.track,
             ),
             languageHint,
           })
         }
       }
 
-      const best = pickBestCandidate(candidates, params.durationSec, params.artist)
+      const best = pickBestCandidate(candidates, params.durationSec, params.artist, params.track)
       return best ? [best] : candidates.slice(0, 3)
     },
   }

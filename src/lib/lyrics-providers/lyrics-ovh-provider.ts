@@ -55,12 +55,13 @@ export const lyricsOvhProvider: LyricsProvider = {
           { trackName: track, artistName: artist },
           params.durationSec,
           params.artist,
+          params.track,
         ),
       }
       candidates.push(candidate)
     }
 
-    const best = pickBestCandidate(candidates, params.durationSec, params.artist)
+    const best = pickBestCandidate(candidates, params.durationSec, params.artist, params.track)
     return best ? [best] : candidates
   },
 }

@@ -61,12 +61,13 @@ export const megalobizProvider: LyricsProvider = {
             },
             params.durationSec,
             params.artist,
+            params.track,
           ),
         })
       }
     }
 
-    const best = pickBestCandidate(candidates, params.durationSec, params.artist)
+    const best = pickBestCandidate(candidates, params.durationSec, params.artist, params.track)
     return best ? [best] : candidates.slice(0, 3)
   },
 }

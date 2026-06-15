@@ -34,7 +34,12 @@ async function searchAggregatedScraper(
   return data.candidates ?? []
 }
 
-function toCandidate(hit: ScraperHit, durationSec: number, artist: string): ProviderLyricsCandidate {
+function toCandidate(
+  hit: ScraperHit,
+  durationSec: number,
+  artist: string,
+  track: string,
+): ProviderLyricsCandidate {
   const synced = Boolean(hit.syncedLyrics?.trim())
   return {
     providerId: "aggregated-scraper",
@@ -53,6 +58,7 @@ function toCandidate(hit: ScraperHit, durationSec: number, artist: string): Prov
       },
       durationSec,
       artist,
+      track,
     ),
   }
 }
@@ -80,11 +86,11 @@ export const aggregatedScraperProvider: LyricsProvider = {
 
       const q = [artist, track].filter(Boolean).join(" ")
       for (const hit of await searchAggregatedScraper(artist, track, q)) {
-        candidates.push(toCandidate(hit, params.durationSec, params.artist))
+        candidates.push(toCandidate(hit, params.durationSec, params.artist, params.track))
       }
     }
 
-    const best = pickBestCandidate(candidates, params.durationSec, params.artist)
+    const best = pickBestCandidate(candidates, params.durationSec, params.artist, params.track)
     return best ? [best, ...candidates.filter((c) => c.externalId !== best.externalId).slice(0, 4)] : candidates.slice(0, 5)
   },
 }

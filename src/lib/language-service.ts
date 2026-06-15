@@ -1,5 +1,9 @@
 import { franc } from "franc-min"
 
+const CJK_RE = /[\u3040-\u30ff\u4e00-\u9fff]/
+const HANGUL_RE = /[\uac00-\ud7af]/
+const CYRILLIC_RE = /[\u0400-\u04ff]/
+
 /** ISO 639-3 (franc) → BCP-47 for Translator API and translation backends. */
 const ISO639_3_TO_BCP47: Record<string, string> = {
   eng: "en",
@@ -53,6 +57,63 @@ export function detectLanguage(text: string): string {
 export function isEnglish(code: string): boolean {
   const normalized = code.toLowerCase()
   return normalized === "en" || normalized === "eng"
+}
+
+export function hasCjkScript(text: string): boolean {
+  return CJK_RE.test(text)
+}
+
+function isLatinScriptLyrics(text: string): boolean {
+  const sample = text.slice(0, 800).trim()
+  if (!sample) return false
+  return !CJK_RE.test(sample) && !HANGUL_RE.test(sample) && !CYRILLIC_RE.test(sample)
+}
+
+/** Infer expected lyric language from video metadata (not store defaults). */
+export function inferPreferredLanguage(meta: {
+  title?: string
+  artist?: string
+  track?: string
+  oembedAuthor?: string
+}): string | undefined {
+  const combined = [meta.title, meta.artist, meta.track, meta.oembedAuthor]
+    .filter(Boolean)
+    .join(" ")
+  if (!combined.trim()) return undefined
+  if (HANGUL_RE.test(combined)) return "ko"
+  if (CJK_RE.test(combined)) return "ja"
+  if (CYRILLIC_RE.test(combined)) return "ru"
+  return undefined
+}
+
+export function lyricsLanguageMatchesMetadata(
+  lyricsText: string,
+  meta: { title?: string; artist?: string; track?: string; oembedAuthor?: string },
+): boolean {
+  const preferred = inferPreferredLanguage(meta)
+  if (!preferred) return true
+
+  if (preferred === "ja") {
+    if (hasCjkScript(lyricsText)) return true
+    if (isLatinScriptLyrics(lyricsText)) return false
+    return true
+  }
+
+  if (preferred === "ko") {
+    if (HANGUL_RE.test(lyricsText)) return true
+    if (isLatinScriptLyrics(lyricsText)) return false
+    return true
+  }
+
+  if (preferred === "ru") {
+    if (CYRILLIC_RE.test(lyricsText)) return true
+    return !isEnglish(detectLanguage(lyricsText))
+  }
+
+  const detected = detectLanguage(lyricsText)
+  if (detected === preferred) return true
+  if (isEnglish(detected) && !isEnglish(preferred)) return false
+  return true
 }
 
 /** BCP-47 source → MyMemory langpair prefix (e.g. `ja|en`). */

@@ -1,5 +1,6 @@
 import { detectLanguage } from "@/lib/language-service"
 import { scoreCandidate } from "@/lib/lyrics-providers/match-utils"
+import { lyricsTextLooksLikeJunk } from "@/lib/sanitize-lyrics"
 import type { LyricsProviderId } from "@/types/lyrics"
 import type { ProviderLyricsCandidate } from "@/lib/lyrics-providers/types"
 
@@ -23,6 +24,7 @@ export const RANK_WEIGHTS = {
   LANGUAGE_MISMATCH: 150,
   LOW_LINE_COUNT: 100,
   SHORT_TEXT: 80,
+  JUNK_TEXT: 300,
   MIN_LINES_FOR_FULL: 4,
   MIN_CHARS_FOR_FULL: 80,
 } as const
@@ -71,7 +73,7 @@ export function rankLyricsCandidate(
   candidate: ProviderLyricsCandidate,
   context: LyricsRankContext,
 ): number {
-  let score = scoreCandidate(candidate, context.durationSec, context.artist)
+  let score = scoreCandidate(candidate, context.durationSec, context.artist, context.track)
 
   if (!candidate.synced) score += RANK_WEIGHTS.PLAIN_NOT_SYNCED
   score += context.providerPriority(candidate.providerId) * RANK_WEIGHTS.PROVIDER_PRIORITY_MULT
@@ -83,6 +85,9 @@ export function rankLyricsCandidate(
   }
   if (text.length > 0 && text.length < RANK_WEIGHTS.MIN_CHARS_FOR_FULL) {
     score += RANK_WEIGHTS.SHORT_TEXT
+  }
+  if (lyricsTextLooksLikeJunk(text)) {
+    score += RANK_WEIGHTS.JUNK_TEXT
   }
 
   score += languageMismatchPenalty(text, context.preferredLanguage)
@@ -109,9 +114,14 @@ export function pickBestAndAlternates(
 ): { best: RankedLyricsCandidate | null; alternates: RankedLyricsCandidate[] } {
   const ranked = rankLyricsCandidates(candidates, context)
   const withLyrics = ranked.filter(
-    (r) =>
-      lyricsTextOf(r.candidate).length > 0 &&
-      !r.candidate.instrumental,
+    (r) => {
+      const text = lyricsTextOf(r.candidate)
+      return (
+        text.length > 0 &&
+        !r.candidate.instrumental &&
+        !lyricsTextLooksLikeJunk(text)
+      )
+    },
   )
 
   if (withLyrics.length > 0) {

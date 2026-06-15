@@ -1,9 +1,11 @@
 import type { LyricLine, LyricsAlternate, LyricsProviderId, LyricsResult } from "@/types/lyrics"
 import type { TranslationBackend } from "@/lib/translation-service"
 import type { EnglishSource } from "@/stores/player-store"
+import { lyricsLanguageMatchesMetadata } from "@/lib/language-service"
+import { lyricsTextLooksLikeJunk } from "@/lib/sanitize-lyrics"
 
 const STORAGE_PREFIX = "song-kara-lyrics:"
-const CACHE_VERSION = 4
+const CACHE_VERSION = 5
 
 export type LyricsCacheEntry = {
   v: number
@@ -32,7 +34,7 @@ function isValidEntry(value: unknown): value is LyricsCacheEntry {
   if (!value || typeof value !== "object") return false
   const entry = value as LyricsCacheEntry
   return (
-    (entry.v === CACHE_VERSION || entry.v === 2 || entry.v === 3) &&
+    (entry.v === CACHE_VERSION || entry.v === 2 || entry.v === 3 || entry.v === 4) &&
     typeof entry.videoId === "string" &&
     Array.isArray(entry.lines) &&
     typeof entry.synced === "boolean" &&
@@ -40,6 +42,16 @@ function isValidEntry(value: unknown): value is LyricsCacheEntry {
     (typeof entry.lyricsResult.id === "number" || typeof entry.lyricsResult.id === "string") &&
     typeof entry.lyricsResult.providerId === "string"
   )
+}
+
+function isTrustedCacheEntry(entry: LyricsCacheEntry): boolean {
+  const text = entry.lines.map((line) => line.text).join("\n")
+  if (lyricsTextLooksLikeJunk(text)) return false
+  return lyricsLanguageMatchesMetadata(text, {
+    title: entry.title,
+    artist: entry.artist,
+    track: entry.track,
+  })
 }
 
 export function getLyricsCache(videoId: string): LyricsCacheEntry | null {
@@ -50,6 +62,10 @@ export function getLyricsCache(videoId: string): LyricsCacheEntry | null {
     const parsed: unknown = JSON.parse(raw)
     if (!isValidEntry(parsed) || parsed.videoId !== videoId) return null
     if (parsed.lines.length === 0) return null
+    if (parsed.v !== CACHE_VERSION || !isTrustedCacheEntry(parsed)) {
+      localStorage.removeItem(storageKey(videoId))
+      return null
+    }
     return parsed
   } catch {
     return null

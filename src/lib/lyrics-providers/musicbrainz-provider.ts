@@ -98,7 +98,12 @@ async function lrclibFromCanonical(
     .filter((r) => hasLyricsText(r))
     .map((r) => lrclibSearchResultToCandidate(r, { ...params, durationSec }))
 
-  const best = pickBestCandidate(candidates, durationSec, canonical.artist || params.artist)
+  const best = pickBestCandidate(
+    candidates,
+    durationSec,
+    canonical.artist || params.artist,
+    canonical.track || params.track,
+  )
   if (!best) return []
 
   const resolved = await fetchLrclibCandidate(best)

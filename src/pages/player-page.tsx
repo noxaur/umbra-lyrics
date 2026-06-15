@@ -16,7 +16,8 @@ import { parseLrc, parsePlainLyrics } from "@/lib/lrc-parser"
 import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
 import { getLyricsCache, setLyricsCache } from "@/lib/lyrics-cache"
 import { searchEnglishLyrics } from "@/lib/lyrics-service"
-import { detectLanguage, isEnglish } from "@/lib/language-service"
+import { detectLanguage, inferPreferredLanguage, isEnglish } from "@/lib/language-service"
+import { sanitizeLyricsText } from "@/lib/sanitize-lyrics"
 import { translateLinesWithFallback } from "@/lib/translation-service"
 import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
 import { parseTrackTitle } from "@/lib/parse-track-title"
@@ -29,7 +30,7 @@ function applyLyricsText(
   text: string,
   durationSec: number,
 ): { lines: LyricLine[]; synced: boolean; autoTimed?: boolean } | null {
-  const trimmed = text.trim()
+  const trimmed = sanitizeLyricsText(text.trim())
   if (!trimmed) return null
 
   const durationMs = durationSec * 1000
@@ -384,7 +385,12 @@ export function PlayerPage() {
           title,
           durationSec: Math.round(durationSec) || 0,
           oembedAuthor: oembedAuthorRef.current ?? undefined,
-          preferredLanguage: usePlayerStore.getState().languageCode,
+          preferredLanguage: inferPreferredLanguage({
+            title,
+            artist,
+            track,
+            oembedAuthor: oembedAuthorRef.current ?? undefined,
+          }),
           providerIds: options?.providerIds,
           onProgress: ({ phase, step, retryRound, providersTried }) => {
             setLyricsSearchPhase(phase)

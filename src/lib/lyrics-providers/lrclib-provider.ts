@@ -26,7 +26,7 @@ function toCandidate(
     plainLyrics: result.plainLyrics ?? null,
     syncedLyrics: result.syncedLyrics ?? null,
     synced,
-    confidence: scoreCandidate(result, params.durationSec, params.artist),
+    confidence: scoreCandidate(result, params.durationSec, params.artist, params.track),
   }
 }
 
@@ -172,7 +172,7 @@ export const lrclibProvider: LyricsProvider = {
   searchPhase: "Searching LRCLIB…",
   async search(params) {
     const candidates = await searchLrclibWithStrategies(params)
-    const best = pickBestCandidate(candidates, params.durationSec, params.artist)
+    const best = pickBestCandidate(candidates, params.durationSec, params.artist, params.track)
     if (!best) return []
 
     const ranked = [
