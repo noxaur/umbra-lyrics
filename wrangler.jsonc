@@ -3,10 +3,12 @@
   "name": "song-kara",
   "main": "worker/index.ts",
   "compatibility_date": "2025-06-15",
+  "workers_dev": true,
+  "preview_urls": false,
   "routes": [
     {
-      "pattern": "song.opsec.rent",
-      "custom_domain": true
+      "pattern": "song.opsec.rent/*",
+      "zone_name": "opsec.rent"
     }
   ],
   "assets": {

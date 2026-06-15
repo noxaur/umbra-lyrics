@@ -36,7 +36,20 @@ npm run preview
 npm run deploy
 ```
 
-The app deploys as a Cloudflare Worker with static assets (`@cloudflare/vite-plugin`) and lyrics API routes on `/api/*`. Custom domain: **song.opsec.rent**.
+The app deploys as a Cloudflare Worker with static assets (`@cloudflare/vite-plugin`) and lyrics API routes on `/api/*`.
+
+**Live URLs**
+
+| URL | Notes |
+|-----|-------|
+| https://song-kara.nox-heights.workers.dev | Always works; primary fallback |
+| https://song.opsec.rent | Custom domain on `opsec.rent` zone |
+
+If `song.opsec.rent` shows "Server Not Found" in your browser, your local DNS resolver may have a stale cache. Try:
+
+1. Use the workers.dev URL above, or
+2. Set your device DNS to `1.1.1.1` / `8.8.8.8`, or
+3. In Cloudflare dashboard → **opsec.rent** → **DNS**: ensure a proxied **A** record exists for `song` → `192.0.2.0` (not a Worker-type record). Delete any stale Worker record, then redeploy.
 
 Local dev runs the Worker runtime via `vp dev` (Vite+ + Cloudflare plugin).
 
