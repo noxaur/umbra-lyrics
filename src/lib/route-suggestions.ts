@@ -1,4 +1,8 @@
-import { extractYouTubeVideoId, YOUTUBE_VIDEO_ID_RE } from "@/lib/youtube-url"
+import {
+  extractYouTubeVideoId,
+  KARAOKE_PUBLIC_ORIGIN,
+  YOUTUBE_VIDEO_ID_RE,
+} from "@/lib/youtube-url"
 
 export type RouteSuggestion = {
   href: string
@@ -74,7 +78,11 @@ function bestAliasScore(segment: string, aliases: string[]): number {
   let best = Infinity
   for (const alias of aliases) {
     if (segment === alias) return 0
-    if (segment.startsWith(alias) || alias.startsWith(segment)) {
+    // Single-char aliases like "p" must match exactly — otherwise "profile" looks like /play.
+    if (
+      alias.length >= 2 &&
+      (segment.startsWith(alias) || alias.startsWith(segment))
+    ) {
       best = Math.min(best, 1)
       continue
     }
@@ -97,7 +105,7 @@ function extractVideoIdFromPath(pathname: string, search = ""): string | null {
   if (fromUrl) return fromUrl
 
   try {
-    const v = new URL(fullPath, "https://song.opsec.rent").searchParams.get("v")?.trim()
+    const v = new URL(fullPath, KARAOKE_PUBLIC_ORIGIN).searchParams.get("v")?.trim()
     if (v && YOUTUBE_VIDEO_ID_RE.test(v)) return v
   } catch {
     // ignore

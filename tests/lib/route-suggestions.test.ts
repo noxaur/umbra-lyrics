@@ -89,4 +89,11 @@ describe("route helpers", () => {
     expect(isPlayRouteTypo("play")).toBe(false)
     expect(isPlayRouteTypo("themes")).toBe(false)
   })
+
+  it("does not treat unrelated p-prefixed paths as play typos", () => {
+    expect(isPlayRouteTypo("profile")).toBe(false)
+    expect(isPlayRouteTypo("people")).toBe(false)
+    expect(analyzeRoute("/profile/settings").kind).toBe("not_found")
+    expect(analyzeRoute("/people/dQw4w9WgXcQ").kind).toBe("not_found")
+  })
 })
