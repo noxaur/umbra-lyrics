@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { httpsRedirect, withSecurityHeaders } from "../../worker/headers"
+import { httpsRedirect, karaokeWatchRedirect, withSecurityHeaders } from "../../worker/headers"
 
 describe("worker security headers", () => {
   it("redirects http requests to https", () => {
@@ -21,5 +21,28 @@ describe("worker security headers", () => {
     const response = withSecurityHeaders(new Response("ok", { status: 200 }), true)
     expect(response.headers.get("Cross-Origin-Opener-Policy")).toBe("same-origin")
     expect(response.headers.get("Cross-Origin-Embedder-Policy")).toBe("credentialless")
+  })
+})
+
+describe("karaokeWatchRedirect", () => {
+  it("redirects /watch?v=ID to /play/ID", () => {
+    const request = new Request("https://song.opsec.rent/watch?v=H58vbez_m4E")
+    const response = karaokeWatchRedirect(request)
+
+    expect(response?.status).toBe(301)
+    expect(response?.headers.get("Location")).toBe("https://song.opsec.rent/play/H58vbez_m4E")
+  })
+
+  it("ignores /watch without a valid v param", () => {
+    const request = new Request("https://song.opsec.rent/watch")
+    expect(karaokeWatchRedirect(request)).toBeNull()
+
+    const badId = new Request("https://song.opsec.rent/watch?v=short")
+    expect(karaokeWatchRedirect(badId)).toBeNull()
+  })
+
+  it("ignores non-watch paths", () => {
+    const request = new Request("https://song.opsec.rent/play/H58vbez_m4E")
+    expect(karaokeWatchRedirect(request)).toBeNull()
   })
 })

@@ -5,6 +5,7 @@ export const YOUTUBE_VIDEO_ID_RE = /^[\w-]{11}$/
 export const KARAOKE_PUBLIC_ORIGIN = "https://song.opsec.rent"
 
 const YOUTUBE_HOST_RE = /(^|\.)youtube(-nocookie)?\.com$|^youtu\.be$/i
+const KARAOKE_HOST_RE = /(^|\.)song\.opsec\.rent$/i
 
 /**
  * Path-based patterns where the video ID appears as a URL segment.
@@ -23,6 +24,9 @@ const YOUTUBE_PATH_PATTERNS = [
 /** Karaoke app share URLs: song.opsec.rent/play/ID or any host /play/ID (incl. dev). */
 const KARAOKE_PLAY_PATTERN = /\/play\/([\w-]{11})(?:[/?#]|$)/
 
+/** YouTube-style karaoke URLs: song.opsec.rent/watch?v=ID or /watch?v=ID */
+const KARAOKE_WATCH_PATTERN = /\/watch\?(?:[^#]*&)?v=([\w-]{11})(?:&|#|$)/
+
 function matchPathPatterns(input: string): string | null {
   for (const pattern of YOUTUBE_PATH_PATTERNS) {
     const match = input.match(pattern)
@@ -34,12 +38,25 @@ function matchPathPatterns(input: string): string | null {
 function matchVQueryParam(input: string): string | null {
   try {
     const url = new URL(/^https?:\/\//i.test(input) ? input : `https://${input}`)
-    if (!YOUTUBE_HOST_RE.test(url.hostname)) return null
     const v = url.searchParams.get("v")
-    if (v && YOUTUBE_VIDEO_ID_RE.test(v)) return v
+    if (!v || !YOUTUBE_VIDEO_ID_RE.test(v)) return null
+
+    if (YOUTUBE_HOST_RE.test(url.hostname)) return v
+    if (KARAOKE_HOST_RE.test(url.hostname) && url.pathname === "/watch") return v
   } catch {
     // Not a parseable URL
   }
+  return null
+}
+
+function matchKaraokeWatchUrl(input: string): string | null {
+  const trimmed = input.trim()
+  const relative = trimmed.match(/^\/watch\?v=([\w-]{11})/)
+  if (relative) return relative[1]
+
+  const match = trimmed.match(KARAOKE_WATCH_PATTERN)
+  if (match?.[1]) return match[1]
+
   return null
 }
 
@@ -68,7 +85,9 @@ function matchKaraokePlayUrl(input: string): string | null {
  *
  * Supported karaoke share formats:
  * - `https://song.opsec.rent/play/ID`
+ * - `https://song.opsec.rent/watch?v=ID` (YouTube-style; redirects to `/play/ID`)
  * - `/play/ID` (relative, e.g. dev server)
+ * - `/watch?v=ID` (relative)
  * - `http://localhost:5173/play/ID`
  */
 export function extractYouTubeVideoId(input: string): string | null {
@@ -77,6 +96,9 @@ export function extractYouTubeVideoId(input: string): string | null {
 
   const karaokeId = matchKaraokePlayUrl(trimmed)
   if (karaokeId) return karaokeId
+
+  const karaokeWatchId = matchKaraokeWatchUrl(trimmed)
+  if (karaokeWatchId) return karaokeWatchId
 
   const pathId = matchPathPatterns(trimmed)
   if (pathId) return pathId
@@ -106,6 +128,23 @@ export function isKaraokePlayUrl(input: string): boolean {
     /^\/play\/[\w-]{11}$/.test(trimmed) ||
     /\/play\/[\w-]{11}(?:[/?#]|$)/.test(trimmed)
   )
+}
+
+export function isKaraokeWatchUrl(input: string): boolean {
+  const trimmed = input.trim()
+  return (
+    /song\.opsec\.rent\/watch\?v=/i.test(trimmed) ||
+    /^\/watch\?v=[\w-]{11}/.test(trimmed) ||
+    KARAOKE_WATCH_PATTERN.test(trimmed)
+  )
+}
+
+/** YouTube-style share URL on the karaoke domain (redirects to `/play/ID`). */
+export function karaokeWatchUrl(
+  videoId: string,
+  origin: string = KARAOKE_PUBLIC_ORIGIN,
+): string {
+  return `${origin.replace(/\/$/, "")}/watch?v=${videoId}`
 }
 
 export function youTubeWatchUrl(videoId: string): string {

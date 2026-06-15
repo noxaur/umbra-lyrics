@@ -58,6 +58,21 @@ describe("UrlInput", () => {
     })
   })
 
+  it("navigates with karaoke watch URL", () => {
+    navigate.mockClear()
+    renderInput()
+
+    const input = screen.getByPlaceholderText("Paste YouTube or song.opsec.rent link…")
+    fireEvent.change(input, {
+      target: { value: "https://song.opsec.rent/watch?v=dQw4w9WgXcQ" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /start/i }))
+
+    expect(navigate).toHaveBeenCalledWith("/play/dQw4w9WgXcQ", {
+      state: { fromHome: true },
+    })
+  })
+
   it("shows app validation error for invalid input", () => {
     renderInput()
 
