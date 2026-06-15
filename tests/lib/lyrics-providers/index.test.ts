@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest"
 import {
   pickBestHit,
   PROVIDER_FALLBACK_ORDER,
+  providerTimeoutMs,
+  LRCLIB_TIMEOUT_MS,
+  PROVIDER_TIMEOUT_MS,
   rankCandidates,
 } from "@/lib/lyrics-providers"
 import type { ProviderLyricsCandidate } from "@/lib/lyrics-providers/types"
@@ -29,6 +32,12 @@ describe("lyrics-providers index", () => {
     expect(PROVIDER_FALLBACK_ORDER).toContain("chartlyrics")
     expect(PROVIDER_FALLBACK_ORDER).toContain("genius")
     expect(PROVIDER_FALLBACK_ORDER).toContain("petitlyrics")
+  })
+
+  it("gives LRCLIB a longer timeout than other providers", () => {
+    expect(providerTimeoutMs("lrclib")).toBe(LRCLIB_TIMEOUT_MS)
+    expect(providerTimeoutMs("genius")).toBe(PROVIDER_TIMEOUT_MS)
+    expect(LRCLIB_TIMEOUT_MS).toBeGreaterThan(PROVIDER_TIMEOUT_MS)
   })
 
   it("ranks synced lrclib above plain ovh", () => {

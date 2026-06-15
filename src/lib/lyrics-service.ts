@@ -117,6 +117,20 @@ function artistMatchScore(result: SearchResult, artist: string): number {
   return 80
 }
 
+function trackMatchScore(result: SearchResult, track: string): number {
+  if (!track.trim()) return 0
+
+  const wanted = track.trim().toLowerCase()
+  const found = result.trackName.trim().toLowerCase()
+  if (found === wanted) return 0
+  if (found.includes(wanted) || wanted.includes(found)) return 4
+
+  const wantedParts = wanted.split(/\s+/).filter(Boolean)
+  if (wantedParts.some((part) => part.length > 1 && found.includes(part))) return 12
+
+  return 80
+}
+
 function durationScore(result: SearchResult, durationSec: number): number {
   if (durationSec <= 0) return 0
   const delta = Math.abs(result.duration - durationSec)
@@ -127,6 +141,7 @@ export function pickBestMatch(
   results: SearchResult[],
   durationSec: number,
   artist: string,
+  track = "",
 ): SearchResult | null {
   if (results.length === 0) return null
 
@@ -134,16 +149,26 @@ export function pickBestMatch(
     .map((result) => {
       let score = durationScore(result, durationSec)
       score += artistMatchScore(result, artist)
+      score += trackMatchScore(result, track)
       if (result.instrumental) score += 50
       if (!hasLyrics(result)) score += 200
       return { result, score }
     })
     .sort((a, b) => a.score - b.score)
 
+  const strongMatch = (result: SearchResult) =>
+    artistMatchScore(result, artist) < 80 && trackMatchScore(result, track) < 80
+
   const matchedLyrics = scored.find(
-    ({ result }) => hasLyrics(result) && !result.instrumental && artistMatchScore(result, artist) < 80,
+    ({ result }) => hasLyrics(result) && !result.instrumental && strongMatch(result),
   )
   if (matchedLyrics) return matchedLyrics.result
+
+  const artistMatched = scored.find(
+    ({ result }) =>
+      hasLyrics(result) && !result.instrumental && artistMatchScore(result, artist) < 80,
+  )
+  if (artistMatched) return artistMatched.result
 
   const vocalLyrics = scored.find(({ result }) => hasLyrics(result) && !result.instrumental)
   if (vocalLyrics) return vocalLyrics.result
@@ -188,7 +213,7 @@ export async function fetchLyricsByMetadata(match: SearchResult): Promise<Lyrics
 
 export async function fetchLyrics(params: FetchLyricsParams): Promise<LyricsResult | null> {
   const results = await collectSearchResults(params)
-  const match = pickBestMatch(results, params.durationSec, params.artist)
+  const match = pickBestMatch(results, params.durationSec, params.artist, params.track)
   if (!match) return null
 
   if (hasLyrics(match)) {
@@ -223,10 +248,36 @@ export async function searchEnglishLyrics(
   artist: string,
   durationSec: number,
 ): Promise<LyricsResult | null> {
-  return fetchLyrics({
-    track: `${track} english`,
-    artist,
-    album: "",
-    durationSec,
-  })
+  const strategies = [
+    { track, artist },
+    { track: `${track} english`, artist },
+    { track, artist: `${artist} english` },
+  ]
+
+  for (const { track: searchTrack, artist: searchArtist } of strategies) {
+    const results = await collectSearchResults({
+      track: searchTrack,
+      artist: searchArtist,
+      album: "",
+      durationSec,
+    })
+    const match = pickBestMatch(results, durationSec, artist, track)
+    if (!match || !hasLyrics(match)) continue
+    if (artistMatchScore(match, artist) >= 80) continue
+    if (trackMatchScore(match, track) >= 80) continue
+
+    const byMetadata = await fetchLyricsByMetadata(match)
+    if (byMetadata && (byMetadata.plainLyrics || byMetadata.syncedLyrics)) {
+      return byMetadata
+    }
+
+    const byId = await fetchLyricsById(match.id)
+    if (byId && (byId.plainLyrics || byId.syncedLyrics)) {
+      return byId
+    }
+
+    return searchResultToLyrics(match)
+  }
+
+  return null
 }

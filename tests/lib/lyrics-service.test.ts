@@ -178,6 +178,46 @@ describe("fetchLyrics", () => {
     expect(result?.plainLyrics).toContain("作詞の空白")
   })
 
+  it("prefers track match over unrelated hit from same artist", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/search")) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: 1,
+                trackName: "Swim",
+                artistName: "Kitri",
+                duration: 246,
+                plainLyrics: "Swim, swim\nWater falling off your skin",
+              },
+              {
+                id: 2,
+                trackName: "別世界",
+                artistName: "天音かなた",
+                duration: 246,
+                plainLyrics: "作詞の空白を埋めるみたいに",
+              },
+            ]),
+            { status: 200 },
+          )
+        }
+        return new Response("{}", { status: 404 })
+      }),
+    )
+
+    const result = await fetchLyrics({
+      track: "別世界",
+      artist: "天音かなた",
+      album: "",
+      durationSec: 246,
+    })
+
+    expect(result?.id).toBe(2)
+    expect(result?.plainLyrics).toContain("作詞の空白")
+  })
+
   it("returns null when no results", async () => {
     vi.stubGlobal(
       "fetch",
