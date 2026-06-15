@@ -1,4 +1,7 @@
-import type { Innertube, Format } from "youtubei.js/cf-worker"
+import type { Innertube } from "youtubei.js/cf-worker"
+
+type BasicInfo = Awaited<ReturnType<Innertube["getBasicInfo"]>>
+type ChosenFormat = ReturnType<BasicInfo["chooseFormat"]>
 
 export type StreamKind = "audio" | "video"
 
@@ -39,7 +42,7 @@ function playabilityReason(info: { playability_status?: { reason?: string; error
 
 export async function resolveFormatUrl(
   yt: Innertube,
-  chosen: Format | undefined,
+  chosen: ChosenFormat | undefined,
 ): Promise<string | null> {
   if (!chosen) return null
 
