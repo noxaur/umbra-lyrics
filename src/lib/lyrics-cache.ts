@@ -106,7 +106,7 @@ export function getLyricsCache(videoId: string): LyricsCacheEntry | null {
     const parsed: unknown = JSON.parse(raw)
     if (!isValidEntry(parsed) || parsed.videoId !== videoId) return null
     if (parsed.lines.length === 0) return null
-    if (parsed.v !== CACHE_VERSION || !isTrustedCacheEntry(parsed)) {
+    if (!isTrustedCacheEntry(parsed)) {
       localStorage.removeItem(storageKey(videoId))
       return null
     }

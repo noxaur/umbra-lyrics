@@ -130,7 +130,7 @@ export function parseLrc(
       lines[i].endMs = lines[i].startMs
     } else {
       lines[i].endMs = next ? next.startMs : durationMs > 0 ? durationMs : lines[i].startMs + 5000
-      const words = parseEnhancedLrcWords(lines[i].text, lines[i].startMs)
+      const words = parseEnhancedLrcWords(lines[i].text, lines[i].startMs, lines[i].endMs)
       if (words.length > 0) {
         lines[i].words = words
         lines[i].text = words.map((w) => w.text).join(" ")
