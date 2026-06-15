@@ -120,11 +120,21 @@ export async function searchLrclibWithStrategies(
   params: ProviderSearchParams,
   onStrategy?: (phase: string) => void,
 ): Promise<ProviderLyricsCandidate[]> {
-  const byId = new Map<number, ProviderLyricsCandidate>()
+  const strategies = buildStrategies(params)
+  onStrategy?.("Searching LRCLIB…")
 
-  for (const run of buildStrategies(params)) {
-    onStrategy?.("Searching LRCLIB…")
-    const results = await run()
+  const batches = await Promise.all(
+    strategies.map(async (run) => {
+      try {
+        return await run()
+      } catch {
+        return []
+      }
+    }),
+  )
+
+  const byId = new Map<number, ProviderLyricsCandidate>()
+  for (const results of batches) {
     for (const result of results) {
       if (!hasLyricsText(result) && result.instrumental) continue
       const candidate = toCandidate(result, params)
@@ -183,8 +193,9 @@ export const lrclibProvider: LyricsProvider = {
     ]
 
     const resolved: ProviderLyricsCandidate[] = []
-    for (const candidate of ranked.slice(0, 5)) {
-      const full = await fetchLrclibCandidate(candidate)
+    const top = ranked.slice(0, 3)
+    const fetched = await Promise.all(top.map((candidate) => fetchLrclibCandidate(candidate)))
+    for (const full of fetched) {
       if (full && hasLyricsText(full)) resolved.push(full)
     }
     return resolved
