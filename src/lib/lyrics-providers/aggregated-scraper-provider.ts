@@ -79,13 +79,25 @@ export const aggregatedScraperProvider: LyricsProvider = {
     const seen = new Set<string>()
     const candidates: ProviderLyricsCandidate[] = []
 
-    for (const { artist, track } of attempts) {
+    const uniqueAttempts = attempts.filter(({ artist, track }) => {
       const key = `${artist}\0${track}`
-      if (seen.has(key)) continue
+      if (seen.has(key)) return false
       seen.add(key)
+      return true
+    })
 
-      const q = [artist, track].filter(Boolean).join(" ")
-      for (const hit of await searchAggregatedScraper(artist, track, q)) {
+    const settled = await Promise.allSettled(
+      uniqueAttempts.map(({ artist, track }) => {
+        const q = [artist, track].filter(Boolean).join(" ")
+        return searchAggregatedScraper(artist, track, q)
+      }),
+    )
+
+    for (let i = 0; i < settled.length; i++) {
+      const outcome = settled[i]!
+      if (outcome.status !== "fulfilled") continue
+      const { artist, track } = uniqueAttempts[i]!
+      for (const hit of outcome.value) {
         candidates.push(toCandidate(hit, params.durationSec, params.artist, params.track))
       }
     }

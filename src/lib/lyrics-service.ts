@@ -71,32 +71,34 @@ function buildSearchStrategies(params: FetchLyricsParams): Array<{ track: string
   return strategies
 }
 
+function mergeSearchResults(byId: Map<number, SearchResult>, results: SearchResult[]): void {
+  for (const result of results) {
+    byId.set(result.id, result)
+  }
+}
+
 async function collectSearchResults(params: FetchLyricsParams): Promise<SearchResult[]> {
   const byId = new Map<number, SearchResult>()
 
-  for (const { track, artist } of buildSearchStrategies(params)) {
-    for (const result of await searchByParams(track, artist)) {
-      byId.set(result.id, result)
-    }
-  }
-
   const query = [params.track, params.artist].filter(Boolean).join(" ")
-  if (query) {
-    for (const result of await searchByQuery(query)) {
-      byId.set(result.id, result)
-    }
-  }
-
   const simplifiedQuery = [simplifyTrackName(params.track), params.artist].filter(Boolean).join(" ")
-  if (simplifiedQuery && simplifiedQuery !== query) {
-    for (const result of await searchByQuery(simplifiedQuery)) {
-      byId.set(result.id, result)
-    }
+
+  const searches: Promise<SearchResult[]>[] = [
+    ...buildSearchStrategies(params).map(({ track, artist }) => searchByParams(track, artist)),
+  ]
+  if (query) searches.push(searchByQuery(query))
+  if (simplifiedQuery && simplifiedQuery !== query) searches.push(searchByQuery(simplifiedQuery))
+
+  const settled = await Promise.allSettled(searches)
+  for (const outcome of settled) {
+    if (outcome.status === "fulfilled") mergeSearchResults(byId, outcome.value)
   }
 
   if (byId.size === 0 && params.track.trim()) {
-    for (const result of await searchByParams(simplifyTrackName(params.track), "")) {
-      byId.set(result.id, result)
+    try {
+      mergeSearchResults(byId, await searchByParams(simplifyTrackName(params.track), ""))
+    } catch {
+      // empty-track fallback is best-effort
     }
   }
 
@@ -179,6 +181,18 @@ export function pickBestMatch(
   return scored[0]?.result ?? null
 }
 
+async function fetchLyricsForMatch(match: SearchResult): Promise<LyricsResult | null> {
+  const [byIdOutcome, byMetadataOutcome] = await Promise.allSettled([
+    fetchLyricsById(match.id),
+    fetchLyricsByMetadata(match),
+  ])
+  const byId = byIdOutcome.status === "fulfilled" ? byIdOutcome.value : null
+  const byMetadata = byMetadataOutcome.status === "fulfilled" ? byMetadataOutcome.value : null
+  if (byId?.plainLyrics?.trim() || byId?.syncedLyrics?.trim()) return byId
+  if (byMetadata?.plainLyrics?.trim() || byMetadata?.syncedLyrics?.trim()) return byMetadata
+  return null
+}
+
 export async function fetchLyricsById(id: number): Promise<LyricsResult | null> {
   const res = await lrclibFetch(`/get/${id}`)
   if (!res.ok) return null
@@ -217,30 +231,10 @@ export async function fetchLyrics(params: FetchLyricsParams): Promise<LyricsResu
   if (!match) return null
 
   if (hasLyrics(match)) {
-    const byMetadata = await fetchLyricsByMetadata(match)
-    if (byMetadata && (byMetadata.plainLyrics || byMetadata.syncedLyrics)) {
-      return byMetadata
-    }
-
-    const byId = await fetchLyricsById(match.id)
-    if (byId && (byId.plainLyrics || byId.syncedLyrics)) {
-      return byId
-    }
-
     return searchResultToLyrics(match)
   }
 
-  const byId = await fetchLyricsById(match.id)
-  if (byId && (byId.plainLyrics || byId.syncedLyrics)) {
-    return byId
-  }
-
-  const byMetadata = await fetchLyricsByMetadata(match)
-  if (byMetadata && (byMetadata.plainLyrics || byMetadata.syncedLyrics)) {
-    return byMetadata
-  }
-
-  return null
+  return fetchLyricsForMatch(match)
 }
 
 export async function searchEnglishLyrics(

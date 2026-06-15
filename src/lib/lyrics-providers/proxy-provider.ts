@@ -52,8 +52,15 @@ export function createProxyLyricsProvider(config: ProxyProviderConfig): LyricsPr
       const attempts = dedupeAttempts(buildSearchAttempts(params))
       const candidates: ProviderLyricsCandidate[] = []
 
-      for (const { artist, track } of attempts) {
-        for (const hit of await searchProxy(config.apiPath, artist, track)) {
+      const settled = await Promise.allSettled(
+        attempts.map(({ artist, track }) => searchProxy(config.apiPath, artist, track)),
+      )
+
+      for (let i = 0; i < settled.length; i++) {
+        const outcome = settled[i]!
+        if (outcome.status !== "fulfilled") continue
+        const { artist, track } = attempts[i]!
+        for (const hit of outcome.value) {
           const synced = Boolean(hit.syncedLyrics?.trim())
           const plainLyrics =
             hit.plainLyrics?.trim() ||
