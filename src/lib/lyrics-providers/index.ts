@@ -29,7 +29,7 @@ import type {
 export const PROVIDER_TIMEOUT_MS = 8000
 
 /** LRCLIB often responds in 10–15s from the edge; shorter timeouts cause scraper junk to win. */
-export const LRCLIB_TIMEOUT_MS = 20_000
+export const LRCLIB_TIMEOUT_MS = 45_000
 
 export function providerTimeoutMs(providerId: LyricsProviderId): number {
   if (providerId === "lrclib") return LRCLIB_TIMEOUT_MS

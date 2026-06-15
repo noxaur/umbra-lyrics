@@ -38,6 +38,7 @@ describe("lyrics-providers index", () => {
     expect(providerTimeoutMs("lrclib")).toBe(LRCLIB_TIMEOUT_MS)
     expect(providerTimeoutMs("genius")).toBe(PROVIDER_TIMEOUT_MS)
     expect(LRCLIB_TIMEOUT_MS).toBeGreaterThan(PROVIDER_TIMEOUT_MS)
+    expect(LRCLIB_TIMEOUT_MS).toBeGreaterThanOrEqual(45_000)
   })
 
   it("ranks synced lrclib above plain ovh", () => {

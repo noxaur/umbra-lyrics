@@ -185,6 +185,11 @@ export const lrclibProvider: LyricsProvider = {
     const best = pickBestCandidate(candidates, params.durationSec, params.artist, params.track)
     if (!best) return []
 
+    if (hasLyricsText(best)) {
+      const synced = Boolean(best.syncedLyrics?.trim())
+      return [{ ...best, synced }]
+    }
+
     const ranked = [
       best,
       ...candidates
@@ -193,7 +198,7 @@ export const lrclibProvider: LyricsProvider = {
     ]
 
     const resolved: ProviderLyricsCandidate[] = []
-    const top = ranked.slice(0, 3)
+    const top = ranked.slice(0, 2)
     const fetched = await Promise.all(top.map((candidate) => fetchLrclibCandidate(candidate)))
     for (const full of fetched) {
       if (full && hasLyricsText(full)) resolved.push(full)
