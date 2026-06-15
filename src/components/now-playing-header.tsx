@@ -117,11 +117,16 @@ export function NowPlayingHeader({
     <div className="shrink-0 border-b border-border px-4 py-2.5">
       <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-base font-semibold leading-tight">
+          <h1
+            className="line-clamp-2 text-base font-semibold leading-tight"
+            title={displayTrack || undefined}
+          >
             {displayTrack || "Loading track…"}
           </h1>
           {artist ? (
-            <p className="mt-0.5 truncate text-sm text-muted-foreground">{artist}</p>
+            <p className="mt-0.5 truncate text-sm text-muted-foreground" title={artist}>
+              {artist}
+            </p>
           ) : status === "loading" ? (
             <p className="mt-0.5 text-sm text-muted-foreground">Identifying artist…</p>
           ) : null}

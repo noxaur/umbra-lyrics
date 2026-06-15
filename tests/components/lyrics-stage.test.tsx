@@ -131,4 +131,24 @@ describe("LyricsStage scroll", () => {
 
     expect(scrollSpy).toHaveBeenCalledTimes(1)
   })
+
+  it("shows intro placeholder without lyric list before first timestamp", async () => {
+    usePlayerStore.setState({
+      lyrics: [
+        { text: "First line", startMs: 18_000, endMs: 22_000, kind: "lyric" },
+        { text: "Second line", startMs: 22_000, endMs: 26_000, kind: "lyric" },
+      ],
+      currentTime: 5,
+      lyricsSynced: true,
+    })
+
+    const { getByText, queryByRole } = render(
+      <div className="flex h-96 min-h-0 flex-col">
+        <LyricsStage durationMs={214_000} />
+      </div>,
+    )
+
+    expect(getByText("Lyrics start at 00:18.00")).toBeInTheDocument()
+    expect(queryByRole("button", { name: /first line/i })).not.toBeInTheDocument()
+  })
 })

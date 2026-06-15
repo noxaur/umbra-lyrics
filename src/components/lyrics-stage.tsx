@@ -9,6 +9,8 @@ import {
   isOutsideCenterThird,
   scrollLineToCenter,
 } from "@/lib/lyric-scroll"
+import { formatLyricTimestamp } from "@/lib/format-time"
+import { getFirstLyricStartMs } from "@/lib/gap-detection"
 import { usePlayerStore } from "@/stores/player-store"
 import { getLyricStageState } from "@/lib/sync-engine"
 
@@ -29,14 +31,23 @@ function idleMessage(videoId: string | undefined, videoReady: boolean | undefine
   return "Paste a link to start"
 }
 
-function StagePlaceholder({ label }: { label: string }) {
+function StagePlaceholder({
+  label,
+  detail,
+}: {
+  label: string
+  detail?: string | null
+}) {
   return (
-    <p
-      className="py-8 text-center text-[clamp(1.25rem,3vw,2.5rem)] font-medium tracking-wide text-muted-foreground/80 motion-safe:animate-pulse motion-reduce:animate-none"
-      role="status"
-    >
-      {label}
-    </p>
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 py-10 text-center">
+      <p
+        className="text-[clamp(1.25rem,3vw,2.5rem)] font-medium tracking-wide text-muted-foreground/80 motion-safe:animate-pulse motion-reduce:animate-none"
+        role="status"
+      >
+        {label}
+      </p>
+      {detail ? <p className="text-sm text-muted-foreground">{detail}</p> : null}
+    </div>
   )
 }
 
@@ -201,6 +212,11 @@ export function LyricsStage({
   }
 
   const showPlaceholder = stage.mode === "intro" || stage.mode === "gap" || stage.mode === "outro"
+  const firstLyricStartMs = getFirstLyricStartMs(lyrics)
+  const placeholderDetail =
+    stage.mode === "intro" && firstLyricStartMs != null
+      ? `Lyrics start at ${formatLyricTimestamp(firstLyricStartMs - syncOffsetMs)}`
+      : null
 
   return (
     <div
@@ -221,41 +237,43 @@ export function LyricsStage({
         </p>
       )}
 
-      {showPlaceholder && stage.gapLabel ? <StagePlaceholder label={stage.gapLabel} /> : null}
-
-      <MotionConfig reducedMotion="user">
-        <div
-          className="mx-auto w-full max-w-3xl overflow-x-clip overflow-y-visible"
-          style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
-        >
+      {showPlaceholder && stage.gapLabel ? (
+        <StagePlaceholder label={stage.gapLabel} detail={placeholderDetail} />
+      ) : (
+        <MotionConfig reducedMotion="user">
           <div
-            className="flex flex-col gap-2 sm:gap-3"
-            style={{ transformStyle: "preserve-3d" }}
+            className="mx-auto w-full max-w-3xl overflow-x-clip overflow-y-visible"
+            style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
           >
-            {lyrics.map((line, i) => (
-              <LyricLine
-                key={`${line.startMs}-${i}`}
-                ref={setLineRef(i)}
-                text={line.text}
-                words={line.words}
-                sectionLabel={line.sectionLabel}
-                kind={line.kind}
-                startMs={line.startMs - syncOffsetMs}
-                showTimestamp={showTimestamps && line.kind !== "section"}
-                englishText={englishLines[i]}
-                active={i === activeIndex}
-                distanceFromActive={getDistanceFromActive(i, activeIndex)}
-                synced={lyricsSynced}
-                progress={i === activeIndex ? stage.wordProgress : 0}
-                wordIndex={i === activeIndex ? stage.wordIndex : -1}
-                displayMode={displayMode}
-                tvMode={tvMode}
-                onSeek={() => seekToMs(line.startMs - syncOffsetMs)}
-              />
-            ))}
+            <div
+              className="flex flex-col gap-2 sm:gap-3"
+              style={{ transformStyle: "preserve-3d" }}
+            >
+              {lyrics.map((line, i) => (
+                <LyricLine
+                  key={`${line.startMs}-${i}`}
+                  ref={setLineRef(i)}
+                  text={line.text}
+                  words={line.words}
+                  sectionLabel={line.sectionLabel}
+                  kind={line.kind}
+                  startMs={line.startMs - syncOffsetMs}
+                  showTimestamp={showTimestamps && line.kind !== "section"}
+                  englishText={englishLines[i]}
+                  active={i === activeIndex}
+                  distanceFromActive={getDistanceFromActive(i, activeIndex)}
+                  synced={lyricsSynced}
+                  progress={i === activeIndex ? stage.wordProgress : 0}
+                  wordIndex={i === activeIndex ? stage.wordIndex : -1}
+                  displayMode={displayMode}
+                  tvMode={tvMode}
+                  onSeek={() => seekToMs(line.startMs - syncOffsetMs)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      </MotionConfig>
+        </MotionConfig>
+      )}
     </div>
   )
 }
