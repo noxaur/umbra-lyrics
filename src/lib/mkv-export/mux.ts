@@ -47,7 +47,148 @@ function extensionForMime(mimeType: string, format: "audio" | "video"): string {
   if (mimeType.includes("webm")) return "webm"
   if (mimeType.includes("mp4") || mimeType.includes("m4a")) return format === "audio" ? "m4a" : "mp4"
   if (mimeType.includes("ogg")) return "ogg"
+  if (mimeType.includes("matroska") || mimeType.includes("mkv")) return "mkv"
   return format === "audio" ? "m4a" : "mp4"
+}
+
+function extensionForFilename(name: string): string {
+  const match = name.toLowerCase().match(/\.([a-z0-9]+)$/)
+  return match?.[1] ?? "mp4"
+}
+
+type SubtitleBundle = {
+  nativeSrt: string
+  englishSrt: string | null
+  ffmeta: string
+  nativeLang: string
+}
+
+async function prepareSubtitleBundle(input: MkvExportInput): Promise<SubtitleBundle> {
+  const nativeSrt = linesToSrt(input.native.lines, input.syncOffsetMs, input.durationMs)
+  if (!nativeSrt.trim()) {
+    throw new Error("No lyrics available to export")
+  }
+
+  let englishSrt: string | null = null
+  if (input.includeEnglish && input.english?.lines.length) {
+    const text = englishLinesToSrt(
+      input.native.lines,
+      input.english.lines,
+      input.syncOffsetMs,
+      input.durationMs,
+    )
+    if (text.trim()) englishSrt = text
+  }
+
+  const chapters = buildChapterMarkers(
+    input.native.lines,
+    input.syncOffsetMs,
+    input.durationMs,
+  )
+
+  return {
+    nativeSrt,
+    englishSrt,
+    ffmeta: chaptersToFfmetadata(chapters, input.durationMs),
+    nativeLang: languageTagForMkv(input.native.languageCode),
+  }
+}
+
+async function writeSubtitleFiles(
+  ffmpeg: FFmpeg,
+  bundle: SubtitleBundle,
+): Promise<{ hasEnglish: boolean }> {
+  await ffmpeg.writeFile("native.srt", new TextEncoder().encode(bundle.nativeSrt))
+  let hasEnglish = false
+  if (bundle.englishSrt) {
+    hasEnglish = true
+    await ffmpeg.writeFile("english.srt", new TextEncoder().encode(bundle.englishSrt))
+  }
+  await ffmpeg.writeFile("chapters.ffmeta", new TextEncoder().encode(bundle.ffmeta))
+  return { hasEnglish }
+}
+
+function buildMuxArgs(
+  mediaInput: string,
+  hasEnglish: boolean,
+  nativeLang: string,
+  includeSeparateVideoAudio: boolean,
+  audioInput?: string,
+): string[] {
+  const args: string[] = []
+
+  if (includeSeparateVideoAudio && audioInput) {
+    args.push("-i", mediaInput)
+    args.push("-i", audioInput)
+    args.push("-i", "native.srt")
+    if (hasEnglish) args.push("-i", "english.srt")
+    args.push("-i", "chapters.ffmeta")
+    args.push("-map", "0:v:0", "-map", "1:a:0", "-map", "2:s:0")
+    if (hasEnglish) args.push("-map", "3:s:0")
+    args.push("-map_metadata", hasEnglish ? "4" : "3")
+    args.push("-map_chapters", hasEnglish ? "4" : "3")
+  } else {
+    args.push("-i", mediaInput)
+    args.push("-i", "native.srt")
+    if (hasEnglish) args.push("-i", "english.srt")
+    args.push("-i", "chapters.ffmeta")
+    args.push("-map", "0", "-map", "1:s:0")
+    if (hasEnglish) args.push("-map", "2:s:0")
+    args.push("-map_metadata", hasEnglish ? "3" : "2")
+    args.push("-map_chapters", hasEnglish ? "3" : "2")
+  }
+
+  args.push("-c", "copy")
+  args.push("-metadata:s:s:0", `language=${nativeLang}`)
+  if (hasEnglish) args.push("-metadata:s:s:1", "language=eng")
+  args.push("output.mkv")
+  return args
+}
+
+async function runMux(
+  ffmpeg: FFmpeg,
+  args: string[],
+  onProgress?: (stage: MkvExportProgress) => void,
+): Promise<Blob> {
+  onProgress?.("muxing")
+  const exitCode = await ffmpeg.exec(args)
+  if (exitCode !== 0) {
+    throw new Error(`ffmpeg mux failed (code ${exitCode})`)
+  }
+
+  const data = await ffmpeg.readFile("output.mkv")
+  onProgress?.("done")
+  const bytes = data instanceof Uint8Array ? data : new TextEncoder().encode(String(data))
+  return new Blob([bytes.buffer as ArrayBuffer], { type: "video/x-matroska" })
+}
+
+export async function exportMkvFromLocalFile(
+  input: MkvExportInput,
+  mediaFile: File,
+  callbacks: MuxCallbacks = {},
+): Promise<Blob> {
+  const { onProgress, signal } = callbacks
+  const throwIfAborted = () => {
+    if (signal?.aborted) throw new DOMException("Export cancelled", "AbortError")
+  }
+
+  onProgress?.("loading-ffmpeg")
+  throwIfAborted()
+  const ffmpeg = await getFfmpeg()
+
+  onProgress?.("fetching-media")
+  throwIfAborted()
+
+  const ext = extensionForFilename(mediaFile.name)
+  const mediaBytes = new Uint8Array(await mediaFile.arrayBuffer())
+  await ffmpeg.writeFile(`media.${ext}`, mediaBytes)
+
+  const bundle = await prepareSubtitleBundle(input)
+  const { hasEnglish } = await writeSubtitleFiles(ffmpeg, bundle)
+
+  throwIfAborted()
+  const args = buildMuxArgs(`media.${ext}`, hasEnglish, bundle.nativeLang, false)
+  return runMux(ffmpeg, args, onProgress)
 }
 
 export async function exportMkv(input: MkvExportInput, callbacks: MuxCallbacks = {}): Promise<Blob> {
@@ -81,79 +222,16 @@ export async function exportMkv(input: MkvExportInput, callbacks: MuxCallbacks =
     await ffmpeg.writeFile(`video.${videoExt}`, videoBytes)
   }
 
-  const nativeSrt = linesToSrt(input.native.lines, input.syncOffsetMs, input.durationMs)
-  if (!nativeSrt.trim()) {
-    throw new Error("No lyrics available to export")
-  }
-  await ffmpeg.writeFile("native.srt", new TextEncoder().encode(nativeSrt))
+  const bundle = await prepareSubtitleBundle(input)
+  const { hasEnglish } = await writeSubtitleFiles(ffmpeg, bundle)
 
-  let hasEnglish = false
-  if (input.includeEnglish && input.english?.lines.length) {
-    const englishSrt = englishLinesToSrt(
-      input.native.lines,
-      input.english.lines,
-      input.syncOffsetMs,
-      input.durationMs,
-    )
-    if (englishSrt.trim()) {
-      hasEnglish = true
-      await ffmpeg.writeFile("english.srt", new TextEncoder().encode(englishSrt))
-    }
-  }
-
-  const chapters = buildChapterMarkers(
-    input.native.lines,
-    input.syncOffsetMs,
-    input.durationMs,
-  )
-  const ffmeta = chaptersToFfmetadata(chapters, input.durationMs)
-  await ffmpeg.writeFile("chapters.ffmeta", new TextEncoder().encode(ffmeta))
-
-  onProgress?.("muxing")
   throwIfAborted()
+  const args =
+    input.includeVideo && videoExt
+      ? buildMuxArgs(`video.${videoExt}`, hasEnglish, bundle.nativeLang, true, `audio.${audioExt}`)
+      : buildMuxArgs(`audio.${audioExt}`, hasEnglish, bundle.nativeLang, false)
 
-  const nativeLang = languageTagForMkv(input.native.languageCode)
-  const args: string[] = []
-
-  if (input.includeVideo && videoExt) {
-    args.push("-i", `video.${videoExt}`)
-    args.push("-i", `audio.${audioExt}`)
-    args.push("-i", "native.srt")
-    if (hasEnglish) args.push("-i", "english.srt")
-    args.push("-i", "chapters.ffmeta")
-    args.push("-map", "0:v:0", "-map", "1:a:0", "-map", "2:s:0")
-    if (hasEnglish) args.push("-map", "3:s:0")
-    args.push("-map_metadata", hasEnglish ? "4" : "3")
-    args.push("-map_chapters", hasEnglish ? "4" : "3")
-    args.push("-c", "copy")
-    args.push("-metadata:s:s:0", `language=${nativeLang}`)
-    if (hasEnglish) args.push("-metadata:s:s:1", "language=eng")
-  } else {
-    args.push("-i", `audio.${audioExt}`)
-    args.push("-i", "native.srt")
-    if (hasEnglish) args.push("-i", "english.srt")
-    args.push("-i", "chapters.ffmeta")
-    args.push("-map", "0:a:0", "-map", "1:s:0")
-    if (hasEnglish) args.push("-map", "2:s:0")
-    args.push("-map_metadata", hasEnglish ? "3" : "2")
-    args.push("-map_chapters", hasEnglish ? "3" : "2")
-    args.push("-c", "copy")
-    args.push("-metadata:s:s:0", `language=${nativeLang}`)
-    if (hasEnglish) args.push("-metadata:s:s:1", "language=eng")
-  }
-
-  args.push("output.mkv")
-
-  const exitCode = await ffmpeg.exec(args)
-  if (exitCode !== 0) {
-    throw new Error(`ffmpeg mux failed (code ${exitCode})`)
-  }
-
-  const data = await ffmpeg.readFile("output.mkv")
-  onProgress?.("done")
-
-  const bytes = data instanceof Uint8Array ? data : new TextEncoder().encode(String(data))
-  return new Blob([bytes.buffer as ArrayBuffer], { type: "video/x-matroska" })
+  return runMux(ffmpeg, args, onProgress)
 }
 
 export function downloadMkvBlob(blob: Blob, artist: string, track: string): void {
