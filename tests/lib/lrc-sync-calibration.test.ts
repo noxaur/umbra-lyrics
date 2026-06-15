@@ -39,6 +39,12 @@ describe("lrc-sync-calibration", () => {
     expect(offset).toBe(0)
   })
 
+  it("still suggests offset when first vocal starts beyond intentional intro cap", () => {
+    const lines: LyricLine[] = [{ startMs: 55_000, endMs: 58_000, text: "Way past intro" }]
+    const offset = estimateIntroSyncOffsetMs(lines, 354_000)
+    expect(offset).toBeLessThan(0)
+  })
+
   it("finalizes word ends to the parent line window", () => {
     const lines: LyricLine[] = [
       {
