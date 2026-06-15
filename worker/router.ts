@@ -20,7 +20,7 @@ import {
   handleLibreTranslate,
   handleMyMemory,
 } from "./handlers/translate"
-import { handleYouTubeStreamInfo, handleYouTubeStreamProxy } from "./handlers/youtube-stream"
+import { handleYouTubeStreamInfo, handleYouTubeStreamProxy, handleYouTubeProxyUrl } from "./handlers/youtube-stream"
 
 function proxySearchRoute(
   pathname: string,
@@ -122,6 +122,11 @@ export async function handleApiRequest(
     const formatParam = url.searchParams.get("format") ?? "audio"
     const format = formatParam === "video" ? "video" : "audio"
     return handleYouTubeStreamProxy(videoId, format, request)
+  }
+
+  if (pathname === "/api/beta/youtube/proxy-url") {
+    const encoded = url.searchParams.get("u") ?? ""
+    return handleYouTubeProxyUrl(encoded, request)
   }
 
   if (pathname === "/api/translate/libretranslate" && request.method === "POST") {

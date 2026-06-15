@@ -1,4 +1,8 @@
 import { lyricsApiBase } from "@/lib/lyrics-providers/api-base"
+import {
+  encodeStreamProxyPath,
+  resolveYouTubeStreamInBrowser,
+} from "@/lib/mkv-export/youtube-stream-client"
 
 export type StreamFormat = "audio" | "video"
 
@@ -6,12 +10,23 @@ export type StreamInfo = {
   mimeType: string
   streamUrl: string
   format: StreamFormat
+  source?: string
 }
 
 export async function fetchStreamInfo(
   videoId: string,
   format: StreamFormat,
 ): Promise<StreamInfo> {
+  const fromBrowser = await resolveYouTubeStreamInBrowser(videoId, format)
+  if (fromBrowser) {
+    return {
+      mimeType: fromBrowser.mimeType,
+      streamUrl: encodeStreamProxyPath(fromBrowser.url),
+      format,
+      source: `browser:${fromBrowser.client}`,
+    }
+  }
+
   const base = lyricsApiBase()
   const url = `${base}/api/beta/youtube/stream?videoId=${encodeURIComponent(videoId)}&format=${format}`
   const res = await fetch(url)
@@ -19,7 +34,9 @@ export async function fetchStreamInfo(
     const err = (await res.json().catch(() => ({}))) as { error?: string }
     throw new Error(err.error ?? `Stream info failed (${res.status})`)
   }
-  return (await res.json()) as StreamInfo
+
+  const body = (await res.json()) as StreamInfo
+  return body
 }
 
 export async function fetchStreamBytes(

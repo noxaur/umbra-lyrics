@@ -51,11 +51,6 @@ function extensionForMime(mimeType: string, format: "audio" | "video"): string {
   return format === "audio" ? "m4a" : "mp4"
 }
 
-function extensionForFilename(name: string): string {
-  const match = name.toLowerCase().match(/\.([a-z0-9]+)$/)
-  return match?.[1] ?? "mp4"
-}
-
 type SubtitleBundle = {
   nativeSrt: string
   englishSrt: string | null
@@ -160,35 +155,6 @@ async function runMux(
   onProgress?.("done")
   const bytes = data instanceof Uint8Array ? data : new TextEncoder().encode(String(data))
   return new Blob([bytes.buffer as ArrayBuffer], { type: "video/x-matroska" })
-}
-
-export async function exportMkvFromLocalFile(
-  input: MkvExportInput,
-  mediaFile: File,
-  callbacks: MuxCallbacks = {},
-): Promise<Blob> {
-  const { onProgress, signal } = callbacks
-  const throwIfAborted = () => {
-    if (signal?.aborted) throw new DOMException("Export cancelled", "AbortError")
-  }
-
-  onProgress?.("loading-ffmpeg")
-  throwIfAborted()
-  const ffmpeg = await getFfmpeg()
-
-  onProgress?.("fetching-media")
-  throwIfAborted()
-
-  const ext = extensionForFilename(mediaFile.name)
-  const mediaBytes = new Uint8Array(await mediaFile.arrayBuffer())
-  await ffmpeg.writeFile(`media.${ext}`, mediaBytes)
-
-  const bundle = await prepareSubtitleBundle(input)
-  const { hasEnglish } = await writeSubtitleFiles(ffmpeg, bundle)
-
-  throwIfAborted()
-  const args = buildMuxArgs(`media.${ext}`, hasEnglish, bundle.nativeLang, false)
-  return runMux(ffmpeg, args, onProgress)
 }
 
 export async function exportMkv(input: MkvExportInput, callbacks: MuxCallbacks = {}): Promise<Blob> {

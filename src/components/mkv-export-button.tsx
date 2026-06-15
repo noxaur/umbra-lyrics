@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react"
-import { Download, FileUp, Loader2 } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Download, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { useMkvExport } from "@/hooks/use-mkv-export"
 import { usePlayerStore } from "@/stores/player-store"
 import type { MkvExportInput, MkvExportProgress } from "@/lib/mkv-export/types"
@@ -9,7 +8,7 @@ import type { MkvExportInput, MkvExportProgress } from "@/lib/mkv-export/types"
 const PROGRESS_LABELS: Record<MkvExportProgress, string> = {
   idle: "",
   "loading-ffmpeg": "Loading ffmpeg (~30 MB, one-time)…",
-  "fetching-media": "Reading media…",
+  "fetching-media": "Fetching audio from YouTube…",
   muxing: "Muxing MKV with subtitles and chapters…",
   done: "Download started",
   error: "Export failed",
@@ -49,12 +48,9 @@ type MkvExportDialogProps = {
 }
 
 export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogProps) {
-  const { progress, error, exportSong, exportLyricsOnly, cancel, reset, isExporting } =
-    useMkvExport()
+  const { progress, error, exportSong, cancel, reset, isExporting } = useMkvExport()
   const [includeEnglish, setIncludeEnglish] = useState(true)
   const [includeVideo, setIncludeVideo] = useState(false)
-  const [mediaFile, setMediaFile] = useState<File | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const videoId = usePlayerStore((s) => s.videoId)
   const title = usePlayerStore((s) => s.title)
@@ -70,7 +66,6 @@ export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogP
   useEffect(() => {
     if (!open) return
     reset()
-    setMediaFile(null)
     setIncludeEnglish(englishLines.length > 0)
     setIncludeVideo(false)
   }, [open, englishLines.length, reset])
@@ -102,12 +97,7 @@ export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogP
 
   const handleExport = async () => {
     if (!videoId) return
-    await exportSong(input, mediaFile)
-  }
-
-  const handleLyricsOnly = async () => {
-    if (!videoId) return
-    await exportLyricsOnly(input)
+    await exportSong(input)
   }
 
   const timingWarning = !lyricsSynced
@@ -125,7 +115,7 @@ export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogP
       onClick={isExporting ? undefined : onClose}
     >
       <div
-        className="flex max-h-[min(92dvh,640px)] w-full max-w-md flex-col rounded-t-xl border border-border bg-background shadow-lg sm:rounded-lg"
+        className="flex max-h-[min(92dvh,560px)] w-full max-w-md flex-col rounded-t-xl border border-border bg-background shadow-lg sm:rounded-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="overflow-y-auto px-6 py-5">
@@ -139,8 +129,8 @@ export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogP
               </span>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Mux synced subtitles and section chapters into an MKV for VLC, mpv, and other
-              players.
+              Downloads audio from YouTube and muxes synced subtitles plus section chapters in your
+              browser.
             </p>
           </div>
 
@@ -150,64 +140,32 @@ export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogP
             </p>
           ) : null}
 
-          <div className="mt-4 space-y-3">
-            <div>
-              <p className="mb-2 text-sm font-medium">Media source</p>
+          <div className="mt-4 flex flex-col gap-3 text-sm">
+            <label className="flex cursor-pointer items-center gap-2">
               <input
-                ref={fileInputRef}
-                type="file"
-                accept="audio/*,video/*,.mkv,.mp4,.webm,.m4a,.mp3"
-                className="sr-only"
-                onChange={(e) => setMediaFile(e.target.files?.[0] ?? null)}
+                type="checkbox"
+                checked={includeEnglish}
+                disabled={englishLines.length === 0 || isExporting}
+                onChange={(e) => setIncludeEnglish(e.target.checked)}
+                className="size-4 accent-primary"
               />
-              <Button
-                type="button"
-                variant="outline"
-                className="h-auto min-h-11 w-full justify-start gap-2 px-3 py-2 text-left"
+              <span>Include English subtitle track</span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={includeVideo}
                 disabled={isExporting}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <FileUp className="size-4 shrink-0" aria-hidden />
-                <span className="min-w-0 truncate text-sm">
-                  {mediaFile ? mediaFile.name : "Choose audio or video file (recommended)"}
-                </span>
-              </Button>
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                {mediaFile
-                  ? "Your file will be muxed with synced lyrics — nothing is uploaded."
-                  : "Without a local file, export tries YouTube via the server (often unavailable)."}
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-3 text-sm">
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={includeEnglish}
-                  disabled={englishLines.length === 0 || isExporting}
-                  onChange={(e) => setIncludeEnglish(e.target.checked)}
-                  className="size-4 accent-primary"
-                />
-                <span>Include English subtitle track</span>
-              </label>
-              {!mediaFile ? (
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={includeVideo}
-                    disabled={isExporting}
-                    onChange={(e) => setIncludeVideo(e.target.checked)}
-                    className="size-4 accent-primary"
-                  />
-                  <span>Include video track from YouTube (larger file)</span>
-                </label>
-              ) : null}
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              For personal use only. You are responsible for having rights to the media you export.
-            </p>
+                onChange={(e) => setIncludeVideo(e.target.checked)}
+                className="size-4 accent-primary"
+              />
+              <span>Include video track (larger file)</span>
+            </label>
           </div>
+
+          <p className="mt-4 text-xs text-muted-foreground">
+            For personal use only. You are responsible for having rights to download this content.
+          </p>
 
           {isExporting || progress === "done" ? (
             <div
@@ -222,7 +180,6 @@ export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogP
           {error ? (
             <p className="mt-4 text-sm text-destructive" role="alert">
               {error}
-              {!mediaFile ? " Try choosing a local audio/video file, or download lyrics only." : null}
             </p>
           ) : null}
         </div>
@@ -238,19 +195,7 @@ export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogP
                 <Button variant="outline" className="w-full sm:w-auto" onClick={onClose}>
                   Close
                 </Button>
-                <Button
-                  variant="secondary"
-                  className="w-full sm:w-auto"
-                  onClick={handleLyricsOnly}
-                  disabled={!videoId}
-                >
-                  Lyrics only (.zip)
-                </Button>
-                <Button
-                  className={cn("w-full sm:w-auto")}
-                  onClick={handleExport}
-                  disabled={!videoId}
-                >
+                <Button className="w-full sm:w-auto" onClick={handleExport} disabled={!videoId}>
                   <Download className="size-4" aria-hidden />
                   Export MKV
                 </Button>

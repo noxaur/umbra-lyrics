@@ -1,14 +1,24 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import {
+  handleYouTubeProxyUrl,
   handleYouTubeStreamInfo,
   handleYouTubeStreamProxy,
+  isAllowedStreamUrl,
   isValidVideoId,
 } from "../../worker/handlers/youtube-stream"
 import { handleApiRequest } from "../../worker/router"
 
+vi.mock("../../worker/lib/youtube-innertube", () => ({
+  resolveStreamViaInnertube: vi.fn(),
+}))
+
+import { resolveStreamViaInnertube } from "../../worker/lib/youtube-innertube"
+
+const mockResolve = vi.mocked(resolveStreamViaInnertube)
+
 describe("youtube stream beta handlers", () => {
   beforeEach(() => {
-    vi.restoreAllMocks()
+    mockResolve.mockReset()
   })
 
   it("validates video ids", () => {
@@ -16,16 +26,17 @@ describe("youtube stream beta handlers", () => {
     expect(isValidVideoId("bad")).toBe(false)
   })
 
+  it("allows googlevideo stream hosts only", () => {
+    expect(isAllowedStreamUrl("https://rr3---sn-abc.googlevideo.com/videoplayback?x=1")).toBe(true)
+    expect(isAllowedStreamUrl("https://evil.example/videoplayback")).toBe(false)
+  })
+
   it("returns stream info with proxy url", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        Response.json({
-          audioStreams: [{ url: "https://cdn.example/audio.m4a", mimeType: "audio/mp4" }],
-          videoStreams: [],
-        }),
-      ),
-    )
+    mockResolve.mockResolvedValue({
+      url: "https://rr3---sn-abc.googlevideo.com/videoplayback?x=1",
+      mimeType: "audio/mp4",
+      client: "IOS",
+    })
 
     const res = await handleYouTubeStreamInfo(
       "dQw4w9WgXcQ",
@@ -33,29 +44,30 @@ describe("youtube stream beta handlers", () => {
       new URL("https://song.example/api/beta/youtube/stream"),
     )
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { streamUrl: string; mimeType: string }
+    const body = (await res.json()) as { streamUrl: string; mimeType: string; source: string }
     expect(body.mimeType).toBe("audio/mp4")
-    expect(body.streamUrl).toContain("/api/beta/youtube/proxy")
+    expect(body.streamUrl).toContain("/api/beta/youtube/proxy-url")
+    expect(body.source).toBe("innertube")
   })
 
   it("proxies range requests to upstream", async () => {
+    mockResolve.mockResolvedValue({
+      url: "https://rr3---sn-abc.googlevideo.com/videoplayback?x=1",
+      mimeType: "audio/mp4",
+      client: "IOS",
+    })
+
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (url: string, init?: RequestInit) => {
-        if (String(url).includes("/streams/")) {
-          return Response.json({
-            audioStreams: [{ url: "https://cdn.example/audio.m4a", mimeType: "audio/mp4" }],
-          })
-        }
-        expect(init?.headers).toBeDefined()
-        return new Response("audio-bytes", {
+      vi.fn(async () =>
+        new Response("audio-bytes", {
           status: 206,
           headers: {
             "Content-Type": "audio/mp4",
             "Content-Range": "bytes 0-99/1000",
           },
-        })
-      }),
+        }),
+      ),
     )
 
     const req = new Request("https://song.example/api/beta/youtube/proxy?videoId=dQw4w9WgXcQ", {
@@ -66,15 +78,26 @@ describe("youtube stream beta handlers", () => {
     expect(await res.text()).toBe("audio-bytes")
   })
 
-  it("routes beta stream endpoints via router", async () => {
+  it("proxies direct googlevideo urls", async () => {
+    const target = btoa("https://rr3---sn-abc.googlevideo.com/videoplayback?x=1")
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        Response.json({
-          audioStreams: [{ url: "https://cdn.example/audio.m4a", mimeType: "audio/mp4" }],
-        }),
-      ),
+      vi.fn(async (url: string) => {
+        expect(String(url)).toContain("googlevideo.com")
+        return new Response("bytes", { status: 200 })
+      }),
     )
+
+    const res = await handleYouTubeProxyUrl(target, new Request("https://song.example/proxy-url"))
+    expect(res.status).toBe(200)
+  })
+
+  it("routes beta stream endpoints via router", async () => {
+    mockResolve.mockResolvedValue({
+      url: "https://rr3---sn-abc.googlevideo.com/videoplayback?x=1",
+      mimeType: "audio/mp4",
+      client: "IOS",
+    })
 
     const res = await handleApiRequest(
       new Request("https://song.example/api/beta/youtube/stream?videoId=dQw4w9WgXcQ"),

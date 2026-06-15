@@ -15,17 +15,8 @@ A client-side karaoke player: paste a YouTube URL, sing along with synced lyrics
 
 ## Beta: MKV export
 
-On the player page, once lyrics load, use the **MKV Beta** button in the transport bar (bottom controls).
-
-1. **Export MKV** — pick a local audio/video file (recommended), then export. Your file is muxed in-browser with synced subtitles and chapters; nothing is uploaded.
-2. **Lyrics only (.zip)** — always works; downloads SRT files and chapter metadata if you want to mux manually.
-
-YouTube auto-download is attempted when no local file is selected, but is often unavailable.
-
-- Audio (and optional video) from YouTube
-- Synced native subtitle track
-- Optional English subtitle track
-- Chapter markers from lyric sections (Verse, Chorus, etc.)
+On the player page, once lyrics load, click **MKV Beta** in the transport bar. Export downloads audio from YouTube (via InnerTube in your browser, with a server fallback) and muxes synced subtitles plus section chapters locally with ffmpeg.wasm.
+- Optional English subtitle track and video track toggle
 
 Processing runs in your browser via ffmpeg.wasm (~30 MB one-time download). Chromium-based browsers recommended. Export is intended for **personal use** — respect copyright and YouTube Terms of Service.
 

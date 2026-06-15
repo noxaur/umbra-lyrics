@@ -1,82 +1,48 @@
 import { jsonResponse } from "../cors"
-
-const PIPED_INSTANCES = [
-  "https://pipedapi.kavin.rocks",
-  "https://pipedapi.adminforge.de",
-  "https://api.piped.yt",
-]
+import { resolveStreamViaInnertube } from "../lib/youtube-innertube"
 
 export type StreamFormat = "audio" | "video"
 
 export type ResolvedStream = {
   url: string
   mimeType: string
-  itag?: number
 }
 
 const VIDEO_ID_PATTERN = /^[\w-]{11}$/
+
+const ALLOWED_STREAM_HOSTS = [
+  "googlevideo.com",
+  "youtube.com",
+  "ytimg.com",
+]
 
 export function isValidVideoId(videoId: string): boolean {
   return VIDEO_ID_PATTERN.test(videoId.trim())
 }
 
-async function fetchPipedStreams(videoId: string): Promise<{
-  audioStreams: Array<{ url?: string; mimeType?: string; itag?: number }>
-  videoStreams: Array<{ url?: string; mimeType?: string; itag?: number }>
-} | null> {
-  for (const base of PIPED_INSTANCES) {
-    try {
-      const res = await fetch(`${base}/streams/${encodeURIComponent(videoId)}`, {
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(15_000),
-      })
-      if (!res.ok) continue
-      const data = (await res.json()) as {
-        audioStreams?: Array<{ url?: string; mimeType?: string; itag?: number }>
-        videoStreams?: Array<{ url?: string; mimeType?: string; itag?: number }>
-      }
-      if (data.audioStreams?.length || data.videoStreams?.length) {
-        return {
-          audioStreams: data.audioStreams ?? [],
-          videoStreams: data.videoStreams ?? [],
-        }
-      }
-    } catch {
-      // try next instance
-    }
+export function isAllowedStreamUrl(rawUrl: string): boolean {
+  try {
+    const { hostname } = new URL(rawUrl)
+    const host = hostname.toLowerCase()
+    return ALLOWED_STREAM_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`))
+  } catch {
+    return false
   }
-  return null
 }
 
-function pickStream(
-  streams: Array<{ url?: string; mimeType?: string; itag?: number }>,
-): ResolvedStream | null {
-  const withUrl = streams.filter((s) => typeof s.url === "string" && s.url.trim())
-  if (withUrl.length === 0) return null
-  const best = withUrl[0]
-  return {
-    url: best.url!.trim(),
-    mimeType: best.mimeType ?? "application/octet-stream",
-    itag: best.itag,
-  }
+function encodeProxyUrl(targetUrl: string, requestUrl: URL): string {
+  const proxy = new URL("/api/beta/youtube/proxy-url", requestUrl.origin)
+  proxy.searchParams.set("u", btoa(targetUrl))
+  return `${proxy.pathname}${proxy.search}`
 }
 
 export async function resolveYouTubeStream(
   videoId: string,
   format: StreamFormat,
 ): Promise<ResolvedStream | null> {
-  const data = await fetchPipedStreams(videoId)
-  if (!data) return null
-
-  if (format === "audio") {
-    return pickStream(data.audioStreams)
-  }
-
-  const videoOnly = data.videoStreams.filter((s) => {
-    const mime = s.mimeType ?? ""
-    return !mime.startsWith("audio/")
-  })
-  return pickStream(videoOnly.length > 0 ? videoOnly : data.videoStreams)
+  const resolved = await resolveStreamViaInnertube(videoId, format)
+  if (!resolved) return null
+  return { url: resolved.url, mimeType: resolved.mimeType }
 }
 
 export async function handleYouTubeStreamInfo(
@@ -94,14 +60,11 @@ export async function handleYouTubeStreamInfo(
     return jsonResponse({ error: "Stream unavailable" }, 502)
   }
 
-  const proxyUrl = new URL("/api/beta/youtube/proxy", requestUrl.origin)
-  proxyUrl.searchParams.set("videoId", trimmed)
-  proxyUrl.searchParams.set("format", format)
-
   return jsonResponse({
     mimeType: resolved.mimeType,
-    streamUrl: `${proxyUrl.pathname}${proxyUrl.search}`,
+    streamUrl: encodeProxyUrl(resolved.url, requestUrl),
     format,
+    source: "innertube",
   })
 }
 
@@ -120,13 +83,43 @@ export async function handleYouTubeStreamProxy(
     return jsonResponse({ error: "Stream unavailable" }, 502)
   }
 
+  return proxyStreamUrl(resolved.url, resolved.mimeType, request)
+}
+
+export async function handleYouTubeProxyUrl(
+  encodedUrl: string,
+  request: Request,
+): Promise<Response> {
+  let targetUrl: string
+  try {
+    targetUrl = atob(encodedUrl)
+  } catch {
+    return jsonResponse({ error: "Invalid stream URL encoding" }, 400)
+  }
+
+  if (!isAllowedStreamUrl(targetUrl)) {
+    return jsonResponse({ error: "Stream host not allowed" }, 403)
+  }
+
+  return proxyStreamUrl(targetUrl, undefined, request)
+}
+
+async function proxyStreamUrl(
+  targetUrl: string,
+  mimeType: string | undefined,
+  request: Request,
+): Promise<Response> {
   const upstreamHeaders = new Headers()
   const range = request.headers.get("Range")
   if (range) upstreamHeaders.set("Range", range)
   upstreamHeaders.set("Accept", "*/*")
+  upstreamHeaders.set(
+    "User-Agent",
+    "com.google.ios.youtube/19.45.4 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)",
+  )
 
   try {
-    const upstream = await fetch(resolved.url, {
+    const upstream = await fetch(targetUrl, {
       headers: upstreamHeaders,
       signal: AbortSignal.timeout(120_000),
     })
@@ -144,8 +137,8 @@ export async function handleYouTubeStreamProxy(
       if (value) headers.set(key, value)
     }
 
-    if (!headers.has("Content-Type")) {
-      headers.set("Content-Type", resolved.mimeType)
+    if (!headers.has("Content-Type") && mimeType) {
+      headers.set("Content-Type", mimeType)
     }
 
     headers.set("Access-Control-Allow-Origin", "*")
