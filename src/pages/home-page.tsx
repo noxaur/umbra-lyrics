@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { AppShell } from "@/components/app-shell"
+import { SongSearch } from "@/components/song-search"
 import { UrlInput } from "@/components/url-input"
 import { Button } from "@/components/ui/button"
 import {
@@ -50,12 +51,18 @@ export function HomePage() {
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-balance">Sing along</h1>
           <p className="mt-2 text-muted-foreground text-pretty">
-            Paste a YouTube link to open synced lyrics and sing with the video.
+            Search for a song or paste a YouTube link to open synced lyrics and sing with the video.
           </p>
           <p className="mt-3 max-w-md text-center text-xs text-muted-foreground text-pretty">
             In the player, press Space to play or pause, use arrow keys to seek, and +/− to nudge
             lyric timing.
           </p>
+        </div>
+        <SongSearch />
+        <div className="flex w-full max-w-xl items-center gap-3 text-xs text-muted-foreground">
+          <span className="h-px flex-1 bg-border" aria-hidden />
+          <span>or paste a link</span>
+          <span className="h-px flex-1 bg-border" aria-hidden />
         </div>
         <UrlInput />
         {recent.length > 0 && (

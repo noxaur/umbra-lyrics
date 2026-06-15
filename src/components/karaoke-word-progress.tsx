@@ -18,7 +18,7 @@ export function KaraokeWordProgress({ text, progress, className }: KaraokeWordPr
     <span className={cn("relative block w-full", className)}>
       <span className="block text-karaoke-unsung">{text}</span>
       <span
-        className="pointer-events-none absolute inset-0 block text-karaoke-active-line"
+        className="pointer-events-none absolute inset-0 block text-karaoke-highlight"
         style={{ clipPath: `inset(0 ${clipRight}% 0 0)` }}
         aria-hidden
       >

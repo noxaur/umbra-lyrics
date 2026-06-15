@@ -49,6 +49,11 @@ export function getScrollBehavior(
     : "auto"
 }
 
+function clampScrollTop(container: HTMLElement, nextTop: number): number {
+  const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight)
+  return Math.max(0, Math.min(nextTop, maxScroll))
+}
+
 export function scrollLineToCenter(
   element: HTMLElement,
   container: HTMLElement,
@@ -61,7 +66,10 @@ export function scrollLineToCenter(
   const elementRect = element.getBoundingClientRect()
   const elementCenter = elementRect.top + elementRect.height / 2
   const containerCenter = containerRect.top + container.clientHeight / 2
-  const nextTop = container.scrollTop + (elementCenter - containerCenter)
+  const nextTop = clampScrollTop(
+    container,
+    container.scrollTop + (elementCenter - containerCenter),
+  )
 
   if (behavior === "auto" || typeof container.scrollTo !== "function") {
     container.scrollTop = nextTop
@@ -88,7 +96,10 @@ export function scrollLineToCenterEase(
   const elementRect = element.getBoundingClientRect()
   const elementCenter = elementRect.top + elementRect.height / 2
   const containerCenter = containerRect.top + container.clientHeight / 2
-  const targetTop = container.scrollTop + (elementCenter - containerCenter)
+  const targetTop = clampScrollTop(
+    container,
+    container.scrollTop + (elementCenter - containerCenter),
+  )
   const startTop = container.scrollTop
   const delta = targetTop - startTop
   if (Math.abs(delta) < 0.5) {

@@ -10,7 +10,7 @@
     "preview": "vp preview",
     "test": "vp test",
     "test:watch": "vp test --watch",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "npm run build && wrangler deploy --config dist/song_kara/wrangler.json",
     "fix-dns": "node scripts/fix-dns.mjs",
     "cf-typegen": "wrangler types"
   },
@@ -50,6 +50,7 @@
     "@voidzero-dev/vite-plus-test": "^0.1.24",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
+    "playwright": "^1.61.0",
     "typescript": "~6.0.2",
     "vite-plus": "^0.1.24",
     "wrangler": "^4.100.0"

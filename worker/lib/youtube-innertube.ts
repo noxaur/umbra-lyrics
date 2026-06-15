@@ -6,8 +6,10 @@ import {
   type ResolvedInnertubeStream,
   resolveStreamFromBasicInfo,
 } from "./innertube-resolve"
+import { mapSearchVideos } from "./youtube-search-map"
+import { rankSongSearchHits, type SongSearchHit } from "./youtube-search-rank"
 
-export type { ResolvedInnertubeStream as InnertubeResolvedStream, ResolveAttempt }
+export type { ResolvedInnertubeStream as InnertubeResolvedStream, ResolveAttempt, SongSearchHit }
 
 type StreamKind = "audio" | "video"
 
@@ -77,4 +79,20 @@ export async function resolveStreamViaInnertubeDetailed(
   }
 
   return { stream: null, attempts }
+}
+
+export function searchCandidateLimit(limit: number): number {
+  // Map more than the response limit so ranking can surface karaoke-friendly hits
+  // that YouTube's default order buries deeper in the result set.
+  return Math.min(Math.max(limit * 3, 30), 50)
+}
+
+export async function searchViaInnertube(query: string, limit: number): Promise<SongSearchHit[]> {
+  const yt = await createInnertube(ClientType.WEB)
+  const search = await yt.search(query, { type: "video" })
+  const mapped = mapSearchVideos(
+    [...search.videos] as Parameters<typeof mapSearchVideos>[0],
+    searchCandidateLimit(limit),
+  )
+  return rankSongSearchHits(mapped).slice(0, limit)
 }

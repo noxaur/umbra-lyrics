@@ -21,7 +21,9 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run build
+      - run: npx tsc -b
+
+      - run: npx vp build
 
       - name: Strip zone routes for CI deploy
         run: |
@@ -38,4 +40,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
+          command: deploy --config dist/song_kara/wrangler.json

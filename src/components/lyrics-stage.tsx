@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { MotionConfig, useReducedMotion } from "motion/react"
-import { Music2 } from "lucide-react"
 import { LyricLine } from "@/components/lyric-line"
 import { LyricsEmptyState } from "@/components/lyrics-empty-state"
 import { LyricsRetry } from "@/components/lyrics-retry"
@@ -21,6 +20,8 @@ import {
 } from "@/lib/lyrics-follow-scroll"
 import { createRafThrottle } from "@/lib/lyric-viewport-depth"
 import { stageEdgeSpacerPx } from "@/lib/lyrics-stage-layout"
+import { formatLyricTimestamp } from "@/lib/format-time"
+import { getFirstLyricStartMs } from "@/lib/gap-detection"
 import { usePlayerStore } from "@/stores/player-store"
 import { getLyricStageState } from "@/lib/sync-engine"
 
@@ -41,16 +42,22 @@ function idleMessage(videoId: string | undefined, videoReady: boolean | undefine
   return "Paste a link to start"
 }
 
-function StagePlaceholder({ label }: { label: string }) {
+function StagePlaceholder({
+  label,
+  detail,
+}: {
+  label: string
+  detail?: string | null
+}) {
   return (
-    <div
-      className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 px-6"
-      aria-hidden
-    >
-      <Music2 className="size-10 text-muted-foreground/50 motion-reduce:opacity-80" />
-      <p className="text-center text-[clamp(1.25rem,3vw,2.5rem)] font-medium tracking-wide text-muted-foreground/80 motion-safe:animate-pulse motion-reduce:animate-none">
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 py-10 text-center">
+      <p
+        className="text-[clamp(1.25rem,3vw,2.5rem)] font-medium tracking-wide text-muted-foreground/80 motion-safe:animate-pulse motion-reduce:animate-none"
+        role="status"
+      >
         {label}
       </p>
+      {detail ? <p className="text-sm text-muted-foreground">{detail}</p> : null}
     </div>
   )
 }
@@ -85,6 +92,7 @@ export function LyricsStage({
   const activeRef = useRef<HTMLButtonElement>(null)
   const lineRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
   const lastLineChangeRef = useRef(0)
+  const prevDisplayModeRef = useRef(displayMode)
   const programmaticScrollRef = useRef(false)
   const programmaticScrollTimerRef = useRef<number | null>(null)
   const intentionalActiveScrollRef = useRef(false)
@@ -231,6 +239,25 @@ export function LyricsStage({
     setActive(activeIndex, stage.wordProgress)
   }, [activeIndex, stage.wordProgress, setActive])
 
+  const scrollActiveLine = useCallback(
+    (force = false, lineChangeIntervalMs?: number) => {
+      if (lyricsFollowMode !== "follow") return
+      const element = activeRef.current
+      const container = scrollRef.current
+      if (!element || !container || activeIndex < 0) return
+
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      const durationMs = getLineHandoffDurationMs(prefersReducedMotion, lineChangeIntervalMs)
+      beginProgrammaticScroll(durationMs)
+      if (durationMs > 0) {
+        scrollLineToCenterEase(element, container, durationMs, { force })
+      } else {
+        scrollLineToCenter(element, container, "auto", { force })
+      }
+    },
+    [activeIndex, beginProgrammaticScroll, lyricsFollowMode],
+  )
+
   useEffect(() => {
     const container = scrollRef.current
     if (!container) return
@@ -297,25 +324,6 @@ export function LyricsStage({
     snapActiveToCenter(true)
   }, [lyricsScrollSyncRequest, snapActiveToCenter])
 
-  const scrollActiveLine = useCallback(
-    (force = false, lineChangeIntervalMs?: number) => {
-      if (lyricsFollowMode !== "follow") return
-      const element = activeRef.current
-      const container = scrollRef.current
-      if (!element || !container || activeIndex < 0) return
-
-      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      const durationMs = getLineHandoffDurationMs(prefersReducedMotion, lineChangeIntervalMs)
-      beginProgrammaticScroll(durationMs)
-      if (durationMs > 0) {
-        scrollLineToCenterEase(element, container, durationMs, { force })
-      } else {
-        scrollLineToCenter(element, container, "auto", { force })
-      }
-    },
-    [activeIndex, beginProgrammaticScroll, lyricsFollowMode],
-  )
-
   useEffect(() => {
     if (activeIndex < 0 || lyricsFollowMode !== "follow") return
 
@@ -336,6 +344,8 @@ export function LyricsStage({
 
   useEffect(() => {
     if (activeIndex < 0 || lyricsFollowMode !== "follow") return
+    if (prevDisplayModeRef.current === displayMode) return
+    prevDisplayModeRef.current = displayMode
 
     let raf2 = 0
     const raf1 = requestAnimationFrame(() => {
@@ -345,7 +355,7 @@ export function LyricsStage({
       cancelAnimationFrame(raf1)
       cancelAnimationFrame(raf2)
     }
-  }, [displayMode, lyricsFollowMode, scrollActiveLine])
+  }, [displayMode, activeIndex, lyricsFollowMode, scrollActiveLine])
 
   useEffect(() => {
     const element = activeRef.current
@@ -358,6 +368,7 @@ export function LyricsStage({
       scrollLineToCenter(element, container, "auto")
     })
     observer.observe(element)
+    observer.observe(container)
     return () => observer.disconnect()
   }, [activeIndex, beginProgrammaticScroll, displayMode, lyricsFollowMode])
 
@@ -420,6 +431,11 @@ export function LyricsStage({
   }
 
   const showPlaceholder = stage.mode === "intro" || stage.mode === "gap" || stage.mode === "outro"
+  const firstLyricStartMs = getFirstLyricStartMs(lyrics)
+  const placeholderDetail =
+    stage.mode === "intro" && firstLyricStartMs != null
+      ? `Lyrics start at ${formatLyricTimestamp(firstLyricStartMs - syncOffsetMs)}`
+      : null
 
   return (
     <div
@@ -454,45 +470,47 @@ export function LyricsStage({
         </p>
       )}
 
-      {showPlaceholder && stage.gapLabel ? <StagePlaceholder label={stage.gapLabel} /> : null}
-
-      <MotionConfig reducedMotion="user">
-        <div
-          className="mx-auto w-full max-w-3xl overflow-x-clip overflow-y-visible"
-          style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
-        >
+      {showPlaceholder && stage.gapLabel ? (
+        <StagePlaceholder label={stage.gapLabel} detail={placeholderDetail} />
+      ) : (
+        <MotionConfig reducedMotion="user">
           <div
-            className="flex flex-col gap-2 sm:gap-3"
-            style={{ transformStyle: "preserve-3d" }}
+            className="mx-auto w-full max-w-3xl overflow-x-clip overflow-y-visible"
+            style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
           >
-            <div aria-hidden className="shrink-0" style={{ height: edgeSpacerPx }} />
-            {lyrics.map((line, i) => (
-              <LyricLine
-                key={`${line.startMs}-${i}`}
-                ref={setLineRef(i)}
-                text={line.text}
-                words={line.words}
-                sectionLabel={line.sectionLabel}
-                kind={line.kind}
-                startMs={line.startMs - syncOffsetMs}
-                showTimestamp={showTimestamps && line.kind !== "section"}
-                englishText={englishLines[i]}
-                active={i === activeIndex}
-                distanceFromCenter={Math.abs(i - centerLineIndex)}
-                viewportDistancePx={lineViewportMetrics[i]?.distancePx}
-                lineHeightPx={lineViewportMetrics[i]?.lineHeightPx}
-                synced={lyricsSynced}
-                progress={i === activeIndex ? stage.wordProgress : 0}
-                wordIndex={i === activeIndex ? stage.wordIndex : -1}
-                displayMode={displayMode}
-                tvMode={tvMode}
-                onSeek={() => onLinePress(i)}
-              />
-            ))}
-            <div aria-hidden className="shrink-0" style={{ height: edgeSpacerPx }} />
+            <div
+              className="flex flex-col gap-2 sm:gap-3"
+              style={{ transformStyle: "preserve-3d" }}
+            >
+              <div aria-hidden className="shrink-0" style={{ height: edgeSpacerPx }} />
+              {lyrics.map((line, i) => (
+                <LyricLine
+                  key={`${line.startMs}-${i}`}
+                  ref={setLineRef(i)}
+                  text={line.text}
+                  words={line.words}
+                  sectionLabel={line.sectionLabel}
+                  kind={line.kind}
+                  startMs={line.startMs - syncOffsetMs}
+                  showTimestamp={showTimestamps && line.kind !== "section"}
+                  englishText={englishLines[i]}
+                  active={i === activeIndex}
+                  distanceFromCenter={Math.abs(i - centerLineIndex)}
+                  viewportDistancePx={lineViewportMetrics[i]?.distancePx}
+                  lineHeightPx={lineViewportMetrics[i]?.lineHeightPx}
+                  synced={lyricsSynced}
+                  progress={i === activeIndex ? stage.wordProgress : 0}
+                  wordIndex={i === activeIndex ? stage.wordIndex : -1}
+                  displayMode={displayMode}
+                  tvMode={tvMode}
+                  onSeek={() => onLinePress(i)}
+                />
+              ))}
+              <div aria-hidden className="shrink-0" style={{ height: edgeSpacerPx }} />
+            </div>
           </div>
-        </div>
-      </MotionConfig>
+        </MotionConfig>
+      )}
     </div>
   )
 }

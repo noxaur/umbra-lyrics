@@ -28,6 +28,14 @@ import type {
 
 export const PROVIDER_TIMEOUT_MS = 8000
 
+/** LRCLIB often responds in 10–15s from the edge; shorter timeouts cause scraper junk to win. */
+export const LRCLIB_TIMEOUT_MS = 45_000
+
+export function providerTimeoutMs(providerId: LyricsProviderId): number {
+  if (providerId === "lrclib") return LRCLIB_TIMEOUT_MS
+  return PROVIDER_TIMEOUT_MS
+}
+
 export const ALL_LYRICS_PROVIDERS: LyricsProvider[] = [
   lrclibProvider,
   musicbrainzProvider,
@@ -158,7 +166,6 @@ export async function searchProvidersParallel(
   options: MultiProviderSearchOptions,
 ): Promise<{ candidates: ProviderLyricsCandidate[]; statuses: ProviderSearchStatus[] }> {
   const { params, onProviderStart, onProviderComplete } = options
-  const timeoutMs = options.timeoutMs ?? PROVIDER_TIMEOUT_MS
   const ids = options.providerIds ?? PROVIDER_FALLBACK_ORDER
   const providers = ids
     .map((id) => getProviderById(id))
@@ -169,8 +176,9 @@ export async function searchProvidersParallel(
   const results = await Promise.all(
     providers.map(async (provider) => {
       onProviderStart?.(provider.id, provider.searchPhase)
+      const providerTimeout = options.timeoutMs ?? providerTimeoutMs(provider.id)
       try {
-        const candidates = await searchOneProvider(provider, params, timeoutMs)
+        const candidates = await searchOneProvider(provider, params, providerTimeout)
         const status: ProviderSearchStatus = {
           providerId: provider.id,
           outcome: candidates.length > 0 ? "found" : "empty",

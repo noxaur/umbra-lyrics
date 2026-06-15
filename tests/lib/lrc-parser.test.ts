@@ -40,6 +40,13 @@ describe("parseLrc", () => {
     expect(result.lines[0].text).toBe("Hello world")
     expect(result.suggestedOffsetMs).toBe(-500)
   })
+
+  it("does not suggest auto-offset for intentional MV intros (Not Like Us ~27s)", () => {
+    const lrc = "[00:26.97] Psst, I see dead people\n[00:30.12] Musty-ass, dusty-ass nigga"
+    const result = parseLrc(lrc, 354_000)
+    expect(result.lines[0].startMs).toBe(26_970)
+    expect(result.suggestedOffsetMs).toBeUndefined()
+  })
 })
 
 describe("parsePlainLyrics", () => {
