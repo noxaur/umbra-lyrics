@@ -52,7 +52,10 @@ export function LyricsRetry({ onRetry, onPaste, variant = "not_found" }: LyricsR
 
   return (
     <>
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8" role="alert">
+      <div
+        className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto overscroll-y-contain p-6 sm:p-8 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+        role="alert"
+      >
         <div className="max-w-md text-center">
           <p className="font-medium text-foreground">{headline}</p>
           <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
@@ -77,7 +80,7 @@ export function LyricsRetry({ onRetry, onPaste, variant = "not_found" }: LyricsR
               Searched {lyricsProvidersSearched.length} source
               {lyricsProvidersSearched.length === 1 ? "" : "s"}
             </p>
-            <ul className="list-inside list-disc space-y-1 text-muted-foreground">
+            <ul className="max-h-40 list-inside list-disc space-y-1 overflow-y-auto text-muted-foreground">
               {lyricsProvidersSearched.map((id) => (
                 <li key={id}>{LYRICS_PROVIDER_LABELS[id]}</li>
               ))}
