@@ -3,18 +3,72 @@ export type LyricLineVisual = {
   opacity: number
   z: number
   blur: number
+  y: number
 }
 
-const ACTIVE_SCALE = 1.04
+export type LyricTextTier = "short" | "medium" | "long" | "xlong"
+
+const ACTIVE_SCALE = 1.02
 const ACTIVE_SCALE_COMPACT = 1
-const NEAR_SCALE = 0.94
-const MIN_SCALE = 0.7
-const NEAR_OPACITY = 0.85
-const MIN_OPACITY = 0.35
-const ACTIVE_Z = 36
-const NEAR_Z = 28
-const FAR_Z_STEP = -24
-const MAX_BLUR = 2
+const NEAR_SCALE = 0.96
+const MIN_SCALE = 0.82
+const NEAR_OPACITY = 0.88
+const MIN_OPACITY = 0.42
+const ACTIVE_Z = 24
+const NEAR_Z = 16
+const FAR_Z_STEP = -18
+const MAX_BLUR = 1.5
+const NEAR_Y = 2
+const FAR_Y_STEP = 3
+
+/** Character count tiers — CJK counts per grapheme via spread. */
+export function getLyricTextTier(text: string): LyricTextTier {
+  const len = [...text.trim()].length
+  if (len <= 20) return "short"
+  if (len <= 40) return "medium"
+  if (len <= 60) return "long"
+  return "xlong"
+}
+
+const ACTIVE_SIZE_BY_TIER: Record<LyricTextTier, string> = {
+  short: "text-[clamp(1.25rem,5.5cqw,2.15rem)] leading-snug",
+  medium: "text-[clamp(1.1rem,4.8cqw,1.85rem)] leading-snug",
+  long: "text-[clamp(1rem,4.2cqw,1.55rem)] leading-tight",
+  xlong: "text-[clamp(0.9rem,3.6cqw,1.35rem)] leading-tight",
+}
+
+const INACTIVE_SIZE_BY_TIER: Record<LyricTextTier, string> = {
+  short: "text-[clamp(0.95rem,3.8cqw,1.35rem)] leading-snug",
+  medium: "text-[clamp(0.9rem,3.4cqw,1.2rem)] leading-snug",
+  long: "text-[clamp(0.85rem,3cqw,1.1rem)] leading-snug",
+  xlong: "text-[clamp(0.8rem,2.6cqw,1rem)] leading-snug",
+}
+
+const TV_ACTIVE_SIZE_BY_TIER: Record<LyricTextTier, string> = {
+  short: "text-[clamp(1.75rem,7cqw,3.25rem)] leading-tight",
+  medium: "text-[clamp(1.5rem,6cqw,2.75rem)] leading-tight",
+  long: "text-[clamp(1.25rem,5cqw,2.25rem)] leading-tight",
+  xlong: "text-[clamp(1.1rem,4.2cqw,1.85rem)] leading-tight",
+}
+
+const TV_INACTIVE_SIZE_BY_TIER: Record<LyricTextTier, string> = {
+  short: "text-[clamp(1.1rem,4cqw,1.75rem)] leading-snug",
+  medium: "text-[clamp(1rem,3.5cqw,1.5rem)] leading-snug",
+  long: "text-[clamp(0.95rem,3cqw,1.3rem)] leading-snug",
+  xlong: "text-[clamp(0.85rem,2.6cqw,1.15rem)] leading-snug",
+}
+
+export function getLyricTextSizeClass(
+  text: string,
+  active: boolean,
+  tvMode: boolean,
+): string {
+  const tier = getLyricTextTier(text)
+  if (tvMode) {
+    return active ? TV_ACTIVE_SIZE_BY_TIER[tier] : TV_INACTIVE_SIZE_BY_TIER[tier]
+  }
+  return active ? ACTIVE_SIZE_BY_TIER[tier] : INACTIVE_SIZE_BY_TIER[tier]
+}
 
 export function getLyricLineVisual(
   distanceFromActive: number,
@@ -22,6 +76,7 @@ export function getLyricLineVisual(
   compact = false,
 ): LyricLineVisual {
   const distance = Math.abs(distanceFromActive)
+  const direction = Math.sign(distanceFromActive)
 
   if (reducedMotion) {
     return {
@@ -29,6 +84,7 @@ export function getLyricLineVisual(
       opacity: distance === 0 ? 1 : distance === 1 ? NEAR_OPACITY : MIN_OPACITY,
       z: 0,
       blur: 0,
+      y: 0,
     }
   }
 
@@ -38,25 +94,41 @@ export function getLyricLineVisual(
       opacity: 1,
       z: ACTIVE_Z,
       blur: 0,
+      y: 0,
     }
   }
 
   if (distance === 1) {
-    return { scale: NEAR_SCALE, opacity: NEAR_OPACITY, z: NEAR_Z, blur: 0 }
+    return {
+      scale: NEAR_SCALE,
+      opacity: NEAR_OPACITY,
+      z: NEAR_Z,
+      blur: 0,
+      y: direction * NEAR_Y,
+    }
   }
 
   const depth = distance - 1
   return {
-    scale: Math.max(MIN_SCALE, NEAR_SCALE - depth * 0.06),
-    opacity: Math.max(MIN_OPACITY, NEAR_OPACITY - depth * 0.12),
+    scale: Math.max(MIN_SCALE, NEAR_SCALE - depth * 0.04),
+    opacity: Math.max(MIN_OPACITY, NEAR_OPACITY - depth * 0.1),
     z: NEAR_Z + FAR_Z_STEP * depth,
-    blur: Math.min(MAX_BLUR, depth * 0.65),
+    blur: Math.min(MAX_BLUR, depth * 0.5),
+    y: direction * (NEAR_Y + FAR_Y_STEP * depth),
   }
 }
 
+/** Softer spring for line focus swaps — less bounce, quicker settle. */
 export const lyricLineSpring = {
   type: "spring" as const,
-  stiffness: 320,
-  damping: 34,
-  mass: 0.85,
+  stiffness: 200,
+  damping: 28,
+  mass: 0.6,
+}
+
+export const lyricLineOpacitySpring = {
+  type: "spring" as const,
+  stiffness: 240,
+  damping: 32,
+  mass: 0.5,
 }

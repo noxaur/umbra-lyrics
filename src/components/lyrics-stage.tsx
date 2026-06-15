@@ -242,7 +242,7 @@ export function LyricsStage({
       ) : (
         <MotionConfig reducedMotion="user">
           <div
-            className="mx-auto w-full max-w-3xl overflow-x-clip overflow-y-visible"
+            className="@container mx-auto w-full max-w-3xl overflow-x-clip overflow-y-visible"
             style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
           >
             <div
