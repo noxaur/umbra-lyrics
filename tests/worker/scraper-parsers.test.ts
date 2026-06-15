@@ -7,10 +7,15 @@ import {
   parseAnimelyricsHtml,
   parseLyricalNonsenseHtml,
 } from "../../worker/scraper/extractors/anime"
-import { parseGeniusLyricsHtml, parseGeniusSearchJson } from "../../worker/scraper/extractors/genius"
+import {
+  parseGeniusLyricsFromPage,
+  parseGeniusLyricsHtml,
+  parseGeniusSearchJson,
+} from "../../worker/scraper/extractors/genius"
 import { parseLyricsComLyricsHtml } from "../../worker/scraper/extractors/lyricscom"
-import { parseMusixmatchSnippets } from "../../worker/scraper/extractors/musixmatch"
 import { decodeHtml, slugifyAz } from "../../worker/scraper/html"
+import { scoreHit } from "../../worker/scraper/rank"
+import type { ScraperHit } from "../../worker/scraper/types"
 
 const FIXTURES = join(import.meta.dirname, "../fixtures/scraper")
 
@@ -33,6 +38,7 @@ describe("scraper allowlist", () => {
 describe("html utilities", () => {
   it("decodes entities and line breaks", () => {
     expect(decodeHtml("Hello<br>world &amp; friends")).toBe("Hello\nworld & friends")
+    expect(decodeHtml("It&#8217;s fine")).toBe("It\u2019s fine")
   })
 
   it("slugifies for AZLyrics URLs", () => {
@@ -74,6 +80,11 @@ describe("genius parser", () => {
     expect(hits).toHaveLength(1)
     expect(hits[0]?.title).toBe("Yellow")
   })
+
+  it("does not fall back to og:description", () => {
+    const html = `<meta property="og:description" content="Song description prose" />`
+    expect(parseGeniusLyricsFromPage(html)).toBeNull()
+  })
 })
 
 describe("azlyrics parser", () => {
@@ -93,12 +104,25 @@ describe("lyrics.com parser", () => {
   })
 })
 
-describe("musixmatch parser", () => {
-  it("extracts search snippets", () => {
-    const html = loadFixture("musixmatch-search.html")
-    const snippets = parseMusixmatchSnippets(html)
-    expect(snippets[0]?.snippet).toContain("shine")
-    expect(snippets[0]?.url).toContain("musixmatch.com")
+describe("scraper rank", () => {
+  it("penalizes very short plain lyrics", () => {
+    const shortHit: ScraperHit = {
+      source: "musixmatch",
+      sourceId: "1",
+      url: "https://example.com",
+      trackName: "Yellow",
+      artistName: "Coldplay",
+      plainLyrics: "Look at the stars",
+      syncedLyrics: null,
+      confidence: 0,
+    }
+    const fullHit: ScraperHit = {
+      ...shortHit,
+      plainLyrics:
+        "Look at the stars\nLook how they shine for you\nAnd everything you do\nAnd all the things you do\nYeah they were all yellow\nI came along\nI wrote a song for you",
+    }
+    const params = { artist: "Coldplay", track: "Yellow" }
+    expect(scoreHit(shortHit, params, 5)).toBeGreaterThan(scoreHit(fullHit, params, 5))
   })
 })
 

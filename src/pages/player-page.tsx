@@ -17,7 +17,7 @@ import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
 import { getLyricsCache, setLyricsCache } from "@/lib/lyrics-cache"
 import { searchEnglishLyrics } from "@/lib/lyrics-service"
 import { detectLanguage, inferPreferredLanguage, isEnglish } from "@/lib/language-service"
-import { sanitizeLyricsText } from "@/lib/sanitize-lyrics"
+import { prepareLyricsText } from "@/lib/prepare-lyrics-text"
 import { translateLinesWithFallback } from "@/lib/translation-service"
 import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
 import { syncMkvExportFromUrl } from "@/lib/beta-features"
@@ -31,7 +31,7 @@ function applyLyricsText(
   text: string,
   durationSec: number,
 ): { lines: LyricLine[]; synced: boolean; autoTimed?: boolean } | null {
-  const trimmed = sanitizeLyricsText(text.trim())
+  const trimmed = prepareLyricsText(text.trim())
   if (!trimmed) return null
 
   const durationMs = durationSec * 1000
@@ -283,15 +283,22 @@ export function PlayerPage() {
       durationSec: number,
       alternates: LyricsAlternate[] = [],
     ) => {
+      const syncedRaw = lyricsResult.syncedLyrics?.trim()
+        ? prepareLyricsText(lyricsResult.syncedLyrics)
+        : null
+      const plainRaw = lyricsResult.plainLyrics?.trim()
+        ? prepareLyricsText(lyricsResult.plainLyrics)
+        : null
+
       let parsed =
-        lyricsResult.syncedLyrics?.trim()
-          ? parseLrc(lyricsResult.syncedLyrics, durationSec * 1000)
-          : lyricsResult.plainLyrics
-            ? parsePlainLyrics(lyricsResult.plainLyrics, durationSec * 1000)
+        syncedRaw
+          ? parseLrc(syncedRaw, durationSec * 1000)
+          : plainRaw
+            ? parsePlainLyrics(plainRaw, durationSec * 1000)
             : { lines: [], synced: false, autoTimed: false }
 
-      if (parsed.lines.length === 0 && lyricsResult.plainLyrics) {
-        parsed = parsePlainLyrics(lyricsResult.plainLyrics, durationSec * 1000)
+      if (parsed.lines.length === 0 && plainRaw) {
+        parsed = parsePlainLyrics(plainRaw, durationSec * 1000)
       }
 
       if (parsed.lines.length === 0) {
@@ -300,7 +307,7 @@ export function PlayerPage() {
         return false
       }
 
-      const sample = lyricsResult.plainLyrics ?? parsed.lines.map((l) => l.text).join("\n")
+      const sample = plainRaw ?? syncedRaw ?? parsed.lines.map((l) => l.text).join("\n")
       const lang = detectLanguage(sample)
       setLyricsAlternates(alternates)
 

@@ -9,17 +9,10 @@ export function lrcToPlain(lrc: string): string {
     .join("\n")
 }
 
+import { decodeHtmlEntities } from "@/lib/decode-html-entities"
+
 export function decodeHtml(text: string): string {
-  return text
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ")
-    .trim()
+  return decodeHtmlEntities(text)
 }
 
 /** Extract first XML element body (namespace-agnostic). */

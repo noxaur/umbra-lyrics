@@ -1,5 +1,6 @@
 import { detectLanguage } from "@/lib/language-service"
 import { scoreCandidate } from "@/lib/lyrics-providers/match-utils"
+import { prepareLyricsText } from "@/lib/prepare-lyrics-text"
 import { lyricsTextLooksLikeJunk } from "@/lib/sanitize-lyrics"
 import type { LyricsProviderId } from "@/types/lyrics"
 import type { ProviderLyricsCandidate } from "@/lib/lyrics-providers/types"
@@ -51,8 +52,10 @@ function stripLrcTimestamps(text: string): string {
 }
 
 export function lyricsTextOf(candidate: ProviderLyricsCandidate): string {
-  if (candidate.syncedLyrics?.trim()) return stripLrcTimestamps(candidate.syncedLyrics)
-  return candidate.plainLyrics?.trim() ?? ""
+  if (candidate.syncedLyrics?.trim()) {
+    return prepareLyricsText(stripLrcTimestamps(candidate.syncedLyrics))
+  }
+  return candidate.plainLyrics?.trim() ? prepareLyricsText(candidate.plainLyrics) : ""
 }
 
 export function countLyricLines(candidate: ProviderLyricsCandidate): number {
@@ -135,10 +138,5 @@ export function pickBestAndAlternates(
     return { best: instrumental[0], alternates: instrumental.slice(1) }
   }
 
-  const anyText = ranked.filter((r) => lyricsTextOf(r.candidate).length > 0)
-  if (anyText.length > 0) {
-    return { best: anyText[0], alternates: anyText.slice(1) }
-  }
-
-  return { best: ranked[0] ?? null, alternates: ranked.slice(1) }
+  return { best: null, alternates: ranked.slice(0, 5) }
 }

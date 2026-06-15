@@ -3,6 +3,7 @@ import { geniusExtractor } from "./extractors/genius"
 import { lyricscomExtractor } from "./extractors/lyricscom"
 import { musixmatchExtractor } from "./extractors/musixmatch"
 import { animeLyricsExtractor } from "./extractors/anime"
+import { prepareScraperHitLyrics } from "./prepare-lyrics"
 import { dedupeHits, rankHits } from "./rank"
 import type { ScraperExtractor, ScraperHit, ScraperSearchParams } from "./types"
 
@@ -24,5 +25,12 @@ export async function searchAllScrapers(params: ScraperSearchParams): Promise<Sc
     if (batch.status === "fulfilled") hits.push(...batch.value)
   }
 
-  return rankHits(dedupeHits(hits))
+  const cleaned = hits
+    .map((hit) => {
+      const lyrics = prepareScraperHitLyrics(hit)
+      return { ...hit, ...lyrics }
+    })
+    .filter((hit) => hit.plainLyrics?.trim() || hit.syncedLyrics?.trim())
+
+  return rankHits(dedupeHits(cleaned))
 }

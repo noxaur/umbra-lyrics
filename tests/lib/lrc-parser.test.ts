@@ -19,6 +19,20 @@ describe("parseLrc", () => {
     expect(result.lines[0].sectionLabel).toBe("Intro")
     expect(result.lines[1].text).toBe("First vocal")
   })
+
+  it("parses timestamps without fractional seconds", () => {
+    const result = parseLrc("[00:12] Hello world\n[00:20.50] Second line")
+    expect(result.lines).toHaveLength(2)
+    expect(result.lines[0].startMs).toBe(12_000)
+    expect(result.lines[0].text).toBe("Hello world")
+  })
+
+  it("parses hour-based timestamps", () => {
+    const result = parseLrc("[00:01:05.00] Late in the song")
+    expect(result.lines).toHaveLength(1)
+    expect(result.lines[0].startMs).toBe(65_000)
+    expect(result.lines[0].text).toBe("Late in the song")
+  })
 })
 
 describe("parsePlainLyrics", () => {

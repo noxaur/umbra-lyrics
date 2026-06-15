@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest"
-import { detectLanguageHint, extractXmlTag, lrcToPlain } from "@/lib/lyrics-providers/normalize"
+import { decodeHtml, detectLanguageHint, extractXmlTag, lrcToPlain } from "@/lib/lyrics-providers/normalize"
 
 describe("lyrics normalize", () => {
   it("strips LRC timestamps to plain text", () => {
     const plain = lrcToPlain("[00:12.00] Hello\n[00:15.50] world")
     expect(plain).toBe("Hello\nworld")
+  })
+
+  it("decodes numeric HTML entities", () => {
+    expect(decodeHtml("It&#8217;s &mdash; fine")).toBe("It\u2019s — fine")
+    expect(decodeHtml("&#x2019;hello")).toBe("\u2019hello")
   })
 
   it("extracts XML tags regardless of namespace", () => {
