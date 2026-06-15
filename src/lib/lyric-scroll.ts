@@ -1,5 +1,14 @@
-/** Line changes faster than this use instant scroll to avoid chase lag. */
+/** Line changes faster than this use a shorter handoff animation. */
 export const FAST_LINE_CHANGE_MS = 450
+
+/** Single timing for lyric scroll handoffs and re-sync snaps. */
+export const LYRICS_HANDOFF_MS = 360
+
+/** Default eased handoff when advancing to the next lyric line. */
+export const LINE_HANDOFF_MS = LYRICS_HANDOFF_MS
+
+/** @deprecated Fast chorus uses the same handoff pace for unified motion. */
+export const FAST_LINE_HANDOFF_MS = LYRICS_HANDOFF_MS
 
 /** Uniform visual distance when no line is active (intro / gap). */
 export const IDLE_DISTANCE_FROM_ACTIVE = 8
@@ -22,18 +31,22 @@ export function getDistanceFromActive(lineIndex: number, activeIndex: number): n
   return lineIndex - activeIndex
 }
 
+export function getLineHandoffDurationMs(
+  prefersReducedMotion: boolean,
+  _msSinceLastLineChange?: number,
+): number {
+  if (prefersReducedMotion) return 0
+  return LYRICS_HANDOFF_MS
+}
+
+/** @deprecated Use getLineHandoffDurationMs — kept for compatibility. */
 export function getScrollBehavior(
   prefersReducedMotion: boolean,
   msSinceLastLineChange?: number,
 ): ScrollBehavior {
-  if (prefersReducedMotion) return "auto"
-  if (
-    msSinceLastLineChange !== undefined &&
-    msSinceLastLineChange < FAST_LINE_CHANGE_MS
-  ) {
-    return "auto"
-  }
-  return "smooth"
+  return getLineHandoffDurationMs(prefersReducedMotion, msSinceLastLineChange) > 0
+    ? "smooth"
+    : "auto"
 }
 
 export function scrollLineToCenter(
@@ -56,4 +69,38 @@ export function scrollLineToCenter(
   }
 
   container.scrollTo({ top: nextTop, behavior })
+}
+
+function easeOutCubic(t: number): number {
+  return 1 - (1 - t) ** 3
+}
+
+/** Eased scroll to center — used for lyric handoffs and manual re-sync snaps. */
+export function scrollLineToCenterEase(
+  element: HTMLElement,
+  container: HTMLElement,
+  durationMs = 200,
+  { force = false }: { force?: boolean } = {},
+): void {
+  if (!force && !isOutsideCenterThird(element, container)) return
+
+  const containerRect = container.getBoundingClientRect()
+  const elementRect = element.getBoundingClientRect()
+  const elementCenter = elementRect.top + elementRect.height / 2
+  const containerCenter = containerRect.top + container.clientHeight / 2
+  const targetTop = container.scrollTop + (elementCenter - containerCenter)
+  const startTop = container.scrollTop
+  const delta = targetTop - startTop
+  if (Math.abs(delta) < 0.5) {
+    container.scrollTop = targetTop
+    return
+  }
+
+  const startTime = performance.now()
+  const tick = (now: number) => {
+    const t = Math.min(1, (now - startTime) / durationMs)
+    container.scrollTop = startTop + delta * easeOutCubic(t)
+    if (t < 1) requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
 }

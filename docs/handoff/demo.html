@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>umbra-lyrics handoff demo</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c0a14;
+      --stage: #12101c;
+      --active: #c4b5fd;
+      --muted: #6b7280;
+      --accent: #8b5cf6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: var(--bg);
+      color: #e5e7eb;
+      min-height: 100vh;
+    }
+    header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid #1f2937;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    h1 { margin: 0; font-size: 1.1rem; }
+    .badge {
+      background: #1e1b2e;
+      border: 1px solid #312e81;
+      color: var(--active);
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+    }
+    main { display: grid; grid-template-columns: 1fr 320px; gap: 1rem; padding: 1rem 1.5rem 2rem; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+    .stage-wrap {
+      perspective: 1200px;
+      perspective-origin: 50% 50%;
+      background: var(--stage);
+      border-radius: 1rem;
+      border: 1px solid #1f2937;
+      min-height: 520px;
+      padding: 2rem 1rem;
+      overflow: hidden;
+      position: relative;
+    }
+    .stage-inner {
+      transform-style: preserve-3d;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .line {
+      margin: 0 auto;
+      width: 100%;
+      max-width: 36rem;
+      text-align: center;
+      padding: 0.6rem 1rem;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 600;
+      transform-style: preserve-3d;
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.45s, filter 0.45s;
+      font-size: clamp(1rem, 2.5vw, 1.5rem);
+      cursor: pointer;
+    }
+    .line.active {
+      color: var(--active);
+      font-size: clamp(1.35rem, 3.5vw, 2.25rem);
+      text-shadow: 0 0 28px color-mix(in oklch, var(--active) 42%, transparent);
+    }
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 0.75rem;
+      padding: 1rem;
+    }
+    .card h2 { margin: 0 0 0.5rem; font-size: 0.9rem; }
+    .card p, .card li { margin: 0; font-size: 0.8rem; color: #9ca3af; line-height: 1.45; }
+    .card ul { margin: 0.4rem 0 0; padding-left: 1.1rem; }
+    .ok { color: #86efac; }
+    label { font-size: 0.75rem; color: #9ca3af; display: block; margin-bottom: 0.25rem; }
+    input[type="range"] { width: 100%; }
+    .import-box {
+      border: 1px dashed #374151;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      white-space: pre-wrap;
+      font-family: ui-monospace, monospace;
+      max-height: 120px;
+      overflow: auto;
+    }
+    .time { font-variant-numeric: tabular-nums; color: var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>umbra-lyrics handoff — 3D · sync · import</h1>
+    <span class="badge" id="status">Playing demo</span>
+  </header>
+  <main>
+    <section>
+      <div class="stage-wrap" id="stage">
+        <div class="stage-inner" id="inner"></div>
+      </div>
+      <p style="margin:0.75rem 0 0;font-size:0.8rem;color:#6b7280">
+        Active line at <span class="time" id="clock">0:00</span> · offset
+        <span class="time" id="offsetLabel">0.0s</span> · scroll to see viewport depth
+      </p>
+    </section>
+    <aside class="panel">
+      <div class="card">
+        <h2>3D effect</h2>
+        <ul>
+          <li class="ok">Active line z=0; inactive recede (−12px steps)</li>
+          <li class="ok">Viewport-center depth blend on scroll</li>
+          <li class="ok">Spec scale/opacity/blur curve</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>Lyrics sync</h2>
+        <label for="offset">Timing offset (simulates transport slider)</label>
+        <input id="offset" type="range" min="-2000" max="2000" step="100" value="-500" />
+        <p>Paste/import now applies <code>[offset:]</code> + intro calibration.</p>
+      </div>
+      <div class="card">
+        <h2>Import</h2>
+        <div class="import-box" id="importPreview">[ar:Demo]
+[offset:+500]
+[00:00.50] We're no strangers to love
+[00:04.00] You know the rules and so do I</div>
+        <p class="ok" style="margin-top:0.5rem">.lrc / .txt file import in paste modal</p>
+      </div>
+    </aside>
+  </main>
+  <script>
+    const lines = [
+      { t: 0.5, text: "We're no strangers to love" },
+      { t: 4.0, text: "You know the rules and so do I" },
+      { t: 8.0, text: "A full commitment's what I'm thinking of" },
+      { t: 12.0, text: "You wouldn't get this from any other guy" },
+      { t: 16.0, text: "I just wanna tell you how I'm feeling" },
+      { t: 20.0, text: "Gotta make you understand" },
+      { t: 24.0, text: "Never gonna give you up" },
+      { t: 28.0, text: "Never gonna let you down" },
+    ];
+
+    const inner = document.getElementById("inner");
+    const stage = document.getElementById("stage");
+    const clock = document.getElementById("clock");
+    const offsetLabel = document.getElementById("offsetLabel");
+    const offsetInput = document.getElementById("offset");
+    const buttons = [];
+
+    function visual(distance, viewportFocus = 0) {
+      const d = Math.abs(distance);
+      let scale = 1, opacity = 1, z = 0, blur = 0;
+      if (d === 1) { scale = 0.92; opacity = 0.75; z = -12; blur = 0.5; }
+      else if (d === 2) { scale = 0.85; opacity = 0.55; z = -24; blur = 1; }
+      else if (d > 2) { scale = Math.max(0.72, 0.78 - (d-3)*0.02); opacity = Math.max(0.25, 0.35 - (d-3)*0.05); z = -12 + -12*(d-1); blur = Math.min(3, 2 + (d-3)*0.35); }
+      if (d > 0 && viewportFocus > 0) {
+        const pull = viewportFocus * 0.85;
+        opacity = Math.max(opacity, opacity + (0.75 - opacity) * pull);
+        z = z + (0 - z) * pull;
+        blur = blur * (1 - pull);
+      }
+      return { scale, opacity, z, blur };
+    }
+
+    lines.forEach((line, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "line";
+      btn.textContent = line.text;
+      btn.addEventListener("click", () => { time = line.t - offsetMs/1000; });
+      inner.appendChild(btn);
+      buttons.push(btn);
+    });
+
+    let time = 0;
+    let offsetMs = -500;
+    offsetInput.value = String(offsetMs);
+    offsetInput.addEventListener("input", () => {
+      offsetMs = Number(offsetInput.value);
+      offsetLabel.textContent = (offsetMs/1000).toFixed(1) + "s";
+    });
+    offsetLabel.textContent = (offsetMs/1000).toFixed(1) + "s";
+
+    function activeIndex(t) {
+      const ms = t * 1000 + offsetMs;
+      let idx = -1;
+      for (let i = 0; i < lines.length; i++) if (lines[i].t * 1000 <= ms) idx = i;
+      return idx;
+    }
+
+    function viewportFocusFor(el) {
+      const s = stage.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      const dist = Math.abs((r.top + r.height/2) - (s.top + s.height/2));
+      return Math.max(0, 1 - dist / (s.height/2));
+    }
+
+    function render() {
+      const idx = activeIndex(time);
+      const mins = Math.floor(time / 60);
+      const secs = Math.floor(time % 60).toString().padStart(2, "0");
+      clock.textContent = mins + ":" + secs;
+
+      buttons.forEach((btn, i) => {
+        const dist = idx < 0 ? 8 : i - idx;
+        const vf = viewportFocusFor(btn);
+        const v = visual(dist, vf);
+        btn.classList.toggle("active", i === idx);
+        btn.style.transform = `translateZ(${v.z}px) scale(${v.scale})`;
+        btn.style.opacity = String(v.opacity);
+        btn.style.filter = v.blur ? `blur(${v.blur}px)` : "none";
+      });
+
+      const activeBtn = buttons[idx];
+      if (activeBtn) {
+        const s = stage.getBoundingClientRect();
+        const r = activeBtn.getBoundingClientRect();
+        if (r.top < s.top + s.height*0.3 || r.bottom > s.top + s.height*0.7) {
+          activeBtn.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
+      }
+    }
+
+    let last = performance.now();
+    function tick(now) {
+      const dt = (now - last) / 1000;
+      last = now;
+      time += dt;
+      if (time > 32) time = 0;
+      render();
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+    stage.addEventListener("scroll", render, { passive: true });
+  </script>
+</body>
+</html>

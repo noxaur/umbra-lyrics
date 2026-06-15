@@ -2,9 +2,11 @@ import { describe, it, expect, vi } from "vitest"
 import {
   FAST_LINE_CHANGE_MS,
   getDistanceFromActive,
+  getLineHandoffDurationMs,
   getScrollBehavior,
   IDLE_DISTANCE_FROM_ACTIVE,
   isOutsideCenterThird,
+  LINE_HANDOFF_MS,
   scrollLineToCenter,
 } from "@/lib/lyric-scroll"
 
@@ -42,20 +44,30 @@ describe("isOutsideCenterThird", () => {
   })
 })
 
+describe("getLineHandoffDurationMs", () => {
+  it("returns 0 when reduced motion preferred", () => {
+    expect(getLineHandoffDurationMs(true)).toBe(0)
+    expect(getLineHandoffDurationMs(true, 0)).toBe(0)
+  })
+
+  it("returns full handoff when motion allowed", () => {
+    expect(getLineHandoffDurationMs(false)).toBe(LINE_HANDOFF_MS)
+    expect(getLineHandoffDurationMs(false, FAST_LINE_CHANGE_MS)).toBe(LINE_HANDOFF_MS)
+    expect(getLineHandoffDurationMs(false, FAST_LINE_CHANGE_MS - 1)).toBe(LINE_HANDOFF_MS)
+    expect(getLineHandoffDurationMs(false, 100)).toBe(LINE_HANDOFF_MS)
+  })
+})
+
 describe("getScrollBehavior", () => {
   it("returns auto when reduced motion preferred", () => {
     expect(getScrollBehavior(true)).toBe("auto")
     expect(getScrollBehavior(true, 0)).toBe("auto")
   })
 
-  it("returns smooth when motion allowed and line change is slow", () => {
+  it("returns smooth when motion allowed", () => {
     expect(getScrollBehavior(false)).toBe("smooth")
     expect(getScrollBehavior(false, FAST_LINE_CHANGE_MS)).toBe("smooth")
-  })
-
-  it("returns auto on fast chorus line changes", () => {
-    expect(getScrollBehavior(false, FAST_LINE_CHANGE_MS - 1)).toBe("auto")
-    expect(getScrollBehavior(false, 100)).toBe("auto")
+    expect(getScrollBehavior(false, FAST_LINE_CHANGE_MS - 1)).toBe("smooth")
   })
 })
 

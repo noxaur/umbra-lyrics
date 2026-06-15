@@ -1,13 +1,15 @@
-import { forwardRef, useState, useSyncExternalStore } from "react"
+import { forwardRef, useState } from "react"
 import {
-  motion,
   useMotionValueEvent,
   useReducedMotion,
   useSpring,
 } from "motion/react"
 import { KaraokeWordProgress } from "@/components/karaoke-word-progress"
 import { formatLyricTimestamp } from "@/lib/format-time"
-import { getLyricLineVisual, lyricLineSpring } from "@/lib/lyric-line-visual"
+import {
+  getLyricLineVisual,
+  getLyricLineVisualFromViewport,
+} from "@/lib/lyric-line-visual"
 import { cn } from "@/lib/utils"
 import type { LyricWord } from "@/types/lyrics"
 
@@ -20,7 +22,9 @@ type LyricLineProps = {
   startMs?: number
   showTimestamp?: boolean
   active: boolean
-  distanceFromActive: number
+  distanceFromCenter: number
+  viewportDistancePx?: number
+  lineHeightPx?: number
   progress: number
   wordIndex?: number
   synced: boolean
@@ -29,27 +33,14 @@ type LyricLineProps = {
   onSeek?: () => void
 }
 
-const ACTIVE_SIZE =
-  "max-w-full text-[clamp(1.35rem,3.5vw,2.5rem)] leading-snug lg:text-[clamp(3rem,4.5vw,6rem)] lg:leading-tight"
-const TV_ACTIVE_SIZE = "max-w-full text-[clamp(2.5rem,6vw,5rem)] leading-tight lg:text-[clamp(5rem,8vw,8rem)] lg:leading-none"
-const INACTIVE_SIZE = "max-w-full text-[clamp(1rem,2.8vw,1.65rem)] leading-snug"
-const TV_INACTIVE_SIZE = "max-w-full text-[clamp(1.1rem,3vw,2rem)] leading-snug"
+const LINE_SIZE =
+  "max-w-full text-[clamp(1.15rem,3.2vw,2.25rem)] leading-snug lg:text-[clamp(1.35rem,3.5vw,2.5rem)] lg:leading-tight"
+const TV_LINE_SIZE =
+  "max-w-full text-[clamp(1.75rem,4.5vw,3.25rem)] leading-snug lg:text-[clamp(2.5rem,6vw,5rem)] lg:leading-tight"
 const LINE_TEXT =
   "block w-full break-words [overflow-wrap:anywhere] text-balance hyphens-auto"
 const SECTION_LABEL_CLASS =
   "block py-1 text-center text-[0.7rem] font-medium tracking-wide text-muted-foreground"
-
-function subscribeCompactStage(onStoreChange: () => void) {
-  if (typeof window.matchMedia !== "function") return () => {}
-  const mq = window.matchMedia("(max-width: 767px)")
-  mq.addEventListener("change", onStoreChange)
-  return () => mq.removeEventListener("change", onStoreChange)
-}
-
-function getCompactStageSnapshot() {
-  if (typeof window.matchMedia !== "function") return false
-  return window.matchMedia("(max-width: 767px)").matches
-}
 
 function WordProgressText({ text, progress }: { text: string; progress: number }) {
   const reducedMotion = useReducedMotion()
@@ -129,7 +120,9 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
     startMs,
     showTimestamp = false,
     active,
-    distanceFromActive,
+    distanceFromCenter,
+    viewportDistancePx,
+    lineHeightPx,
     progress,
     wordIndex = -1,
     synced,
@@ -140,18 +133,19 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
   ref,
 ) {
   const reducedMotion = useReducedMotion()
-  const compactStage = useSyncExternalStore(
-    subscribeCompactStage,
-    getCompactStageSnapshot,
-    () => false,
-  )
   const isSectionOnly = kind === "section"
   const showNative = displayMode !== "english"
   const showEnglish = displayMode !== "native" && englishText
-  const visual = getLyricLineVisual(distanceFromActive, Boolean(reducedMotion), compactStage)
-  const staggerDelay = reducedMotion ? 0 : Math.min(Math.abs(distanceFromActive) * 0.018, 0.12)
-  const activeSize = tvMode ? TV_ACTIVE_SIZE : ACTIVE_SIZE
-  const inactiveSize = tvMode ? TV_INACTIVE_SIZE : INACTIVE_SIZE
+  const visual =
+    viewportDistancePx != null && lineHeightPx != null
+      ? getLyricLineVisualFromViewport(
+          viewportDistancePx,
+          lineHeightPx,
+          Boolean(reducedMotion),
+          tvMode,
+        )
+      : getLyricLineVisual(distanceFromCenter, Boolean(reducedMotion), tvMode)
+  const lineSize = tvMode ? TV_LINE_SIZE : LINE_SIZE
   const timestampLabel =
     showTimestamp && startMs != null ? formatLyricTimestamp(startMs) : null
   const seekLabel = timestampLabel ? `Seek to ${timestampLabel}, ${text}` : text
@@ -176,7 +170,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
   }
 
   return (
-    <motion.button
+    <button
       ref={ref}
       type="button"
       onClick={onSeek}
@@ -186,24 +180,17 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
           ? "grid grid-cols-[minmax(3.75rem,4.25rem)_1fr] items-baseline gap-x-2 px-2 sm:gap-x-3 sm:px-3"
           : "px-3 text-center sm:px-4",
         active ? "text-karaoke-active-line" : "text-karaoke-muted hover:text-foreground",
-        tvMode && !active && "opacity-80",
       )}
       aria-label={seekLabel}
       aria-current={active ? "true" : undefined}
-      animate={{
-        scale: visual.scale,
-        opacity: tvMode ? Math.max(visual.opacity, active ? 1 : 0.75) : visual.opacity,
-        translateZ: visual.z,
-        filter: visual.blur > 0 ? `blur(${visual.blur}px)` : "blur(0px)",
-      }}
-      transition={{
-        ...lyricLineSpring,
-        delay: staggerDelay,
-        filter: reducedMotion ? { duration: 0 } : lyricLineSpring,
-      }}
       style={{
         transformStyle: "preserve-3d",
         contain: "layout paint",
+        opacity: visual.opacity,
+        transform: reducedMotion
+          ? undefined
+          : `translateZ(${visual.z}px) scale(${visual.scale})`,
+        filter: !reducedMotion && visual.blur > 0 ? `blur(${visual.blur}px)` : undefined,
         textShadow: active
           ? "0 0 28px color-mix(in oklch, var(--karaoke-active-line) 42%, transparent), 0 0 56px color-mix(in oklch, var(--karaoke-active-line) 18%, transparent)"
           : "none",
@@ -225,13 +212,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
           <span className={cn(SECTION_LABEL_CLASS, "mb-1")}>{sectionLabel}</span>
         )}
         {showNative && (
-          <span
-            className={cn(
-              LINE_TEXT,
-              "font-semibold",
-              active ? activeSize : inactiveSize,
-            )}
-          >
+          <span className={cn(LINE_TEXT, "font-semibold", lineSize)}>
             {renderNativeText()}
           </span>
         )}
@@ -251,6 +232,6 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
           </span>
         )}
       </span>
-    </motion.button>
+    </button>
   )
 })

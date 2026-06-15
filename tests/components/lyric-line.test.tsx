@@ -8,7 +8,7 @@ describe("LyricLine", () => {
       <LyricLine
         text="Hello world"
         active
-        distanceFromActive={0}
+        distanceFromCenter={0}
         synced
         progress={0.5}
         displayMode="native"
@@ -24,7 +24,7 @@ describe("LyricLine", () => {
       <LyricLine
         text="Approximate line"
         active
-        distanceFromActive={0}
+        distanceFromCenter={0}
         synced={false}
         progress={0.5}
         displayMode="native"
@@ -35,20 +35,35 @@ describe("LyricLine", () => {
     expect(screen.getAllByText("Approximate line")).toHaveLength(1)
   })
 
-  it("uses venue-scale classes on active lines", () => {
-    render(
+  it("uses one base font size for every line", () => {
+    const { rerender } = render(
       <LyricLine
         text="Big line"
         active
-        distanceFromActive={0}
+        distanceFromCenter={0}
         synced
         progress={0}
         displayMode="native"
       />,
     )
-    const line = screen.getByRole("button", { name: "Big line" })
-    const outerSpan = line.querySelector(".font-semibold")
-    expect(outerSpan?.className).toContain("lg:text-[clamp(3rem,4.5vw,6rem)]")
+    const activeClass = screen.getByRole("button", { name: "Big line" }).querySelector(".font-semibold")
+      ?.className
+
+    rerender(
+      <LyricLine
+        text="Small line"
+        active={false}
+        distanceFromCenter={2}
+        synced
+        progress={0}
+        displayMode="native"
+      />,
+    )
+    const inactiveClass = screen.getByRole("button", { name: "Small line" }).querySelector(".font-semibold")
+      ?.className
+
+    expect(activeClass).toBe(inactiveClass)
+    expect(activeClass).toContain("clamp")
   })
 
   it("shows LRC timestamp when enabled", () => {
@@ -58,7 +73,7 @@ describe("LyricLine", () => {
         startMs={65_430}
         showTimestamp
         active={false}
-        distanceFromActive={2}
+        distanceFromCenter={2}
         synced
         progress={0}
         displayMode="native"

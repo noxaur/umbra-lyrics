@@ -33,6 +33,13 @@ describe("parseLrc", () => {
     expect(result.lines[0].startMs).toBe(65_000)
     expect(result.lines[0].text).toBe("Late in the song")
   })
+
+  it("skips metadata tags and applies [offset:] as sync adjustment", () => {
+    const result = parseLrc("[ar:Artist]\n[ti:Track]\n[offset:+500]\n[00:12.00] Hello world")
+    expect(result.lines).toHaveLength(1)
+    expect(result.lines[0].text).toBe("Hello world")
+    expect(result.suggestedOffsetMs).toBe(-500)
+  })
 })
 
 describe("parsePlainLyrics", () => {
