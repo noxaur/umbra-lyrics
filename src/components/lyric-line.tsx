@@ -185,7 +185,6 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
           ? "grid grid-cols-[minmax(3.75rem,4.25rem)_1fr] items-baseline gap-x-2 px-2 sm:gap-x-3 sm:px-3"
           : "px-3 text-center sm:px-4",
         active ? "text-karaoke-active-line" : "text-karaoke-muted hover:text-foreground",
-        tvMode && !active && "opacity-80",
       )}
       aria-label={seekLabel}
       aria-current={active ? "true" : undefined}
@@ -237,7 +236,9 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
           <span
             className={cn(
               LINE_TEXT,
-              tvMode ? "mt-1 text-[clamp(1rem,2vw,2rem)] text-muted-foreground" : "mt-1 text-sm text-muted-foreground",
+              tvMode
+                ? cn("mt-1 text-muted-foreground", getLyricTextSizeClass(englishText, false, true))
+                : "mt-1 text-sm text-muted-foreground",
               active && synced && "text-karaoke-active-line/80",
             )}
           >
