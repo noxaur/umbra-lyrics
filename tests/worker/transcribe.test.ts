@@ -63,8 +63,8 @@ describe("transcribe handler", () => {
       "fetch",
       vi.fn(async () =>
         new Response(new Uint8Array([1, 2, 3, 4]), {
-          status: 206,
-          headers: { "Content-Range": "bytes 0-3/4" },
+          status: 200,
+          headers: { "Content-Length": "4" },
         }),
       ),
     )
@@ -105,21 +105,6 @@ describe("transcribe handler", () => {
     expect(res?.status).toBe(400)
   })
 
-  it("fetchAudioBytes marks partial when content exceeds cap", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        new Response(new Uint8Array(100), {
-          status: 206,
-          headers: { "Content-Range": "bytes 0-99/5000000" },
-        }),
-      ),
-    )
-
-    const { partial } = await fetchAudioBytes("https://rr3---sn-abc.googlevideo.com/x", 50)
-    expect(partial).toBe(true)
-  })
-
   it("transcribeAudioBuffer normalizes whisper output", async () => {
     const ai = {
       run: vi.fn(async () => ({
@@ -135,5 +120,41 @@ describe("transcribe handler", () => {
 
     expect(result.segments).toHaveLength(1)
     expect(result.text).toBe("line one")
+  })
+
+  it("fetchAudioBytes marks partial when stream exceeds cap while reading", async () => {
+    const payload = new Uint8Array(120)
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(payload)
+              controller.close()
+            },
+          }),
+          { status: 200 },
+        ),
+      ),
+    )
+
+    const { bytes, partial } = await fetchAudioBytes("https://rr3---sn-abc.googlevideo.com/x", 50)
+    expect(bytes.byteLength).toBe(50)
+    expect(partial).toBe(true)
+  })
+
+  it("parses vtt fallback when whisper segments are empty", async () => {
+    const ai = {
+      run: vi.fn(async () => ({
+        text: "hello",
+        segments: [],
+        vtt: "WEBVTT\n\n00:00:00.000 --> 00:00:01.200\nhello\n",
+      })),
+    }
+
+    const result = await transcribeAudioBuffer(ai, new Uint8Array([1, 2, 3]), {})
+    expect(result.segments).toHaveLength(1)
+    expect(result.segments[0].text).toBe("hello")
   })
 })

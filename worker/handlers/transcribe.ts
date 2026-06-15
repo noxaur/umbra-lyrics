@@ -21,16 +21,81 @@ export type TranscribeResult = {
   partial?: boolean
 }
 
+type WhisperWord = {
+  word?: string
+  start?: number
+  end?: number
+}
+
 type WhisperSegment = {
   start?: number
   end?: number
   text?: string
+  words?: WhisperWord[]
 }
 
 type WhisperResponse = {
   text?: string
   segments?: WhisperSegment[]
+  vtt?: string
   transcription_info?: { language?: string }
+}
+
+function unwrapWhisperResponse(raw: unknown): WhisperResponse {
+  if (!raw || typeof raw !== "object") return {}
+  const obj = raw as Record<string, unknown>
+  if (obj.result && typeof obj.result === "object") {
+    return obj.result as WhisperResponse
+  }
+  return obj as WhisperResponse
+}
+
+function parseVttSegments(vtt: string): TranscriptSegment[] {
+  const segments: TranscriptSegment[] = []
+  const blocks = vtt.split(/\n\n+/).slice(1)
+  for (const block of blocks) {
+    const lines = block.trim().split("\n")
+    if (lines.length < 2) continue
+    const timing = lines.find((line) => line.includes("-->"))
+    if (!timing) continue
+    const [startRaw, endRaw] = timing.split("-->").map((s) => s.trim())
+    const text = lines
+      .filter((line) => !line.includes("-->") && !/^\d+$/.test(line.trim()))
+      .join(" ")
+      .trim()
+    if (!text) continue
+    segments.push({
+      start: vttTimestampToSec(startRaw),
+      end: vttTimestampToSec(endRaw),
+      text,
+    })
+  }
+  return segments
+}
+
+function vttTimestampToSec(raw: string): number {
+  const parts = raw.trim().split(":")
+  if (parts.length === 3) {
+    const [h, m, s] = parts
+    const [sec, ms] = s.split(".")
+    return Number(h) * 3600 + Number(m) * 60 + Number(sec) + Number(ms || 0) / 1000
+  }
+  if (parts.length === 2) {
+    const [m, s] = parts
+    const [sec, ms] = s.split(".")
+    return Number(m) * 60 + Number(sec) + Number(ms || 0) / 1000
+  }
+  return 0
+}
+
+function segmentsFromWhisper(raw: WhisperSegment[] | undefined, vtt?: string): TranscriptSegment[] {
+  const fromSegments = normalizeSegments(raw)
+  if (fromSegments.length > 0) return fromSegments
+  if (vtt?.trim()) {
+    const fromVtt = parseVttSegments(vtt)
+    if (fromVtt.length > 0) return fromVtt
+  }
+  return []
 }
 
 export type TranscribeEnv = {
@@ -95,38 +160,68 @@ export async function fetchAudioBytes(
     "User-Agent":
       "com.google.ios.youtube/19.45.4 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)",
   })
-  headers.set("Range", `bytes=0-${maxBytes - 1}`)
 
   const res = await fetch(streamUrl, {
     headers,
     signal: AbortSignal.timeout(120_000),
   })
 
-  if (!res.ok && res.status !== 206) {
+  if (!res.ok) {
     throw new Error(`Audio fetch failed (${res.status})`)
   }
 
-  const buf = new Uint8Array(await res.arrayBuffer())
-  const contentLength = Number(res.headers.get("Content-Length"))
-  const totalSize = Number(res.headers.get("Content-Range")?.split("/")[1]) || contentLength
-  const partial = totalSize > maxBytes || buf.byteLength >= maxBytes
-  return { bytes: buf, partial }
+  const totalSize = Number(res.headers.get("Content-Length")) || null
+  if (totalSize != null && totalSize > maxBytes) {
+    throw new Error("AUDIO_TOO_LONG")
+  }
+
+  const reader = res.body?.getReader()
+  if (!reader) {
+    const buf = new Uint8Array(await res.arrayBuffer())
+    return { bytes: buf, partial: false }
+  }
+
+  const chunks: Uint8Array[] = []
+  let loaded = 0
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    if (!value) continue
+    if (loaded + value.byteLength > maxBytes) {
+      const slice = value.subarray(0, maxBytes - loaded)
+      chunks.push(slice)
+      loaded += slice.byteLength
+      break
+    }
+    chunks.push(value)
+    loaded += value.byteLength
+  }
+
+  const out = new Uint8Array(loaded)
+  let offset = 0
+  for (const chunk of chunks) {
+    out.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+
+  const partial = totalSize != null ? totalSize > loaded : loaded >= maxBytes
+  return { bytes: out, partial }
 }
 
 export async function runWhisper(
   ai: NonNullable<TranscribeEnv["AI"]>,
   audioBase64: string,
-  options: { language?: string; initialPrompt?: string },
+  options: { language?: string; initialPrompt?: string; vadFilter?: boolean },
 ): Promise<WhisperResponse> {
   const input: Record<string, unknown> = {
     audio: audioBase64,
-    vad_filter: true,
+    vad_filter: options.vadFilter ?? true,
   }
   if (options.language?.trim()) input.language = options.language.trim()
   if (options.initialPrompt?.trim()) input.initial_prompt = options.initialPrompt.trim()
 
   const result = await ai.run("@cf/openai/whisper-large-v3-turbo", input)
-  return (result ?? {}) as WhisperResponse
+  return unwrapWhisperResponse(result)
 }
 
 export async function transcribeAudioBuffer(
@@ -135,13 +230,26 @@ export async function transcribeAudioBuffer(
   options: { language?: string; artist?: string; track?: string },
 ): Promise<TranscribeResult> {
   const initialPrompt = [options.artist, options.track].filter(Boolean).join(" ").trim()
-  const whisper = await runWhisper(ai, bytesToBase64(bytes), {
+  const base64 = bytesToBase64(bytes)
+
+  let whisper = await runWhisper(ai, base64, {
     language: options.language,
     initialPrompt: initialPrompt || undefined,
+    vadFilter: true,
   })
 
-  const segments = normalizeSegments(whisper.segments)
-  const text = (whisper.text ?? segments.map((s) => s.text).join(" ")).trim()
+  let segments = segmentsFromWhisper(whisper.segments, whisper.vtt)
+  let text = (whisper.text ?? segments.map((s) => s.text).join(" ")).trim()
+
+  if (!text && segments.length === 0) {
+    whisper = await runWhisper(ai, base64, {
+      language: options.language,
+      initialPrompt: initialPrompt || undefined,
+      vadFilter: false,
+    })
+    segments = segmentsFromWhisper(whisper.segments, whisper.vtt)
+    text = (whisper.text ?? segments.map((s) => s.text).join(" ")).trim()
+  }
 
   return {
     text,
@@ -221,6 +329,12 @@ export async function handleTranscribe(
     }
     if (message === "EMPTY_AUDIO") {
       return jsonResponse({ error: "Could not download audio" }, 502)
+    }
+    if (message === "AUDIO_TOO_LONG") {
+      return jsonResponse(
+        { error: "Audio too long for server transcription — try paste lyrics or a shorter clip" },
+        413,
+      )
     }
     if (message === "EMPTY_TRANSCRIPT") {
       return jsonResponse({ error: "No speech detected in audio" }, 422)
