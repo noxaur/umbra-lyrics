@@ -17,6 +17,8 @@ export function PlayerViewMenu() {
   const setFocusMode = usePlayerStore((s) => s.setFocusMode)
   const tvMode = usePlayerStore((s) => s.tvMode)
   const setTvMode = usePlayerStore((s) => s.setTvMode)
+  const showTimestamps = usePlayerStore((s) => s.showTimestamps)
+  const setShowTimestamps = usePlayerStore((s) => s.setShowTimestamps)
 
   return (
     <DropdownMenu>
@@ -41,6 +43,13 @@ export function PlayerViewMenu() {
           onSelect={(e) => e.preventDefault()}
         >
           Focus mode
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
+          checked={showTimestamps}
+          onCheckedChange={(checked) => setShowTimestamps(checked === true)}
+          onSelect={(e) => e.preventDefault()}
+        >
+          Show timestamps
         </DropdownMenuCheckboxItem>
         <DropdownMenuSeparator />
         <DropdownMenuCheckboxItem

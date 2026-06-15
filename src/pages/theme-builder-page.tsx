@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { useTheme } from "@/components/theme-provider"
 import { getCustomThemeById, inferCategory } from "@/lib/custom-themes"
 import { themeById, type ThemeTokens } from "@/lib/themes"
-import { cn } from "@/lib/utils"
 
 function cloneTokens(tokens: ThemeTokens): ThemeTokens {
   return { ...tokens }
@@ -112,7 +111,7 @@ export function ThemeBuilderPage() {
             <ArrowLeft className="size-4" aria-hidden />
             Back to themes
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-3xl font-bold tracking-tight text-balance">
             {existing ? "Edit custom theme" : "Theme builder"}
           </h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">
@@ -122,7 +121,7 @@ export function ThemeBuilderPage() {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)] lg:items-start">
-          <section className="space-y-6 rounded-xl border border-border bg-card p-5">
+          <section className="space-y-6 rounded-lg border border-border bg-card p-5">
             <div className="space-y-2">
               <label htmlFor="theme-name" className="text-sm font-medium">
                 Theme name
@@ -192,12 +191,12 @@ export function ThemeBuilderPage() {
           </section>
 
           <aside className="lg:sticky lg:top-6">
-            <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            <h2 className="mb-3 text-sm font-medium text-muted-foreground">
               Live preview
             </h2>
-            <ThemePreviewMini tokens={tokens} className={cn("shadow-md")} />
+            <ThemePreviewMini tokens={tokens} />
             <p className="mt-3 text-xs text-muted-foreground">
-              Preview uses your token picks for lyrics, wipe gradient, and transport chrome.
+              Preview uses your token picks for lyrics, active-line highlight, and transport chrome.
             </p>
           </aside>
         </div>

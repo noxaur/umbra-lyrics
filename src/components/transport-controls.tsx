@@ -2,6 +2,7 @@ import { useEffect } from "react"
 import { HelpCircle, Pause, Play, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
+import { formatDuration } from "@/lib/format-time"
 import { usePlayerStore } from "@/stores/player-store"
 import { ShortcutsHelp } from "@/components/shortcuts-help"
 import { MkvExportButton } from "@/components/mkv-export-button"
@@ -69,7 +70,7 @@ export function TransportControls({
 
         <div className="flex items-center gap-2">
           <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-            {formatTime(currentTime)}
+            {formatDuration(currentTime)}
           </span>
           <input
             type="range"
@@ -82,7 +83,7 @@ export function TransportControls({
             aria-label="Seek"
           />
           <span className="w-10 shrink-0 text-xs tabular-nums text-muted-foreground">
-            {formatTime(duration)}
+            {formatDuration(duration)}
           </span>
         </div>
 
@@ -189,10 +190,4 @@ export function TransportControls({
       </div>
     </div>
   )
-}
-
-function formatTime(seconds: number) {
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m}:${s.toString().padStart(2, "0")}`
 }

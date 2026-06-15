@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-15T17:20:00.000Z",
+  "title": "Design System: song-kara",
+  "extensions": {
+    "colorMeta": {
+      "stage-violet": {
+        "role": "primary",
+        "displayName": "Stage Violet",
+        "canonical": "oklch(0.72 0.28 320)",
+        "tonalRamp": [
+          "oklch(0.15 0.08 320)",
+          "oklch(0.25 0.12 320)",
+          "oklch(0.35 0.16 320)",
+          "oklch(0.45 0.20 320)",
+          "oklch(0.55 0.24 320)",
+          "oklch(0.65 0.26 320)",
+          "oklch(0.72 0.28 320)",
+          "oklch(0.85 0.20 320)"
+        ]
+      },
+      "stage-floor": {
+        "role": "neutral",
+        "displayName": "Stage Floor",
+        "canonical": "oklch(0.1 0.025 280)",
+        "tonalRamp": [
+          "oklch(0.08 0.02 280)",
+          "oklch(0.10 0.025 280)",
+          "oklch(0.14 0.025 280)",
+          "oklch(0.18 0.025 280)",
+          "oklch(0.22 0.03 280)",
+          "oklch(0.30 0.03 280)",
+          "oklch(0.45 0.03 280)",
+          "oklch(0.65 0.02 280)"
+        ]
+      },
+      "ink-primary": {
+        "role": "neutral",
+        "displayName": "Ink Primary",
+        "canonical": "oklch(0.95 0.01 280)",
+        "tonalRamp": [
+          "oklch(0.15 0.02 280)",
+          "oklch(0.25 0.02 280)",
+          "oklch(0.35 0.02 280)",
+          "oklch(0.50 0.03 280)",
+          "oklch(0.65 0.03 280)",
+          "oklch(0.80 0.02 280)",
+          "oklch(0.90 0.01 280)",
+          "oklch(0.95 0.01 280)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "body": { "displayName": "Body", "purpose": "UI copy, descriptions, errors." },
+      "lyric-active": { "displayName": "Active lyric", "purpose": "Singing line on karaoke stage." },
+      "label": { "displayName": "Label", "purpose": "Form labels, badges, section headings." }
+    },
+    "shadows": [
+      {
+        "name": "popover",
+        "value": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+        "purpose": "Floating menus only."
+      },
+      {
+        "name": "dialog",
+        "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+        "purpose": "Modal dialog surface."
+      }
+    ],
+    "motion": [
+      {
+        "name": "lyric-spring",
+        "value": "spring stiffness 320, damping 34",
+        "purpose": "Active line scale and depth on karaoke stage."
+      },
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+        "purpose": "Button and color transitions 150–250ms."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main actions: Start, Save theme, Play-adjacent CTAs.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Start</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; height: 2.75rem; min-height: 44px; padding: 0 1rem; border: none; border-radius: 0.5rem; background: var(--primary, oklch(0.72 0.28 320)); color: var(--primary-foreground, oklch(0.12 0.02 280)); font-family: \"DM Sans Variable\", system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background-color 150ms ease-out; } .ds-btn-primary:hover { background: color-mix(in oklch, var(--primary, oklch(0.72 0.28 320)) 90%, transparent); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--ring, oklch(0.72 0.28 320)); }"
+    },
+    {
+      "name": "Ghost Icon Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Toolbar icons: theme toggle, hide video, shortcuts.",
+      "html": "<button class=\"ds-btn-ghost-icon\" type=\"button\" aria-label=\"Hide video\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49\"/><path d=\"M14.084 14.158a3 3 0 0 1-4.242-4.242\"/><path d=\"M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143\"/><path d=\"m2 2 20 20\"/></svg></button>",
+      "css": ".ds-btn-ghost-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; min-width: 44px; min-height: 44px; border: none; border-radius: 0.5rem; background: transparent; color: var(--muted-foreground, oklch(0.65 0.03 280)); cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out; } .ds-btn-ghost-icon:hover { background: var(--accent, oklch(0.28 0.06 320)); color: var(--accent-foreground, oklch(0.95 0.01 280)); } .ds-btn-ghost-icon:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--ring, oklch(0.72 0.28 320)); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "YouTube URL paste, theme name, artist/track retry fields.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Paste YouTube URL…\" />",
+      "css": ".ds-input { display: flex; width: 100%; height: 2.75rem; min-height: 44px; padding: 0 0.75rem; border: 1px solid var(--input, oklch(0.28 0.03 280)); border-radius: 0.5rem; background: var(--background, oklch(0.12 0.02 280)); color: var(--foreground, oklch(0.95 0.01 280)); font-family: \"DM Sans Variable\", system-ui, sans-serif; font-size: 1rem; } .ds-input::placeholder { color: var(--muted-foreground, oklch(0.65 0.03 280)); } .ds-input:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--ring, oklch(0.72 0.28 320)); }"
+    },
+    {
+      "name": "Sync Badge",
+      "kind": "chip",
+      "description": "Now-playing header: synced / auto-timed / approximate status.",
+      "html": "<span class=\"ds-badge-synced\" role=\"status\">Synced</span>",
+      "css": ".ds-badge-synced { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border-radius: 9999px; background: color-mix(in oklch, var(--success, oklch(0.72 0.16 155)) 15%, transparent); color: var(--success-foreground, oklch(0.82 0.12 155)); font-family: \"DM Sans Variable\", system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; }"
+    },
+    {
+      "name": "Karaoke Active Line",
+      "kind": "custom",
+      "description": "Active lyric with clip-path sing-along progress.",
+      "html": "<button class=\"ds-karaoke-line\" type=\"button\"><span class=\"ds-karaoke-line__text\"><span class=\"ds-karaoke-line__unsung\">僕らを照らしてくれる</span><span class=\"ds-karaoke-line__sung\" aria-hidden=\"true\">僕らを照らしてくれる</span></span></button>",
+      "css": ".ds-karaoke-line { display: block; width: 100%; margin: 0 auto; padding: 0.75rem 1rem; border: none; border-radius: 0.5rem; background: transparent; text-align: center; cursor: pointer; color: var(--karaoke-active-line, oklch(0.78 0.3 320)); font-family: \"DM Sans Variable\", system-ui, sans-serif; font-size: clamp(1.35rem, 3.5vw, 2.5rem); font-weight: 600; line-height: 1.25; } .ds-karaoke-line__text { position: relative; display: block; width: 100%; } .ds-karaoke-line__unsung { display: block; color: var(--karaoke-unsung, oklch(0.5 0.04 280 / 0.7)); } .ds-karaoke-line__sung { position: absolute; inset: 0; display: block; overflow: hidden; color: var(--karaoke-active-line, oklch(0.78 0.3 320)); clip-path: inset(0 35% 0 0); } .ds-karaoke-line:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--ring, oklch(0.72 0.28 320)); }"
+    },
+    {
+      "name": "Transport Bar",
+      "kind": "custom",
+      "description": "Bottom player chrome: seek bar, play, timing offset, display mode.",
+      "html": "<div class=\"ds-transport\"><div class=\"ds-transport__seek\"><span>0:30</span><input type=\"range\" class=\"ds-transport__range\" /><span>2:00</span></div><div class=\"ds-transport__controls\"><button class=\"ds-transport__play\" type=\"button\" aria-label=\"Play\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M8 5v14l11-7z\"/></svg></button></div></div>",
+      "css": ".ds-transport { border-top: 1px solid var(--border, oklch(0.28 0.03 280)); background: var(--card, oklch(0.16 0.025 280)); padding: 0.5rem 0.75rem; font-family: \"DM Sans Variable\", system-ui, sans-serif; } .ds-transport__seek { display: flex; align-items: center; gap: 0.5rem; color: var(--muted-foreground, oklch(0.65 0.03 280)); font-size: 0.75rem; font-variant-numeric: tabular-nums; } .ds-transport__range { flex: 1; min-height: 44px; accent-color: var(--primary, oklch(0.72 0.28 320)); } .ds-transport__controls { display: flex; justify-content: center; margin-top: 0.5rem; } .ds-transport__play { display: inline-flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; border: none; border-radius: 9999px; background: var(--primary, oklch(0.72 0.28 320)); color: var(--primary-foreground, oklch(0.12 0.02 280)); cursor: pointer; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Dimmed Venue",
+    "overview": "song-kara is a product UI for singing along, not a marketing site. Chrome stays quiet; the lyric stage carries the room. Surfaces read like a karaoke booth after lights-down: tinted neutrals, one violet accent, legible type at arm's length.",
+    "keyCharacteristics": [
+      "Lyrics-first hierarchy on the player route",
+      "OKLCH tokens with per-theme palettes",
+      "Single sans family at fixed rem scale",
+      "Tonal layering over decorative shadows",
+      "Semantic status chips",
+      "WCAG AA contrast and reduced-motion fallbacks"
+    ],
+    "rules": [
+      { "name": "The Lyrics Star Rule", "body": "Accent color and glow belong on the lyric stage and primary actions only.", "section": "colors" },
+      { "name": "The No Cream Rule", "body": "Light themes use true off-white or cool tints, not warm sand defaults.", "section": "colors" },
+      { "name": "The One Family Rule", "body": "Do not introduce a second display typeface.", "section": "typography" },
+      { "name": "The Six Rem Ceiling Rule", "body": "Active lyric clamp max is 6rem.", "section": "typography" },
+      { "name": "The No Ghost Card Rule", "body": "Never pair 1px border with wide soft drop shadow on the same element.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep lyrics as the largest, highest-contrast element on the player screen.",
+      "Do use semantic tokens instead of raw Tailwind color names.",
+      "Do respect prefers-reduced-motion.",
+      "Do use portal-based dropdowns for overflow-safe menus.",
+      "Do label controls with verb + object."
+    ],
+    "donts": [
+      "Don't build generic SaaS dashboards, cream marketing pages, decorative glass cards, hero metric layouts, or busy landing-page scaffolding.",
+      "Don't use gradient text for karaoke progress.",
+      "Don't use backdrop-blur on transport bars or loading overlays.",
+      "Don't use uppercase tracked eyebrows on every section.",
+      "Don't exceed 6rem on active lyric clamp max.",
+      "Don't use nested cards for related metadata."
+    ]
+  }
+}
