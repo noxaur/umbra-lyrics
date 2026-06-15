@@ -48,7 +48,7 @@ describe("LyricLine", () => {
     )
     const line = screen.getByRole("button", { name: "Big line" })
     const outerSpan = line.querySelector(".font-semibold")
-    expect(outerSpan?.className).toContain("text-[clamp(1.25rem,5.5cqw,2.15rem)]")
+    expect(outerSpan?.className).toContain("text-[clamp(1.5rem,6.5cqw,3rem)]")
   })
 
   it("shrinks font tier for long active lines", () => {
@@ -66,7 +66,7 @@ describe("LyricLine", () => {
     )
     const line = screen.getByRole("button", { name: longText })
     const outerSpan = line.querySelector(".font-semibold")
-    expect(outerSpan?.className).toContain("text-[clamp(0.9rem,3.6cqw,1.35rem)]")
+    expect(outerSpan?.className).toContain("text-[clamp(0.95rem,3.8cqw,1.45rem)]")
   })
 
   it("uses container-query sizing for TV English subtitles", () => {

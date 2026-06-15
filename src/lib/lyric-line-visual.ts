@@ -8,18 +8,18 @@ export type LyricLineVisual = {
 
 export type LyricTextTier = "short" | "medium" | "long" | "xlong"
 
-const ACTIVE_SCALE = 1.02
-const ACTIVE_SCALE_COMPACT = 1
-const NEAR_SCALE = 0.96
-const MIN_SCALE = 0.82
-const NEAR_OPACITY = 0.88
-const MIN_OPACITY = 0.42
-const ACTIVE_Z = 24
-const NEAR_Z = 16
-const FAR_Z_STEP = -18
-const MAX_BLUR = 1.5
-const NEAR_Y = 2
-const FAR_Y_STEP = 3
+const ACTIVE_SCALE = 1.06
+const ACTIVE_SCALE_COMPACT = 1.03
+const NEAR_SCALE = 0.92
+const MIN_SCALE = 0.72
+const NEAR_OPACITY = 0.82
+const MIN_OPACITY = 0.38
+const ACTIVE_Z = 56
+const NEAR_Z = 32
+const FAR_Z_STEP = -26
+const MAX_BLUR = 2
+const NEAR_Y = 3
+const FAR_Y_STEP = 4
 
 /** Character count tiers — CJK counts per grapheme via spread. */
 export function getLyricTextTier(text: string): LyricTextTier {
@@ -31,10 +31,10 @@ export function getLyricTextTier(text: string): LyricTextTier {
 }
 
 const ACTIVE_SIZE_BY_TIER: Record<LyricTextTier, string> = {
-  short: "text-[clamp(1.25rem,5.5cqw,2.15rem)] leading-snug",
-  medium: "text-[clamp(1.1rem,4.8cqw,1.85rem)] leading-snug",
-  long: "text-[clamp(1rem,4.2cqw,1.55rem)] leading-tight",
-  xlong: "text-[clamp(0.9rem,3.6cqw,1.35rem)] leading-tight",
+  short: "text-[clamp(1.5rem,6.5cqw,3rem)] leading-snug",
+  medium: "text-[clamp(1.35rem,5.5cqw,2.5rem)] leading-snug",
+  long: "text-[clamp(1.1rem,4.5cqw,1.85rem)] leading-tight",
+  xlong: "text-[clamp(0.95rem,3.8cqw,1.45rem)] leading-tight",
 }
 
 const INACTIVE_SIZE_BY_TIER: Record<LyricTextTier, string> = {
@@ -118,12 +118,12 @@ export function getLyricLineVisual(
   }
 }
 
-/** Softer spring for line focus swaps — less bounce, quicker settle. */
+/** Spring for 3D line focus swaps — responsive with minimal bounce. */
 export const lyricLineSpring = {
   type: "spring" as const,
-  stiffness: 200,
-  damping: 28,
-  mass: 0.6,
+  stiffness: 280,
+  damping: 32,
+  mass: 0.7,
 }
 
 export const lyricLineOpacitySpring = {

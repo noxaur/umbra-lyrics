@@ -96,7 +96,7 @@ function PerWordText({
         const isActive = i === wordIndex
         if (isPast) {
           return (
-            <span key={`${w.startMs}-${i}`} className="text-karaoke-active-line">
+            <span key={`${w.startMs}-${i}`} className="text-karaoke-highlight">
               {w.text}{" "}
             </span>
           )
@@ -166,7 +166,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
   const renderNativeText = () => {
     if (!active) return text
     if (!synced) {
-      return <span className="text-karaoke-active-line">{text}</span>
+      return <span className="text-karaoke-highlight">{text}</span>
     }
     if (words && words.length > 0 && wordIndex >= 0) {
       return <PerWordText words={words} wordIndex={wordIndex} progress={progress} />
@@ -184,7 +184,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
         showTimestamp
           ? "grid grid-cols-[minmax(3.75rem,4.25rem)_1fr] items-baseline gap-x-2 px-2 sm:gap-x-3 sm:px-3"
           : "px-3 text-center sm:px-4",
-        active ? "text-karaoke-active-line" : "text-karaoke-muted hover:text-foreground",
+        active ? "text-karaoke-highlight" : "text-karaoke-muted hover:text-foreground",
       )}
       aria-label={seekLabel}
       aria-current={active ? "true" : undefined}
@@ -206,7 +206,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
         transformStyle: "preserve-3d",
         contain: "layout paint",
         textShadow: active
-          ? "0 0 28px color-mix(in oklch, var(--karaoke-active-line) 42%, transparent), 0 0 56px color-mix(in oklch, var(--karaoke-active-line) 18%, transparent)"
+          ? "0 0 28px color-mix(in oklch, var(--karaoke-highlight) 42%, transparent), 0 0 56px color-mix(in oklch, var(--karaoke-highlight) 18%, transparent)"
           : "none",
       }}
     >
@@ -215,7 +215,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
           dateTime={`PT${Math.max(0, startMs!) / 1000}S`}
           className={cn(
             "self-center font-mono text-[0.6875rem] tabular-nums leading-none sm:text-xs",
-            active ? "text-karaoke-active-line/80" : "text-muted-foreground",
+            active ? "text-karaoke-highlight/80" : "text-muted-foreground",
           )}
         >
           {timestampLabel}
@@ -239,7 +239,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
               tvMode
                 ? cn("mt-1 text-muted-foreground", getLyricTextSizeClass(englishText, false, true))
                 : "mt-1 text-sm text-muted-foreground",
-              active && synced && "text-karaoke-active-line/80",
+              active && synced && "text-karaoke-highlight/80",
             )}
           >
             {active && synced ? (

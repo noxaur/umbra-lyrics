@@ -18,18 +18,18 @@ describe("getLyricTextSizeClass", () => {
   it("returns smaller active tier for long text", () => {
     const short = getLyricTextSizeClass("Hi", true, false)
     const long = getLyricTextSizeClass("a".repeat(70), true, false)
-    expect(short).toContain("2.15rem")
-    expect(long).toContain("1.35rem")
+    expect(short).toContain("3rem")
+    expect(long).toContain("1.45rem")
   })
 })
 
 describe("getLyricLineVisual", () => {
   it("emphasizes the active line in full motion mode", () => {
     const active = getLyricLineVisual(0, false)
-    expect(active.scale).toBeGreaterThanOrEqual(1)
-    expect(active.scale).toBeLessThanOrEqual(1.05)
+    expect(active.scale).toBeGreaterThanOrEqual(1.03)
+    expect(active.scale).toBeLessThanOrEqual(1.08)
     expect(active.opacity).toBe(1)
-    expect(active.z).toBeGreaterThan(0)
+    expect(active.z).toBeGreaterThanOrEqual(50)
     expect(active.blur).toBe(0)
     expect(active.y).toBe(0)
   })
@@ -37,13 +37,13 @@ describe("getLyricLineVisual", () => {
   it("softens adjacent lines", () => {
     const near = getLyricLineVisual(1, false)
     expect(near.scale).toBeLessThan(getLyricLineVisual(0, false).scale)
-    expect(near.opacity).toBeCloseTo(0.88)
+    expect(near.opacity).toBeCloseTo(0.82)
   })
 
   it("fades and blurs distant lines", () => {
     const far = getLyricLineVisual(4, false)
-    expect(far.scale).toBeLessThanOrEqual(0.88)
-    expect(far.opacity).toBeGreaterThanOrEqual(0.42)
+    expect(far.scale).toBeLessThanOrEqual(0.84)
+    expect(far.opacity).toBeGreaterThanOrEqual(0.38)
     expect(far.blur).toBeGreaterThan(0)
   })
 
