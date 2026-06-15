@@ -4,23 +4,39 @@
  * Run after `wrangler deploy` with zone route config.
  *
  * Usage: node scripts/fix-dns.mjs
- * Requires wrangler OAuth login (~/.config/.wrangler/config/default.toml).
+ * Requires CLOUDFLARE_API_TOKEN (Zone.DNS.Edit) or a fresh `npx wrangler login`.
+ * Note: Wrangler OAuth scopes include zone:read only — DNS mutations need an API token.
  */
-import { readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 
 const ACCOUNT = "865dded96630ca6a533584a80efad356";
 const ZONE_ID = "1366ca1f4d9f61f42895693748650612";
 
 function loadToken() {
-  const toml = readFileSync(
-    join(homedir(), ".config/.wrangler/config/default.toml"),
-    "utf8",
-  );
-  const m = toml.match(/oauth_token = "([^"]+)"/);
-  if (!m) throw new Error("Run `npx wrangler login` first");
-  return m[1];
+  const wrangler = join(process.cwd(), "node_modules", ".bin", "wrangler");
+  try {
+    // Refresh OAuth session before reading token
+    execFileSync(wrangler, ["whoami"], {
+      encoding: "utf8",
+      cwd: process.cwd(),
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    const out = execFileSync(wrangler, ["auth", "token", "--json"], {
+      encoding: "utf8",
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const parsed = JSON.parse(out.trim());
+    if (!parsed.token) throw new Error("No token in wrangler auth output");
+    return parsed.token;
+  } catch (err) {
+    if (process.env.CLOUDFLARE_API_TOKEN) return process.env.CLOUDFLARE_API_TOKEN;
+    throw new Error(
+      `Auth failed: ${err.message ?? err}. Run \`npx wrangler login\` or set CLOUDFLARE_API_TOKEN with Zone.DNS.Edit.`,
+    );
+  }
 }
 
 async function api(token, method, path, body) {
@@ -44,6 +60,10 @@ async function api(token, method, path, body) {
 async function main() {
   const token = loadToken();
   const log = [];
+
+  // Sanity check token against zone API before DNS mutations
+  const zone = await api(token, "GET", `/zones/${ZONE_ID}`);
+  log.push({ zone: zone.result?.name, status: zone.result?.status });
 
   const dns = await api(token, "GET", `/zones/${ZONE_ID}/dns_records?per_page=100`);
   const songRecords = dns.result.filter((r) => r.name.includes("song"));
