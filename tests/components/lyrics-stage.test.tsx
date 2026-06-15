@@ -153,6 +153,27 @@ describe("LyricsStage scroll", () => {
     expect(queryByRole("button", { name: /chorus/i })).not.toBeInTheDocument()
   })
 
+  it("shows outro placeholder without lyric list after final timestamp", () => {
+    usePlayerStore.setState({
+      lyrics: [
+        { text: "Verse", startMs: 5_000, endMs: 8_000, kind: "lyric" },
+        { text: "Chorus", startMs: 25_000, endMs: 28_000, kind: "lyric" },
+      ],
+      currentTime: 55,
+      lyricsSynced: true,
+    })
+
+    const { getAllByText, queryByRole } = render(
+      <div className="flex h-96 min-h-0 flex-col">
+        <LyricsStage durationMs={60_000} />
+      </div>,
+    )
+
+    expect(getAllByText("♪ Outro ♪").length).toBeGreaterThanOrEqual(1)
+    expect(queryByRole("button", { name: /verse/i })).not.toBeInTheDocument()
+    expect(queryByRole("button", { name: /chorus/i })).not.toBeInTheDocument()
+  })
+
   it("shows intro placeholder without lyric list before first timestamp", async () => {
     usePlayerStore.setState({
       lyrics: [
