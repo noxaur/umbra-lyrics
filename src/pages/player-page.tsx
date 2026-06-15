@@ -87,7 +87,7 @@ export function PlayerPage() {
   const englishLines = usePlayerStore((s) => s.englishLines)
   const lyrics = usePlayerStore((s) => s.lyrics)
 
-  const { translating } = useTranslation(languageCode)
+  const { available, translating } = useTranslation(languageCode)
 
   const getTime = useCallback(() => currentTime, [currentTime])
   useLyricsSync(getTime)

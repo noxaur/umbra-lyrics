@@ -19,6 +19,7 @@ type PlayerState = {
   englishSource: EnglishSource
   translationBackend: TranslationBackend | null
   lyricsSynced: boolean
+  lyricsAutoTimed: boolean
   lyricsSource: LyricsSource
   lyricsOutcome: LyricsOrchestratorStatus | "network_error" | null
   lyricsSearchPhase: string | null
@@ -43,7 +44,7 @@ type PlayerState = {
   setVideoId: (id: string) => void
   setMeta: (meta: { title: string; artist: string; track: string }) => void
   setStatus: (status: PlayerStatus, error?: string | null) => void
-  setLyrics: (lines: LyricLine[], synced: boolean, source?: LyricsSource) => void
+  setLyrics: (lines: LyricLine[], synced: boolean, source?: LyricsSource, autoTimed?: boolean) => void
   setEnglishLines: (
     lines: string[],
     source?: EnglishSource,
@@ -90,6 +91,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   englishSource: null,
   translationBackend: null,
   lyricsSynced: true,
+  lyricsAutoTimed: false,
   lyricsSource: null,
   lyricsOutcome: null,
   lyricsSearchPhase: null,
@@ -114,8 +116,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setVideoId: (id) => set({ videoId: id }),
   setMeta: (meta) => set(meta),
   setStatus: (status, error = null) => set({ status, error }),
-  setLyrics: (lines, synced, source = "lrclib") =>
-    set({ lyrics: lines, lyricsSynced: synced, lyricsSource: source }),
+  setLyrics: (lines, synced, source = "lrclib", autoTimed = false) =>
+    set({
+      lyrics: lines,
+      lyricsSynced: synced,
+      lyricsAutoTimed: !synced && autoTimed,
+      lyricsSource: source,
+    }),
   setEnglishLines: (lines, source = null, backend = null) =>
     set({ englishLines: lines, englishSource: source, translationBackend: backend }),
   setLanguageCode: (code) => set({ languageCode: code }),

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { AlertTriangle } from "lucide-react"
+import { MotionConfig } from "motion/react"
 import { LyricLine } from "@/components/lyric-line"
 import { LyricsRetry } from "@/components/lyrics-retry"
 import { LyricsSearchProgress } from "@/components/lyrics-search-progress"
@@ -31,16 +32,18 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
   const currentTime = usePlayerStore((s) => s.currentTime)
   const syncOffsetMs = usePlayerStore((s) => s.syncOffsetMs)
   const lyricsSynced = usePlayerStore((s) => s.lyricsSynced)
+  const lyricsAutoTimed = usePlayerStore((s) => s.lyricsAutoTimed)
   const loadedFromCache = usePlayerStore((s) => s.loadedFromCache)
   const setActive = usePlayerStore((s) => s.setActive)
   const setLoadedFromCache = usePlayerStore((s) => s.setLoadedFromCache)
   const seekToMs = usePlayerStore((s) => s.seekToMs)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const activeRef = useRef<HTMLDivElement>(null)
+  const activeRef = useRef<HTMLButtonElement>(null)
   const [showCacheBadge, setShowCacheBadge] = useState(false)
 
   const timeMs = currentTime * 1000
   const activeIndex = getActiveLineIndex(lyrics, timeMs, syncOffsetMs)
+  const activeLineText = activeIndex >= 0 ? lyrics[activeIndex].text : ""
 
   useEffect(() => {
     const progress =
@@ -73,7 +76,7 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
 
   if (status === "loading") {
     return (
-      <div className="flex flex-1 flex-col gap-3 p-8" aria-busy="true" aria-label="Loading lyrics">
+      <div className="flex flex-1 flex-col gap-3 overflow-hidden p-8" aria-busy="true" aria-label="Loading lyrics">
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="h-10 animate-pulse rounded-lg bg-muted/50 motion-reduce:animate-none" />
         ))}
@@ -120,8 +123,12 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
   return (
     <div
       ref={scrollRef}
-      className="relative flex flex-1 flex-col overflow-y-auto bg-karaoke-stage-bg px-4 py-12"
+      className="relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-karaoke-stage-bg px-4 py-8"
     >
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {activeLineText}
+      </div>
+
       {showCacheBadge && (
         <p
           className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full border border-border bg-background/90 px-3 py-1 text-xs text-muted-foreground shadow-sm"
@@ -141,27 +148,44 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
               aria-hidden
             />
             <p>
-              No synced lyrics — approximate timing. Use <span className="font-medium">±0.5s</span>{" "}
-              below to adjust.
+              {lyricsAutoTimed ? (
+                <>
+                  Auto-timed from plain lyrics — syllable-weighted estimate. Use{" "}
+                  <span className="font-medium">±0.5s</span> below to adjust.
+                </>
+              ) : (
+                <>
+                  No synced lyrics — approximate timing. Use <span className="font-medium">±0.5s</span>{" "}
+                  below to adjust.
+                </>
+              )}
             </p>
           </div>
         )}
       </div>
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-1">
-        {lyrics.map((line, i) => (
-          <div key={`${line.startMs}-${i}`} ref={i === activeIndex ? activeRef : undefined}>
-            <LyricLine
-              text={line.text}
-              englishText={englishLines[i]}
-              active={i === activeIndex}
-              synced={lyricsSynced}
-              progress={i === activeIndex ? getWordProgress(line, timeMs + syncOffsetMs) : 0}
-              displayMode={displayMode}
-              onSeek={() => seekToMs(line.startMs - syncOffsetMs)}
-            />
+      <MotionConfig reducedMotion="user">
+        <div
+          className="mx-auto w-full max-w-3xl"
+          style={{ perspective: "1200px", perspectiveOrigin: "50% 42%" }}
+        >
+          <div className="flex flex-col gap-1" style={{ transformStyle: "preserve-3d" }}>
+            {lyrics.map((line, i) => (
+              <LyricLine
+                key={`${line.startMs}-${i}`}
+                ref={i === activeIndex ? activeRef : undefined}
+                text={line.text}
+                englishText={englishLines[i]}
+                active={i === activeIndex}
+                distanceFromActive={activeIndex >= 0 ? i - activeIndex : i + 8}
+                synced={lyricsSynced}
+                progress={i === activeIndex ? getWordProgress(line, timeMs + syncOffsetMs) : 0}
+                displayMode={displayMode}
+                onSeek={() => seekToMs(line.startMs - syncOffsetMs)}
+              />
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      </MotionConfig>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { canAutoTimePlainLyrics, estimatePlainLyricsTiming } from "@/lib/plain-lyrics-timing"
 import type { LyricLine, ParsedLyrics } from "@/types/lyrics"
 
 const LRC_LINE = /\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/
@@ -33,23 +34,26 @@ export function parseLrc(lrc: string, durationMs = 0): ParsedLyrics {
     lines[i].endMs = next ? next.startMs : durationMs > 0 ? durationMs : lines[i].startMs + 5000
   }
 
-  return { lines, synced: lines.length > 0 }
+  return { lines, synced: lines.length > 0, autoTimed: false }
 }
 
 export function parsePlainLyrics(text: string, durationMs: number): ParsedLyrics {
-  const texts = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean)
+  const rawLines = text.split(/\r?\n/)
+  if (rawLines.every((l) => !l.trim())) return { lines: [], synced: false, autoTimed: false }
 
-  if (texts.length === 0) return { lines: [], synced: false }
+  const durationSec = durationMs / 1000
+  if (canAutoTimePlainLyrics(durationSec)) {
+    const lines = estimatePlainLyricsTiming(rawLines, durationSec)
+    return { lines, synced: false, autoTimed: true }
+  }
 
-  const slice = durationMs / texts.length
+  const texts = rawLines.map((l) => l.trim()).filter(Boolean)
+  const slice = texts.length > 0 ? durationMs / texts.length : 0
   const lines: LyricLine[] = texts.map((t, i) => ({
     startMs: Math.round(i * slice),
     endMs: Math.round((i + 1) * slice),
     text: t,
   }))
 
-  return { lines, synced: false }
+  return { lines, synced: false, autoTimed: false }
 }

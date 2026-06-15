@@ -32,7 +32,7 @@ function isValidEntry(value: unknown): value is LyricsCacheEntry {
   if (!value || typeof value !== "object") return false
   const entry = value as LyricsCacheEntry
   return (
-    (entry.v === CACHE_VERSION || entry.v === 2) &&
+    (entry.v === CACHE_VERSION || entry.v === 2 || entry.v === 3) &&
     typeof entry.videoId === "string" &&
     Array.isArray(entry.lines) &&
     typeof entry.synced === "boolean" &&

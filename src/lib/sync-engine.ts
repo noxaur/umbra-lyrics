@@ -1,5 +1,13 @@
 import type { LyricLine } from "@/types/lyrics"
 
+export {
+  canAutoTimePlainLyrics,
+  estimateLineWeight,
+  estimatePlainLyricsTiming,
+  type PlainLyricsTimingOptions,
+  type PlainTimingOptions,
+} from "@/lib/plain-lyrics-timing"
+
 export function getActiveLineIndex(
   lines: LyricLine[],
   timeMs: number,

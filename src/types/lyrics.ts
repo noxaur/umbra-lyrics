@@ -1,5 +1,5 @@
 export type LyricLine = { startMs: number; endMs: number; text: string }
-export type ParsedLyrics = { lines: LyricLine[]; synced: boolean }
+export type ParsedLyrics = { lines: LyricLine[]; synced: boolean; autoTimed?: boolean }
 
 export type LyricDisplayMode = "native" | "english" | "both"
 
