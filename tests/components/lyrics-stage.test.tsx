@@ -108,4 +108,27 @@ describe("LyricsStage scroll", () => {
 
     expect(scrollSpy).toHaveBeenCalled()
   })
+
+  it("does not double-scroll on active line changes", async () => {
+    const scrollSpy = vi.spyOn(lyricScroll, "scrollLineToCenter")
+
+    render(
+      <div className="flex h-96 min-h-0 flex-col">
+        <LyricsStage durationMs={60_000} />
+      </div>,
+    )
+
+    await act(async () => {
+      await flushFrames()
+    })
+
+    scrollSpy.mockClear()
+
+    await act(async () => {
+      usePlayerStore.setState({ currentTime: 28 })
+      await flushFrames()
+    })
+
+    expect(scrollSpy).toHaveBeenCalledTimes(1)
+  })
 })

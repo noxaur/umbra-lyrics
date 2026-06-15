@@ -72,11 +72,12 @@ describe("getDistanceFromActive", () => {
 })
 
 describe("scrollLineToCenter", () => {
-  function mockScrollContainer(top = 0, height = 300) {
+  function mockScrollContainer(top = 0, height = 300, scrollHeight = 300) {
     const state = { scrollTop: top }
     return {
       getBoundingClientRect: () => mockRect(0, height),
       clientHeight: height,
+      scrollHeight,
       get scrollTop() {
         return state.scrollTop
       },
@@ -100,7 +101,7 @@ describe("scrollLineToCenter", () => {
   })
 
   it("scrolls when element is outside center third", () => {
-    const container = mockScrollContainer()
+    const container = mockScrollContainer(0, 300, 600)
     const element = { getBoundingClientRect: () => mockRect(220, 40) } as HTMLElement
 
     scrollLineToCenter(element, container, "auto")
@@ -113,5 +114,17 @@ describe("scrollLineToCenter", () => {
 
     scrollLineToCenter(element, container, "smooth", { force: true })
     expect(container.scrollTo).toHaveBeenCalled()
+  })
+
+  it("clamps scroll position to valid range", () => {
+    const container = mockScrollContainer(0, 300, 600)
+    const element = { getBoundingClientRect: () => mockRect(-50, 40) } as HTMLElement
+
+    scrollLineToCenter(element, container, "auto", { force: true })
+    expect(container.scrollTop).toBe(0)
+
+    const bottomElement = { getBoundingClientRect: () => mockRect(700, 40) } as HTMLElement
+    scrollLineToCenter(bottomElement, container, "auto", { force: true })
+    expect(container.scrollTop).toBe(300)
   })
 })

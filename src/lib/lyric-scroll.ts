@@ -48,7 +48,11 @@ export function scrollLineToCenter(
   const elementRect = element.getBoundingClientRect()
   const elementCenter = elementRect.top + elementRect.height / 2
   const containerCenter = containerRect.top + container.clientHeight / 2
-  const nextTop = container.scrollTop + (elementCenter - containerCenter)
+  const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight)
+  const nextTop = Math.max(
+    0,
+    Math.min(container.scrollTop + (elementCenter - containerCenter), maxScroll),
+  )
 
   if (behavior === "auto" || typeof container.scrollTo !== "function") {
     container.scrollTop = nextTop
