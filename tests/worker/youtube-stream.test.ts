@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import {
+  decodeStreamReference,
   handleYouTubeProxyUrl,
   handleYouTubeStreamInfo,
   handleYouTubeStreamProxy,
@@ -29,6 +30,17 @@ describe("youtube stream beta handlers", () => {
   it("allows googlevideo stream hosts only", () => {
     expect(isAllowedStreamUrl("https://rr3---sn-abc.googlevideo.com/videoplayback?x=1")).toBe(true)
     expect(isAllowedStreamUrl("https://evil.example/videoplayback")).toBe(false)
+  })
+
+  it("decodes proxy path and direct googlevideo stream references", () => {
+    const target = "https://rr3---sn-abc.googlevideo.com/videoplayback?x=1"
+    const encoded = btoa(target)
+    const proxyPath = `/api/beta/youtube/proxy-url?u=${encodeURIComponent(encoded)}`
+
+    expect(decodeStreamReference(proxyPath)).toBe(target)
+    expect(decodeStreamReference(target)).toBe(target)
+    expect(decodeStreamReference("https://evil.example/x")).toBeNull()
+    expect(decodeStreamReference("/api/beta/youtube/proxy-url?u=not-base64")).toBeNull()
   })
 
   it("returns stream info with proxy url", async () => {

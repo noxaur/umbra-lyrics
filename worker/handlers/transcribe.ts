@@ -1,6 +1,6 @@
 import { jsonResponse } from "../cors"
 import { checkTranscribeRateLimit, clientIp } from "../lib/transcribe-rate-limit"
-import { isAllowedStreamUrl, isValidVideoId, resolveYouTubeStream } from "./youtube-stream"
+import { isAllowedStreamUrl, isValidVideoId, resolveYouTubeStream, decodeStreamReference } from "./youtube-stream"
 
 /** Max total audio bytes fetched server-side across all chunks. */
 export const MAX_AUDIO_BYTES = 10 * 1024 * 1024
@@ -57,6 +57,8 @@ export type TranscribeEnv = {
 
 export type TranscribeRequest = {
   videoId: string
+  /** Client-resolved stream proxy path or googlevideo URL when worker InnerTube fails. */
+  streamUrl?: string
   artist?: string
   track?: string
   language?: string
@@ -421,15 +423,25 @@ export async function transcribeYouTubeAudio(
   }
 
   const videoId = request.videoId.trim()
-  const resolved = await resolveYouTubeStream(videoId, "audio")
-  if (!resolved) {
-    throw new Error("STREAM_UNAVAILABLE")
-  }
-  if (!isAllowedStreamUrl(resolved.url)) {
-    throw new Error("STREAM_UNAVAILABLE")
+  let streamUrl: string | null = null
+
+  if (request.streamUrl?.trim()) {
+    streamUrl = decodeStreamReference(request.streamUrl)
+    if (!streamUrl) {
+      throw new Error("INVALID_STREAM_URL")
+    }
+  } else {
+    const resolved = await resolveYouTubeStream(videoId, "audio")
+    if (!resolved) {
+      throw new Error("STREAM_UNAVAILABLE")
+    }
+    if (!isAllowedStreamUrl(resolved.url)) {
+      throw new Error("STREAM_UNAVAILABLE")
+    }
+    streamUrl = resolved.url
   }
 
-  const totalBytes = await probeStreamSize(resolved.url)
+  const totalBytes = await probeStreamSize(streamUrl)
   const whisperOptions = {
     language: request.language,
     artist: request.artist,
@@ -440,13 +452,13 @@ export async function transcribeYouTubeAudio(
   let result: TranscribeResult
 
   if (totalBytes != null && totalBytes > CHUNK_BYTE_SIZE) {
-    result = await transcribeChunkedStream(env.AI, resolved.url, {
+    result = await transcribeChunkedStream(env.AI, streamUrl, {
       ...whisperOptions,
       totalBytes,
     })
   } else {
     const { bytes, partial: fetchPartial, totalBytes: fetchedTotal } = await fetchAudioBytes(
-      resolved.url,
+      streamUrl,
       MAX_AUDIO_BYTES,
     )
     if (bytes.byteLength === 0) {
@@ -513,6 +525,9 @@ export async function handleTranscribe(
     return jsonResponse(result)
   } catch (err) {
     const message = err instanceof Error ? err.message : "Transcription failed"
+    if (message === "INVALID_STREAM_URL") {
+      return jsonResponse({ error: "Invalid stream URL" }, 400)
+    }
     if (message === "STREAM_UNAVAILABLE") {
       return jsonResponse({ error: "YouTube audio stream unavailable" }, 502)
     }

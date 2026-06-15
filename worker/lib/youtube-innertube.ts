@@ -1,26 +1,27 @@
 import { ClientType, Innertube } from "youtubei.js/cf-worker"
+import {
+  INNERTUBE_CLIENT_CHAIN,
+  type InnertubeClientName,
+  type ResolveAttempt,
+  type ResolvedInnertubeStream,
+  resolveStreamFromBasicInfo,
+} from "./innertube-resolve"
+
+export type { ResolvedInnertubeStream as InnertubeResolvedStream, ResolveAttempt }
 
 type StreamKind = "audio" | "video"
 
-export type InnertubeResolvedStream = {
-  url: string
-  mimeType: string
-  client: string
-}
-
 const memCache: Record<string, ArrayBuffer> = {}
 
-const innertubeCache = new Map<ClientType, Promise<Innertube>>()
+const innertubeCache = new Map<string, Promise<Innertube>>()
 
-const CLIENT_CHAIN: ClientType[] = [
-  ClientType.IOS,
-  ClientType.ANDROID,
-  ClientType.MWEB,
-  ClientType.WEB,
-]
+function clientTypeFromName(name: InnertubeClientName): ClientType {
+  return ClientType[name as keyof typeof ClientType] ?? ClientType.WEB
+}
 
 function createInnertube(clientType: ClientType): Promise<Innertube> {
-  const existing = innertubeCache.get(clientType)
+  const key = String(clientType)
+  const existing = innertubeCache.get(key)
   if (existing) return existing
 
   const created = Innertube.create({
@@ -28,55 +29,52 @@ function createInnertube(clientType: ClientType): Promise<Innertube> {
     client_type: clientType,
     cache: {
       cache_dir: "yt-cache",
-      get: async (key: string) => memCache[key],
-      set: async (key: string, value: ArrayBuffer) => {
-        memCache[key] = value
+      get: async (cacheKey: string) => memCache[cacheKey],
+      set: async (cacheKey: string, value: ArrayBuffer) => {
+        memCache[cacheKey] = value
       },
-      remove: async (key: string) => {
-        delete memCache[key]
+      remove: async (cacheKey: string) => {
+        delete memCache[cacheKey]
       },
     },
   })
 
-  innertubeCache.set(clientType, created)
+  innertubeCache.set(key, created)
   return created
 }
 
 export async function resolveStreamViaInnertube(
   videoId: string,
   kind: StreamKind,
-): Promise<InnertubeResolvedStream | null> {
-  for (const clientType of CLIENT_CHAIN) {
+): Promise<ResolvedInnertubeStream | null> {
+  const result = await resolveStreamViaInnertubeDetailed(videoId, kind)
+  return result.stream
+}
+
+export async function resolveStreamViaInnertubeDetailed(
+  videoId: string,
+  kind: StreamKind,
+): Promise<{ stream: ResolvedInnertubeStream | null; attempts: ResolveAttempt[] }> {
+  const attempts: ResolveAttempt[] = []
+
+  for (const clientName of INNERTUBE_CLIENT_CHAIN) {
+    const clientType = clientTypeFromName(clientName)
     try {
       const yt = await createInnertube(clientType)
       const info = await yt.getBasicInfo(videoId)
-      if (info.playability_status?.status !== "OK") continue
-
-      const chosen = info.chooseFormat({
-        type: kind,
-        quality: "best",
-        format: kind === "video" ? "mp4" : undefined,
+      const outcome = await resolveStreamFromBasicInfo(yt, info, kind, clientName)
+      attempts.push(outcome.attempt)
+      if ("stream" in outcome && outcome.stream) {
+        return { stream: outcome.stream, attempts }
+      }
+    } catch (error) {
+      attempts.push({
+        client: clientName,
+        error: error instanceof Error ? error.message : "Client failed",
+        resolved: false,
       })
-
-      let url = chosen?.url ?? null
-      if (!url && chosen) {
-        try {
-          url = (await chosen.decipher(yt.session.player)) ?? null
-        } catch {
-          url = null
-        }
-      }
-      if (!url) continue
-
-      return {
-        url,
-        mimeType: chosen?.mime_type ?? (kind === "audio" ? "audio/mp4" : "video/mp4"),
-        client: String(clientType),
-      }
-    } catch {
-      // try next client
     }
   }
 
-  return null
+  return { stream: null, attempts }
 }

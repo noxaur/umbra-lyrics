@@ -237,6 +237,45 @@ describe("transcribe handler", () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
+  it("transcribes using client-provided streamUrl without worker innertube", async () => {
+    const target = "https://rr3---sn-abc.googlevideo.com/videoplayback?client=1"
+    const streamUrl = `/api/beta/youtube/proxy-url?u=${encodeURIComponent(btoa(target))}`
+
+    const fetchSpy = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method === "HEAD") {
+        return new Response(null, { status: 200, headers: { "Content-Length": "4" } })
+      }
+      return new Response(new Uint8Array([1, 2, 3, 4]), {
+        status: 200,
+        headers: { "Content-Length": "4" },
+      })
+    })
+    vi.stubGlobal("fetch", fetchSpy)
+
+    const aiRun = vi.fn(async () => ({
+      text: "client stream",
+      segments: [{ start: 0, end: 1, text: "client stream" }],
+    }))
+
+    const result = await transcribeYouTubeAudio(
+      { AI: { run: aiRun } },
+      { videoId: "H58vbez_m4E", streamUrl },
+    )
+
+    expect(result.text).toBe("client stream")
+    expect(mockResolve).not.toHaveBeenCalled()
+    expect(fetchSpy).toHaveBeenCalled()
+  })
+
+  it("rejects invalid client streamUrl", async () => {
+    await expect(
+      transcribeYouTubeAudio(
+        { AI: { run: vi.fn() } },
+        { videoId: "dQw4w9WgXcQ", streamUrl: "https://evil.example/x" },
+      ),
+    ).rejects.toThrow("INVALID_STREAM_URL")
+  })
+
   it("marks partial when transcript coverage is shorter than track duration", async () => {
     mockResolve.mockResolvedValue({
       url: "https://rr3---sn-abc.googlevideo.com/videoplayback?x=1",
