@@ -589,36 +589,49 @@ export function PlayerPage() {
           )}
         </div>
 
-        <NowPlayingHeader onSelectAlternate={handleSelectAlternate} />
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+          <div
+            className={cn(
+              "flex shrink-0 flex-col lg:w-[42%] lg:min-h-0",
+              videoHidden &&
+                "pointer-events-none fixed left-0 top-0 h-px w-px overflow-hidden opacity-0",
+              !videoHidden && "px-4 py-2 lg:border-r lg:border-border lg:p-4",
+            )}
+            aria-hidden={videoHidden}
+          >
+            <div
+              className={cn(
+                !videoHidden && "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:justify-center",
+              )}
+            >
+              <YouTubePanel
+                containerRef={containerRef}
+                hidden={videoHidden}
+                layout="split"
+              />
+            </div>
+          </div>
 
-        <div
-          className={cn(
-            "shrink-0 px-4 py-2",
-            videoHidden &&
-              "pointer-events-none fixed left-0 top-0 h-px w-px overflow-hidden opacity-0",
-            !videoHidden &&
-              "max-md:fixed max-md:bottom-[calc(env(safe-area-inset-bottom,0px)+5.75rem)] max-md:right-3 max-md:z-30 max-md:w-36 max-md:px-0 max-md:py-0",
-          )}
-          aria-hidden={videoHidden}
-        >
-          <YouTubePanel containerRef={containerRef} hidden={videoHidden} compact pipOnMobile />
-        </div>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <NowPlayingHeader onSelectAlternate={handleSelectAlternate} />
 
-        <div className="flex min-h-0 flex-1 flex-col">
-          {youtubeError ? (
-            <PlayerError
-              title="Video couldn't load"
-              message={youtubeError.message || `YouTube error ${youtubeError.code}`}
-              onRetry={handleYoutubeRetry}
-            />
-          ) : (
-            <LyricsStage
-              onRetry={handleRetry}
-              onPaste={handlePaste}
-              videoId={videoId}
-              videoReady={ready}
-            />
-          )}
+            <div className="flex min-h-0 flex-1 flex-col">
+              {youtubeError ? (
+                <PlayerError
+                  title="Video couldn't load"
+                  message={youtubeError.message || `YouTube error ${youtubeError.code}`}
+                  onRetry={handleYoutubeRetry}
+                />
+              ) : (
+                <LyricsStage
+                  onRetry={handleRetry}
+                  onPaste={handlePaste}
+                  videoId={videoId}
+                  videoReady={ready}
+                />
+              )}
+            </div>
+          </div>
         </div>
 
         <TransportControls
