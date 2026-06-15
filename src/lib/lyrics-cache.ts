@@ -3,7 +3,7 @@ import type { TranslationBackend } from "@/lib/translation-service"
 import type { EnglishSource } from "@/stores/player-store"
 
 const STORAGE_PREFIX = "song-kara-lyrics:"
-const CACHE_VERSION = 3
+const CACHE_VERSION = 4
 
 export type LyricsCacheEntry = {
   v: number
@@ -12,6 +12,7 @@ export type LyricsCacheEntry = {
   providerId: LyricsProviderId
   lines: LyricLine[]
   synced: boolean
+  autoTimed?: boolean
   englishLines: string[]
   englishSource?: EnglishSource
   translationBackend?: TranslationBackend | null

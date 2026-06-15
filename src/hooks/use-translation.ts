@@ -1,48 +1,32 @@
 import { useCallback, useEffect, useState } from "react"
-
-type TranslatorInstance = {
-  translate: (text: string) => Promise<string>
-}
-
-declare global {
-  interface Window {
-    Translator?: {
-      create: (opts: { sourceLanguage: string; targetLanguage: string }) => Promise<TranslatorInstance>
-      availability: (opts: { sourceLanguage: string; targetLanguage: string }) => Promise<string>
-    }
-  }
-}
+import { francToBcp47 } from "@/lib/language-service"
+import { translateLinesWithFallback } from "@/lib/translation-service"
 
 export function useTranslation(sourceLanguage: string) {
   const [available, setAvailable] = useState(false)
   const [translating, setTranslating] = useState(false)
 
+  const bcp47 = francToBcp47(sourceLanguage)
+
   useEffect(() => {
-    if (!window.Translator || sourceLanguage === "eng" || sourceLanguage === "en") {
+    if (!window.Translator || bcp47 === "en") {
       setAvailable(false)
       return
     }
-    void window.Translator.availability({ sourceLanguage, targetLanguage: "en" }).then(
+    void window.Translator.availability({ sourceLanguage: bcp47, targetLanguage: "en" }).then(
       (status) => setAvailable(status === "available"),
     )
-  }, [sourceLanguage])
+  }, [bcp47])
 
   const translateLines = useCallback(
-    async (lines: string[]): Promise<string[]> => {
-      if (!window.Translator) return lines
+    async (lines: string[], videoId?: string) => {
       setTranslating(true)
       try {
-        const translator = await window.Translator.create({
-          sourceLanguage,
-          targetLanguage: "en",
+        const result = await translateLinesWithFallback(lines, {
+          sourceLang: sourceLanguage,
+          videoId,
         })
-        const results: string[] = []
-        for (const line of lines) {
-          results.push(line ? await translator.translate(line) : "")
-        }
-        return results
-      } catch {
-        return lines
+        return result?.lines ?? lines
       } finally {
         setTranslating(false)
       }

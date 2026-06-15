@@ -9,18 +9,20 @@ const TRANSLATION_BACKEND_LABELS: Record<string, string> = {
   google: "Google",
 }
 
-type SyncBadge = "Synced" | "Approximate" | "Plain"
+type SyncBadge = "Synced" | "Auto-timed" | "Approximate" | "Plain"
 
 function getSyncBadge(
   status: string,
   lyricsSynced: boolean,
+  lyricsAutoTimed: boolean,
   lyricsCount: number,
   lyricsSource: ReturnType<typeof usePlayerStore.getState>["lyricsSource"],
 ): SyncBadge | null {
   if (status === "loading") return "Plain"
   if (status !== "ready" || lyricsCount === 0) return null
-  if (lyricsSource === "pasted") return "Plain"
   if (lyricsSynced) return "Synced"
+  if (lyricsAutoTimed) return "Auto-timed"
+  if (lyricsSource === "pasted") return "Approximate"
   return "Approximate"
 }
 
@@ -31,6 +33,7 @@ function getSourceLabel(source: ReturnType<typeof usePlayerStore.getState>["lyri
 
 const badgeStyles: Record<SyncBadge, string> = {
   Synced: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  "Auto-timed": "bg-sky-500/15 text-sky-700 dark:text-sky-300",
   Approximate: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   Plain: "bg-muted text-muted-foreground",
 }
@@ -45,6 +48,7 @@ export function NowPlayingHeader({ onSelectAlternate }: NowPlayingHeaderProps) {
   const title = usePlayerStore((s) => s.title)
   const status = usePlayerStore((s) => s.status)
   const lyricsSynced = usePlayerStore((s) => s.lyricsSynced)
+  const lyricsAutoTimed = usePlayerStore((s) => s.lyricsAutoTimed)
   const lyricsSource = usePlayerStore((s) => s.lyricsSource)
   const lyrics = usePlayerStore((s) => s.lyrics)
   const englishSource = usePlayerStore((s) => s.englishSource)
@@ -52,7 +56,7 @@ export function NowPlayingHeader({ onSelectAlternate }: NowPlayingHeaderProps) {
 
   const videoId = usePlayerStore((s) => s.videoId)
   const displayTrack = track || title
-  const badge = getSyncBadge(status, lyricsSynced, lyrics.length, lyricsSource)
+  const badge = getSyncBadge(status, lyricsSynced, lyricsAutoTimed, lyrics.length, lyricsSource)
   const sourceLabel = getSourceLabel(lyricsSource)
 
   if (!displayTrack && !artist && status === "idle" && !videoId) return null

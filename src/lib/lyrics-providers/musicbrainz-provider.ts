@@ -35,6 +35,14 @@ type MbRecording = {
 
 type MbSearchResponse = { recordings?: MbRecording[] }
 
+/** Canonical track/artist names from MusicBrainz for metadata fallback searches. */
+export async function lookupMusicBrainzCanonical(
+  track: string,
+  artist: string,
+): Promise<Array<{ track: string; artist: string; durationSec?: number }>> {
+  return searchMusicBrainz(track, artist)
+}
+
 async function searchMusicBrainz(
   track: string,
   artist: string,

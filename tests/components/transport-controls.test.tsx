@@ -25,7 +25,7 @@ describe("TransportControls", () => {
       syncOffsetMs: 0,
       videoHidden: false,
       displayMode: "native",
-      languageCode: "jpn",
+      languageCode: "ja",
       englishLines: [],
     })
   })
@@ -57,7 +57,7 @@ describe("TransportControls", () => {
   it("labels lyrics timing controls", () => {
     renderControls()
 
-    expect(screen.getByLabelText("Lyrics timing")).toBeInTheDocument()
+    expect(screen.getByLabelText("Lyrics timing offset 0.0 seconds")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Lyrics 0.5 seconds earlier" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Lyrics 0.5 seconds later" })).toBeInTheDocument()
   })
@@ -111,5 +111,27 @@ describe("TransportControls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Lyrics 0.5 seconds earlier" }))
     expect(usePlayerStore.getState().syncOffsetMs).toBe(0)
+  })
+
+  it("auto-switches to both when translated english arrives", () => {
+    usePlayerStore.setState({ displayMode: "native", englishLines: [], englishSource: null })
+    const { rerender } = renderControls()
+
+    usePlayerStore.setState({
+      englishLines: ["Hello"],
+      englishSource: "translated",
+    })
+    rerender(
+      <TransportControls
+        duration={120}
+        currentTime={30}
+        isPlaying={false}
+        onPlay={noop}
+        onPause={noop}
+        onSeek={noop}
+      />,
+    )
+
+    expect(usePlayerStore.getState().displayMode).toBe("both")
   })
 })
