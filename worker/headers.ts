@@ -7,10 +7,21 @@ const SECURITY_HEADERS: Record<string, string> = {
 /** YouTube video IDs are always 11 characters. */
 const VIDEO_ID_RE = /^[\w-]{11}$/
 
-export function withSecurityHeaders(response: Response): Response {
+/** Required for ffmpeg.wasm SharedArrayBuffer; credentialless keeps third-party embeds working. */
+const ISOLATION_HEADERS: Record<string, string> = {
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Embedder-Policy": "credentialless",
+}
+
+export function withSecurityHeaders(response: Response, includeIsolation = false): Response {
   const headers = new Headers(response.headers)
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
     headers.set(key, value)
+  }
+  if (includeIsolation) {
+    for (const [key, value] of Object.entries(ISOLATION_HEADERS)) {
+      headers.set(key, value)
+    }
   }
   return new Response(response.body, {
     status: response.status,
