@@ -7,7 +7,12 @@ import {
 } from "motion/react"
 import { KaraokeWordProgress } from "@/components/karaoke-word-progress"
 import { formatLyricTimestamp } from "@/lib/format-time"
-import { getLyricLineVisual, lyricLineSpring } from "@/lib/lyric-line-visual"
+import {
+  getLyricLineVisual,
+  getLyricTextSizeClass,
+  lyricLineOpacitySpring,
+  lyricLineSpring,
+} from "@/lib/lyric-line-visual"
 import { cn } from "@/lib/utils"
 import type { LyricWord } from "@/types/lyrics"
 
@@ -29,13 +34,8 @@ type LyricLineProps = {
   onSeek?: () => void
 }
 
-const ACTIVE_SIZE =
-  "max-w-full text-[clamp(1.35rem,3.5vw,2.5rem)] leading-snug lg:text-[clamp(3rem,4.5vw,6rem)] lg:leading-tight"
-const TV_ACTIVE_SIZE = "max-w-full text-[clamp(2.5rem,6vw,5rem)] leading-tight lg:text-[clamp(5rem,8vw,8rem)] lg:leading-none"
-const INACTIVE_SIZE = "max-w-full text-[clamp(1rem,2.8vw,1.65rem)] leading-snug"
-const TV_INACTIVE_SIZE = "max-w-full text-[clamp(1.1rem,3vw,2rem)] leading-snug"
 const LINE_TEXT =
-  "block w-full break-words [overflow-wrap:anywhere] text-balance hyphens-auto"
+  "block w-full max-w-full break-words [overflow-wrap:anywhere] text-balance hyphens-auto"
 const SECTION_LABEL_CLASS =
   "block py-1 text-center text-[0.7rem] font-medium tracking-wide text-muted-foreground"
 
@@ -149,9 +149,8 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
   const showNative = displayMode !== "english"
   const showEnglish = displayMode !== "native" && englishText
   const visual = getLyricLineVisual(distanceFromActive, Boolean(reducedMotion), compactStage)
-  const staggerDelay = reducedMotion ? 0 : Math.min(Math.abs(distanceFromActive) * 0.018, 0.12)
-  const activeSize = tvMode ? TV_ACTIVE_SIZE : ACTIVE_SIZE
-  const inactiveSize = tvMode ? TV_INACTIVE_SIZE : INACTIVE_SIZE
+  const staggerDelay = reducedMotion ? 0 : Math.min(Math.abs(distanceFromActive) * 0.012, 0.08)
+  const textSizeClass = getLyricTextSizeClass(text, active, tvMode)
   const timestampLabel =
     showTimestamp && startMs != null ? formatLyricTimestamp(startMs) : null
   const seekLabel = timestampLabel ? `Seek to ${timestampLabel}, ${text}` : text
@@ -192,14 +191,17 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
       aria-current={active ? "true" : undefined}
       animate={{
         scale: visual.scale,
-        opacity: tvMode ? Math.max(visual.opacity, active ? 1 : 0.75) : visual.opacity,
+        opacity: tvMode ? Math.max(visual.opacity, active ? 1 : 0.78) : visual.opacity,
+        y: visual.y,
         translateZ: visual.z,
         filter: visual.blur > 0 ? `blur(${visual.blur}px)` : "blur(0px)",
       }}
       transition={{
-        ...lyricLineSpring,
-        delay: staggerDelay,
-        filter: reducedMotion ? { duration: 0 } : lyricLineSpring,
+        scale: { ...lyricLineSpring, delay: staggerDelay },
+        y: { ...lyricLineSpring, delay: staggerDelay },
+        translateZ: { ...lyricLineSpring, delay: staggerDelay },
+        opacity: { ...lyricLineOpacitySpring, delay: staggerDelay * 0.5 },
+        filter: reducedMotion ? { duration: 0 } : { ...lyricLineOpacitySpring, delay: staggerDelay },
       }}
       style={{
         transformStyle: "preserve-3d",
@@ -226,11 +228,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
         )}
         {showNative && (
           <span
-            className={cn(
-              LINE_TEXT,
-              "font-semibold",
-              active ? activeSize : inactiveSize,
-            )}
+            className={cn(LINE_TEXT, "font-semibold", textSizeClass)}
           >
             {renderNativeText()}
           </span>

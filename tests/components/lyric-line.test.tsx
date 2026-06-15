@@ -35,7 +35,7 @@ describe("LyricLine", () => {
     expect(screen.getAllByText("Approximate line")).toHaveLength(1)
   })
 
-  it("uses venue-scale classes on active lines", () => {
+  it("uses tiered active size classes based on line length", () => {
     render(
       <LyricLine
         text="Big line"
@@ -48,7 +48,25 @@ describe("LyricLine", () => {
     )
     const line = screen.getByRole("button", { name: "Big line" })
     const outerSpan = line.querySelector(".font-semibold")
-    expect(outerSpan?.className).toContain("lg:text-[clamp(3rem,4.5vw,6rem)]")
+    expect(outerSpan?.className).toContain("text-[clamp(1.25rem,5.5cqw,2.15rem)]")
+  })
+
+  it("shrinks font tier for long active lines", () => {
+    const longText =
+      "This is a very long lyric line that should use a smaller tier so it fits on screen without overflowing"
+    render(
+      <LyricLine
+        text={longText}
+        active
+        distanceFromActive={0}
+        synced
+        progress={0}
+        displayMode="native"
+      />,
+    )
+    const line = screen.getByRole("button", { name: longText })
+    const outerSpan = line.querySelector(".font-semibold")
+    expect(outerSpan?.className).toContain("text-[clamp(0.9rem,3.6cqw,1.35rem)]")
   })
 
   it("shows LRC timestamp when enabled", () => {
