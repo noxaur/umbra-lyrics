@@ -7,6 +7,7 @@ import { PlayerError } from "@/components/player-error"
 import { TransportControls } from "@/components/transport-controls"
 import { YouTubePanel } from "@/components/youtube-panel"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { useYouTubePlayer } from "@/hooks/use-youtube-player"
 import { useLyricsSync } from "@/hooks/use-lyrics-sync"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
@@ -27,7 +28,7 @@ import type { LyricLine, LyricsAlternate, LyricsProviderId } from "@/types/lyric
 function applyLyricsText(
   text: string,
   durationSec: number,
-): { lines: LyricLine[]; synced: boolean } | null {
+): { lines: LyricLine[]; synced: boolean; autoTimed?: boolean } | null {
   const trimmed = text.trim()
   if (!trimmed) return null
 
@@ -117,7 +118,12 @@ export function PlayerPage() {
         artist: cached.artist,
         track: cached.track,
       })
-      setLyrics(cached.lines, cached.synced, cached.providerId ?? cached.lyricsResult.providerId)
+      setLyrics(
+        cached.lines,
+        cached.synced,
+        cached.providerId ?? cached.lyricsResult.providerId,
+        cached.autoTimed ?? (!cached.synced && cached.lines.length > 0),
+      )
       setEnglishLines(
         cached.englishLines,
         cached.englishSource ?? (cached.englishLines.length > 0 ? "found" : null),
@@ -206,7 +212,7 @@ export function PlayerPage() {
 
   const applyParsedLyrics = useCallback(
     async (
-      parsed: { lines: LyricLine[]; synced: boolean },
+      parsed: { lines: LyricLine[]; synced: boolean; autoTimed?: boolean },
       source: LyricsSource,
       meta: { title: string; track: string; artist: string },
       durationSec: number,
@@ -214,7 +220,7 @@ export function PlayerPage() {
       cachePayload?: Parameters<typeof setLyricsCache>[0],
       fromCache = false,
     ) => {
-      setLyrics(parsed.lines, parsed.synced, source)
+      setLyrics(parsed.lines, parsed.synced, source, parsed.autoTimed ?? false)
       setLyricsOutcome("found")
       setLyricsSearchPhase(source === "pasted" ? "Using pasted lyrics" : "Ready")
       setLyricsSearchStep("ready")
@@ -264,7 +270,7 @@ export function PlayerPage() {
           ? parseLrc(lyricsResult.syncedLyrics, durationSec * 1000)
           : lyricsResult.plainLyrics
             ? parsePlainLyrics(lyricsResult.plainLyrics, durationSec * 1000)
-            : { lines: [], synced: false }
+            : { lines: [], synced: false, autoTimed: false }
 
       if (parsed.lines.length === 0 && lyricsResult.plainLyrics) {
         parsed = parsePlainLyrics(lyricsResult.plainLyrics, durationSec * 1000)
@@ -292,6 +298,7 @@ export function PlayerPage() {
           providerId: lyricsResult.providerId,
           lines: parsed.lines,
           synced: parsed.synced,
+          autoTimed: parsed.autoTimed ?? false,
           alternates,
           englishLines: [],
           languageCode: lang,
@@ -566,7 +573,7 @@ export function PlayerPage() {
           <Link to="/" className="text-muted-foreground hover:text-foreground">
             ← Home
           </Link>
-            {!isEnglish(languageCode) && englishLines.length === 0 && (
+          {!isEnglish(languageCode) && englishLines.length === 0 && (available || translating) && (
             <Button
               variant="outline"
               size="sm"
@@ -585,13 +592,16 @@ export function PlayerPage() {
         <NowPlayingHeader onSelectAlternate={handleSelectAlternate} />
 
         <div
-          className={
-            videoHidden
-              ? "hidden"
-              : "shrink-0 px-4 py-2 max-md:relative md:px-4"
-          }
+          className={cn(
+            "shrink-0 px-4 py-2",
+            videoHidden &&
+              "pointer-events-none fixed left-0 top-0 h-px w-px overflow-hidden opacity-0",
+            !videoHidden &&
+              "max-md:fixed max-md:bottom-[calc(env(safe-area-inset-bottom,0px)+5.75rem)] max-md:right-3 max-md:z-30 max-md:w-36 max-md:px-0 max-md:py-0",
+          )}
+          aria-hidden={videoHidden}
         >
-          <YouTubePanel containerRef={containerRef} hidden={videoHidden} compact />
+          <YouTubePanel containerRef={containerRef} hidden={videoHidden} compact pipOnMobile />
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
