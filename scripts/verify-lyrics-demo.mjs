@@ -66,12 +66,14 @@ async function seekPastIntro(page) {
 }
 
 async function waitForLyrics(page, mustContain, timeoutMs = 120_000) {
-  const { source, header } = await waitForLyricsSource(page, timeoutMs)
+  const deadline = Date.now() + timeoutMs
+  const remainingMs = () => Math.max(0, deadline - Date.now())
+
+  const { source, header } = await waitForLyricsSource(page, remainingMs())
   await seekPastIntro(page)
 
-  const start = Date.now()
   const needle = mustContain.toLowerCase()
-  while (Date.now() - start < timeoutMs) {
+  while (remainingMs() > 0) {
     const text = (await page.locator("main").innerText().catch(() => "")).toLowerCase()
     if (text.includes(needle)) {
       return { text, source, header }
