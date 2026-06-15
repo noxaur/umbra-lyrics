@@ -25,7 +25,7 @@ describe("UrlInput", () => {
   it("uses text input with url input mode for bare video ids", () => {
     renderInput()
 
-    const input = screen.getByPlaceholderText("Paste YouTube URL…")
+    const input = screen.getByPlaceholderText("Paste YouTube or song.opsec.rent link…")
     expect(input).toHaveAttribute("type", "text")
     expect(input).toHaveAttribute("inputmode", "url")
   })
@@ -34,8 +34,23 @@ describe("UrlInput", () => {
     navigate.mockClear()
     renderInput()
 
-    const input = screen.getByPlaceholderText("Paste YouTube URL…")
+    const input = screen.getByPlaceholderText("Paste YouTube or song.opsec.rent link…")
     fireEvent.change(input, { target: { value: "dQw4w9WgXcQ" } })
+    fireEvent.click(screen.getByRole("button", { name: /start/i }))
+
+    expect(navigate).toHaveBeenCalledWith("/play/dQw4w9WgXcQ", {
+      state: { fromHome: true },
+    })
+  })
+
+  it("navigates with karaoke share URL", () => {
+    navigate.mockClear()
+    renderInput()
+
+    const input = screen.getByPlaceholderText("Paste YouTube or song.opsec.rent link…")
+    fireEvent.change(input, {
+      target: { value: "https://song.opsec.rent/play/dQw4w9WgXcQ" },
+    })
     fireEvent.click(screen.getByRole("button", { name: /start/i }))
 
     expect(navigate).toHaveBeenCalledWith("/play/dQw4w9WgXcQ", {
@@ -46,13 +61,13 @@ describe("UrlInput", () => {
   it("shows app validation error for invalid input", () => {
     renderInput()
 
-    fireEvent.change(screen.getByPlaceholderText("Paste YouTube URL…"), {
+    fireEvent.change(screen.getByPlaceholderText("Paste YouTube or song.opsec.rent link…"), {
       target: { value: "not-valid" },
     })
     fireEvent.click(screen.getByRole("button", { name: /start/i }))
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Enter a valid YouTube URL or video ID",
+      "Enter a valid YouTube URL, song link, or video ID",
     )
   })
 })
