@@ -24,7 +24,7 @@ async function sleep(ms) {
   await new Promise((r) => setTimeout(r, ms))
 }
 
-async function waitForLyrics(page, timeoutMs = 120_000) {
+async function waitForLyricsSource(page, timeoutMs = 120_000) {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
     const text = await page.locator("main").innerText().catch(() => "")
@@ -33,14 +33,41 @@ async function waitForLyrics(page, timeoutMs = 120_000) {
       await sleep(2000)
       continue
     }
-    if (lower.includes("strangers to love") || lower.includes("scaramouche") || lower.includes("real life")) {
-      const sourceMatch = lower.match(/lrclib|synced|web scrapers|genius|transcription/)
-      return { text: lower, source: sourceMatch?.[0] ?? "lyrics", header: lower }
+    const sourceMatch = lower.match(/lrclib|synced|web scrapers|genius|transcription/)
+    if (sourceMatch) {
+      return { source: sourceMatch[0], header: lower }
     }
     await sleep(2000)
   }
   const header = (await page.locator("main").innerText().catch(() => "")).toLowerCase()
-  return { text: header, source: "unknown", header }
+  return { source: "unknown", header }
+}
+
+/** Seek past intro — lyric lines are hidden until vocals begin. */
+async function seekPastIntro(page) {
+  const slider = page.getByRole("slider", { name: /seek/i })
+  await slider.focus()
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press("ArrowRight")
+  }
+  await sleep(500)
+}
+
+async function waitForLyrics(page, mustContain, timeoutMs = 120_000) {
+  const { source, header } = await waitForLyricsSource(page, timeoutMs)
+  await seekPastIntro(page)
+
+  const start = Date.now()
+  const needle = mustContain.toLowerCase()
+  while (Date.now() - start < timeoutMs) {
+    const text = (await page.locator("main").innerText().catch(() => "")).toLowerCase()
+    if (text.includes(needle)) {
+      return { text, source, header }
+    }
+    await sleep(1000)
+  }
+  const text = (await page.locator("main").innerText().catch(() => "")).toLowerCase()
+  return { text, source, header }
 }
 
 async function main() {
@@ -77,7 +104,7 @@ async function main() {
       await playBtn.click()
     }
 
-    const { text: lyricsText, source } = await waitForLyrics(page)
+    const { text: lyricsText, source } = await waitForLyrics(page, track.mustContain)
     const ok = lyricsText.includes(track.mustContain.toLowerCase())
     const hasJunk =
       lyricsText.includes("contributors") ||
