@@ -1,5 +1,12 @@
 export const THEME_STORAGE_KEY = "song-kara-theme-id"
 export const LEGACY_THEME_STORAGE_KEY = "song-kara-theme"
+export const THEME_CACHE_KEY = "song-kara-theme-cache"
+
+export type ThemeCache = {
+  id: string
+  category: ThemeCategory
+  tokens: ThemeTokens
+}
 
 export type ThemeCategory = "dark" | "light"
 
@@ -667,12 +674,25 @@ export const themes: Theme[] = [
   },
 ]
 
+export const presetThemes = themes
+
 export const themeById: Record<string, Theme> = Object.fromEntries(
   themes.map((t) => [t.id, t]),
 )
 
-export function getThemeById(id: string): Theme {
-  return themeById[id] ?? themeById[DEFAULT_DARK_THEME_ID]
+export function buildThemeRegistry(customThemes: Theme[]): Record<string, Theme> {
+  return {
+    ...themeById,
+    ...Object.fromEntries(customThemes.map((t) => [t.id, t])),
+  }
+}
+
+export function getAllThemes(customThemes: Theme[]): Theme[] {
+  return [...themes, ...customThemes]
+}
+
+export function getThemeById(id: string, registry: Record<string, Theme> = themeById): Theme {
+  return registry[id] ?? themeById[DEFAULT_DARK_THEME_ID]
 }
 
 export function tokensToCssVars(tokens: ThemeTokens): Record<string, string> {
@@ -691,11 +711,50 @@ export function applyThemeToElement(element: HTMLElement, theme: Theme): void {
   for (const [key, cssVar] of Object.entries(TOKEN_CSS_MAP) as [keyof ThemeTokens, string][]) {
     element.style.setProperty(cssVar, theme.tokens[key])
   }
+  element.style.setProperty("--karaoke-active-line", theme.tokens.karaokeActive)
 }
 
-export function readStoredThemeId(): string {
+export function cacheThemeForBootstrap(theme: Theme): void {
+  const payload: ThemeCache = {
+    id: theme.id,
+    category: theme.category,
+    tokens: theme.tokens,
+  }
+  localStorage.setItem(THEME_CACHE_KEY, JSON.stringify(payload))
+}
+
+export function readCachedTheme(): ThemeCache | null {
+  try {
+    const raw = localStorage.getItem(THEME_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as ThemeCache
+    if (!parsed?.id || !parsed?.tokens) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+export function bootstrapThemeFromStorage(): void {
+  const cached = readCachedTheme()
+  if (!cached) return
+
+  const el = document.documentElement
+  el.setAttribute("data-theme", cached.id)
+  el.classList.remove("light", "dark")
+  el.classList.add(cached.category === "dark" ? "dark" : "light")
+
+  for (const [key, cssVar] of Object.entries(TOKEN_CSS_MAP) as [keyof ThemeTokens, string][]) {
+    if (cached.tokens[key]) el.style.setProperty(cssVar, cached.tokens[key])
+  }
+  if (cached.tokens.karaokeActive) {
+    el.style.setProperty("--karaoke-active-line", cached.tokens.karaokeActive)
+  }
+}
+
+export function readStoredThemeId(registry: Record<string, Theme> = themeById): string {
   const stored = localStorage.getItem(THEME_STORAGE_KEY)
-  if (stored && themeById[stored]) return stored
+  if (stored && registry[stored]) return stored
 
   const legacy = localStorage.getItem(LEGACY_THEME_STORAGE_KEY)
   if (legacy === "light") return DEFAULT_LIGHT_THEME_ID
@@ -704,7 +763,8 @@ export function readStoredThemeId(): string {
   return DEFAULT_DARK_THEME_ID
 }
 
-export function persistThemeId(id: string): void {
+export function persistThemeId(id: string, theme?: Theme): void {
   localStorage.setItem(THEME_STORAGE_KEY, id)
   localStorage.removeItem(LEGACY_THEME_STORAGE_KEY)
+  if (theme) cacheThemeForBootstrap(theme)
 }

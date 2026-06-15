@@ -4,7 +4,52 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>song-kara</title>
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem("song-kara-theme-cache");
+          if (!raw) return;
+          var data = JSON.parse(raw);
+          if (!data || !data.tokens) return;
+          var el = document.documentElement;
+          el.setAttribute("data-theme", data.id || "");
+          el.classList.add(data.category === "light" ? "light" : "dark");
+          var tokens = data.tokens;
+          var map = {
+            background: "--background",
+            foreground: "--foreground",
+            card: "--card",
+            cardForeground: "--card-foreground",
+            popover: "--popover",
+            popoverForeground: "--popover-foreground",
+            primary: "--primary",
+            primaryForeground: "--primary-foreground",
+            secondary: "--secondary",
+            secondaryForeground: "--secondary-foreground",
+            muted: "--muted",
+            mutedForeground: "--muted-foreground",
+            accent: "--accent",
+            accentForeground: "--accent-foreground",
+            destructive: "--destructive",
+            border: "--border",
+            input: "--input",
+            ring: "--ring",
+            karaokeActive: "--karaoke-active",
+            karaokeMuted: "--karaoke-muted",
+            karaokeUnsung: "--karaoke-unsung",
+            karaokeStageBg: "--karaoke-stage-bg",
+          };
+          for (var key in map) {
+            if (tokens[key]) el.style.setProperty(map[key], tokens[key]);
+          }
+          if (tokens.karaokeActive) {
+            el.style.setProperty("--karaoke-active-line", tokens.karaokeActive);
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
