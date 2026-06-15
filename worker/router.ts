@@ -1,9 +1,38 @@
 import { corsPreflight, jsonResponse } from "./cors"
+import { handleAnimeLyricsSearch } from "./handlers/animelyrics"
+import { handleChartLyricsSearch } from "./handlers/chartlyrics"
+import { handleGeniusSearch } from "./handlers/genius"
+import { handleLetrasSearch } from "./handlers/letras"
 import { handleLrclib } from "./handlers/lrclib"
+import { handleLyricsLrc } from "./handlers/lyrics-lrc"
+import { handleLyricsSearch } from "./handlers/lyrics-search"
+import { handleLyricsTranslateSearch } from "./handlers/lyricstranslate"
+import { handleLyricsWikiSearch } from "./handlers/lyricswiki"
 import { handleMegalobizSearch } from "./handlers/megalobiz"
 import { handleMusicBrainz } from "./handlers/musicbrainz"
 import { handleOvhLyrics } from "./handlers/ovh"
+import { handlePetitLyricsSearch } from "./handlers/petitlyrics"
+import { handleSongMeaningsSearch } from "./handlers/songmeanings"
+import { handleVagalumeSearch } from "./handlers/vagalume"
 import { handleYouTubeOEmbed } from "./handlers/youtube-oembed"
+import {
+  handleGoogleTranslate,
+  handleLibreTranslate,
+  handleMyMemory,
+} from "./handlers/translate"
+
+function proxySearchRoute(
+  pathname: string,
+  prefix: string,
+  handler: (artist: string, track: string) => Promise<Response>,
+  url: URL,
+): Promise<Response | null> {
+  if (pathname !== prefix) return Promise.resolve(null)
+  const artist = url.searchParams.get("artist") ?? ""
+  const track = url.searchParams.get("track") ?? ""
+  if (!track.trim()) return Promise.resolve(jsonResponse({ error: "Missing track" }, 400))
+  return handler(artist, track)
+}
 
 /** Shared API routing for Cloudflare Worker and Vite dev proxy. */
 export async function handleApiRequest(request: Request): Promise<Response | null> {
@@ -22,11 +51,41 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     return handleOvhLyrics(artist, title)
   }
 
+  if (pathname === "/api/lyrics/search") {
+    const q = url.searchParams.get("q") ?? ""
+    const artist = url.searchParams.get("artist") ?? ""
+    const track = url.searchParams.get("track") ?? ""
+    return handleLyricsSearch(q, artist, track)
+  }
+
+  if (pathname === "/api/lyrics/lrc") {
+    const artist = url.searchParams.get("artist") ?? ""
+    const track = url.searchParams.get("track") ?? ""
+    return handleLyricsLrc(artist, track)
+  }
+
   if (pathname === "/api/lyrics/megalobiz/search") {
     const artist = url.searchParams.get("artist") ?? ""
     const track = url.searchParams.get("track") ?? ""
     if (!track.trim()) return jsonResponse({ error: "Missing track" }, 400)
     return handleMegalobizSearch(artist, track)
+  }
+
+  const proxyRoutes: Array<[string, (artist: string, track: string) => Promise<Response>]> = [
+    ["/api/lyrics/chartlyrics/search", handleChartLyricsSearch],
+    ["/api/lyrics/vagalume/search", handleVagalumeSearch],
+    ["/api/lyrics/genius/search", handleGeniusSearch],
+    ["/api/lyrics/lyricstranslate/search", handleLyricsTranslateSearch],
+    ["/api/lyrics/animelyrics/search", handleAnimeLyricsSearch],
+    ["/api/lyrics/lyricswiki/search", handleLyricsWikiSearch],
+    ["/api/lyrics/songmeanings/search", handleSongMeaningsSearch],
+    ["/api/lyrics/petitlyrics/search", handlePetitLyricsSearch],
+    ["/api/lyrics/letras/search", handleLetrasSearch],
+  ]
+
+  for (const [prefix, handler] of proxyRoutes) {
+    const match = await proxySearchRoute(pathname, prefix, handler, url)
+    if (match) return match
   }
 
   if (pathname.startsWith("/api/lyrics/lrclib")) {
@@ -40,6 +99,28 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
   if (pathname === "/api/youtube/oembed") {
     const videoId = url.searchParams.get("videoId") ?? ""
     return handleYouTubeOEmbed(videoId)
+  }
+
+  if (pathname === "/api/translate/libretranslate" && request.method === "POST") {
+    try {
+      const body = (await request.json()) as { q?: string; source?: string; target?: string }
+      return handleLibreTranslate(body)
+    } catch {
+      return jsonResponse({ error: "Invalid JSON body" }, 400)
+    }
+  }
+
+  if (pathname === "/api/translate/mymemory") {
+    const q = url.searchParams.get("q") ?? ""
+    const langpair = url.searchParams.get("langpair") ?? ""
+    return handleMyMemory(q, langpair)
+  }
+
+  if (pathname === "/api/translate/google") {
+    const q = url.searchParams.get("q") ?? ""
+    const sl = url.searchParams.get("sl") ?? "auto"
+    const tl = url.searchParams.get("tl") ?? "en"
+    return handleGoogleTranslate(q, sl, tl)
   }
 
   return null
