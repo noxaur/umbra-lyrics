@@ -26,6 +26,9 @@ describe("lyrics-providers index", () => {
     expect(PROVIDER_FALLBACK_ORDER[0]).toBe("lrclib")
     expect(PROVIDER_FALLBACK_ORDER).toContain("lyrics-ovh")
     expect(PROVIDER_FALLBACK_ORDER).toContain("musicbrainz")
+    expect(PROVIDER_FALLBACK_ORDER).toContain("chartlyrics")
+    expect(PROVIDER_FALLBACK_ORDER).toContain("genius")
+    expect(PROVIDER_FALLBACK_ORDER).toContain("petitlyrics")
   })
 
   it("ranks synced lrclib above plain ovh", () => {
