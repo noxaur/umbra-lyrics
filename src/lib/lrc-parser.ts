@@ -4,16 +4,47 @@ import { capLineEndTimes } from "@/lib/gap-detection"
 import { parseEnhancedLrcWords } from "@/lib/word-alignment"
 import type { LyricLine, ParsedLyrics } from "@/types/lyrics"
 
-const LRC_LINE = /\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/
+const LRC_LINE_HOUR = /^\[(\d{2}):(\d{2}):(\d{2})(?:\.(\d{2,3}))?\](.*)$/
+const LRC_LINE_FRAC = /^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$/
+const LRC_LINE_NO_FRAC = /^\[(\d{2}):(\d{2})\](.*)$/
 
 export type LyricsParseOptions = {
   /** Show standalone structure tags as muted section labels (default true) */
   showSectionLabels?: boolean
 }
 
+function parseFractionalMs(frac: string): number {
+  return frac.length === 2 ? Number(frac) * 10 : Number(frac)
+}
+
 function parseTimestamp(min: string, sec: string, frac: string): number {
-  const ms = frac.length === 2 ? Number(frac) * 10 : Number(frac)
-  return Number(min) * 60_000 + Number(sec) * 1000 + ms
+  return Number(min) * 60_000 + Number(sec) * 1000 + parseFractionalMs(frac)
+}
+
+function parseLrcLine(line: string): { startMs: number; text: string } | null {
+  let match = line.match(LRC_LINE_HOUR)
+  if (match) {
+    const [, hour, min, sec, frac, text] = match
+    const ms = frac ? parseFractionalMs(frac) : 0
+    return {
+      startMs: Number(hour) * 3_600_000 + Number(min) * 60_000 + Number(sec) * 1000 + ms,
+      text,
+    }
+  }
+
+  match = line.match(LRC_LINE_FRAC)
+  if (match) {
+    const [, min, sec, frac, text] = match
+    return { startMs: parseTimestamp(min, sec, frac), text }
+  }
+
+  match = line.match(LRC_LINE_NO_FRAC)
+  if (match) {
+    const [, min, sec, text] = match
+    return { startMs: Number(min) * 60_000 + Number(sec) * 1000, text }
+  }
+
+  return null
 }
 
 function applyStructureToLrcText(
@@ -68,10 +99,9 @@ export function parseLrc(
   const lines: LyricLine[] = []
 
   for (const line of rawLines) {
-    const match = line.match(LRC_LINE)
-    if (!match) continue
-    const [, min, sec, frac, text] = match
-    const startMs = parseTimestamp(min, sec, frac)
+    const parsedLine = parseLrcLine(line)
+    if (!parsedLine) continue
+    const { startMs, text } = parsedLine
     lines.push(
       ...applyStructureToLrcText(text, startMs, 0, showSectionLabels).map((l) => ({
         ...l,

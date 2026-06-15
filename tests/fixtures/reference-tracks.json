@@ -1,0 +1,62 @@
+[
+  {
+    "videoId": "Ktk_EDLDPeY",
+    "title": "別世界 - 天音かなた",
+    "artist": "天音かなた",
+    "track": "別世界",
+    "language": "ja",
+    "minLines": 4,
+    "mustContain": ["別世界"],
+    "mustNotContain": ["document.write", "&#", "<script", "og:description"]
+  },
+  {
+    "videoId": "fJ9rUzIMcZQ",
+    "title": "Queen - Bohemian Rhapsody",
+    "artist": "Queen",
+    "track": "Bohemian Rhapsody",
+    "language": "en",
+    "minLines": 7,
+    "mustContain": ["Mama"],
+    "mustNotContain": ["document.write", "&#", "<script"]
+  },
+  {
+    "videoId": "kXYiU_JCYtU",
+    "title": "Linkin Park - Numb",
+    "artist": "Linkin Park",
+    "track": "Numb",
+    "language": "en",
+    "minLines": 4,
+    "mustContain": ["faithless"],
+    "mustNotContain": ["document.write", "&#", "<script"]
+  },
+  {
+    "videoId": "kJQP7kiw5Fk",
+    "title": "Luis Fonsi - Despacito",
+    "artist": "Luis Fonsi",
+    "track": "Despacito",
+    "language": "es",
+    "minLines": 4,
+    "mustContain": ["bailar"],
+    "mustNotContain": ["document.write", "&#", "<script"]
+  },
+  {
+    "videoId": "9bZkp7q19f0",
+    "title": "PSY - Gangnam Style",
+    "artist": "PSY",
+    "track": "Gangnam Style",
+    "language": "ko",
+    "minLines": 4,
+    "mustContain": ["강남"],
+    "mustNotContain": ["document.write", "&#", "<script"]
+  },
+  {
+    "videoId": "dQw4w9WgXcQ",
+    "title": "Rick Astley - Never Gonna Give You Up",
+    "artist": "Rick Astley",
+    "track": "Never Gonna Give You Up",
+    "language": "en",
+    "minLines": 4,
+    "mustContain": ["strangers to love"],
+    "mustNotContain": ["document.write", "&#", "<script"]
+  }
+]

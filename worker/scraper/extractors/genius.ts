@@ -1,5 +1,5 @@
 import { fetchJson, fetchHtml } from "../fetch"
-import { decodeHtml, extractFirst } from "../html"
+import { decodeHtml } from "../html"
 import { scoreHit } from "../rank"
 import type { ScraperExtractor, ScraperHit, ScraperSearchParams } from "../types"
 
@@ -96,6 +96,5 @@ export const geniusExtractor: ScraperExtractor = {
 
 /** Exported for tests when HTML is injected directly. */
 export function parseGeniusLyricsFromPage(html: string): string | null {
-  const fallback = extractFirst(html, /<meta[^>]+property="og:description"[^>]+content="([^"]+)"/i)
-  return parseGeniusLyricsHtml(html) ?? (fallback ? decodeHtml(fallback) : null)
+  return parseGeniusLyricsHtml(html)
 }
