@@ -15,7 +15,6 @@ type LyricLineProps = {
   kind?: "lyric" | "section"
   active: boolean
   distanceFromActive: number
-  viewportDistance?: number
   progress: number
   synced: boolean
   displayMode: "native" | "english" | "both"
@@ -73,7 +72,6 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
     kind = "lyric",
     active,
     distanceFromActive,
-    viewportDistance,
     progress,
     synced,
     displayMode,
@@ -85,7 +83,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
   const isSectionOnly = kind === "section"
   const showNative = displayMode !== "english"
   const showEnglish = displayMode !== "native" && englishText
-  const visual = getLyricLineVisual(distanceFromActive, Boolean(reducedMotion), viewportDistance)
+  const visual = getLyricLineVisual(distanceFromActive, Boolean(reducedMotion))
   const staggerDelay = reducedMotion ? 0 : Math.min(Math.abs(distanceFromActive) * 0.018, 0.12)
 
   if (isSectionOnly && sectionLabel) {
