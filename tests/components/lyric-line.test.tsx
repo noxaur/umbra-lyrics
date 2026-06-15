@@ -69,6 +69,25 @@ describe("LyricLine", () => {
     expect(outerSpan?.className).toContain("text-[clamp(0.9rem,3.6cqw,1.35rem)]")
   })
 
+  it("uses container-query sizing for TV English subtitles", () => {
+    render(
+      <LyricLine
+        text="Native line"
+        englishText="English subtitle"
+        active
+        distanceFromActive={0}
+        synced
+        progress={0}
+        displayMode="both"
+        tvMode
+      />,
+    )
+    const line = screen.getByRole("button", { name: "Native line" })
+    const englishSpan = line.querySelector("span.mt-1")
+    expect(englishSpan?.className).toContain("text-[clamp(1.1rem,4cqw,1.75rem)]")
+    expect(englishSpan?.className).not.toContain("2vw")
+  })
+
   it("shows LRC timestamp when enabled", () => {
     render(
       <LyricLine
