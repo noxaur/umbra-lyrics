@@ -1,3 +1,4 @@
+import { AlertTriangle } from "lucide-react"
 import { usePlayerStore } from "@/stores/player-store"
 import { LYRICS_PROVIDER_LABELS, type LyricsAlternate, type LyricsProviderId } from "@/types/lyrics"
 import { LyricsSourcePicker } from "@/components/lyrics-source-picker"
@@ -38,6 +39,19 @@ const badgeStyles: Record<SyncBadge, string> = {
   Plain: "bg-muted text-muted-foreground",
 }
 
+function getTimingNoticeText(autoTimed: boolean): { short: string; full: string } {
+  if (autoTimed) {
+    return {
+      short: "Auto-timed estimate — use ±0.5s below",
+      full: "Auto-timed from plain lyrics — syllable-weighted estimate. Use ±0.5s below to adjust.",
+    }
+  }
+  return {
+    short: "Approximate timing — use ±0.5s below",
+    full: "No synced lyrics — approximate timing. Use ±0.5s below to adjust.",
+  }
+}
+
 type NowPlayingHeaderProps = {
   onSelectAlternate?: (alternate: LyricsAlternate) => void
 }
@@ -58,6 +72,8 @@ export function NowPlayingHeader({ onSelectAlternate }: NowPlayingHeaderProps) {
   const displayTrack = track || title
   const badge = getSyncBadge(status, lyricsSynced, lyricsAutoTimed, lyrics.length, lyricsSource)
   const sourceLabel = getSourceLabel(lyricsSource)
+  const showTimingNotice = status === "ready" && !lyricsSynced && lyrics.length > 0
+  const timingNotice = showTimingNotice ? getTimingNoticeText(lyricsAutoTimed) : null
 
   if (!displayTrack && !artist && status === "idle" && !videoId) return null
 
@@ -104,6 +120,21 @@ export function NowPlayingHeader({ onSelectAlternate }: NowPlayingHeaderProps) {
         ) : null}
         {onSelectAlternate ? <LyricsSourcePicker onSelectAlternate={onSelectAlternate} /> : null}
       </div>
+      {timingNotice ? (
+        <div
+          className="mt-1.5 flex min-w-0 items-start gap-1.5 text-xs text-foreground/90 sm:text-sm"
+          role="status"
+        >
+          <AlertTriangle
+            className="mt-0.5 size-3.5 shrink-0 text-amber-600 sm:size-4 dark:text-amber-400"
+            aria-hidden
+          />
+          <p className="min-w-0 truncate sm:whitespace-normal">
+            <span className="sm:hidden">{timingNotice.short}</span>
+            <span className="hidden sm:inline">{timingNotice.full}</span>
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react"
-import { AlertTriangle } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { MotionConfig } from "motion/react"
 import { LyricLine } from "@/components/lyric-line"
 import { LyricsRetry } from "@/components/lyrics-retry"
 import { LyricsSearchProgress } from "@/components/lyrics-search-progress"
 import { getScrollBehavior, isOutsideCenterThird } from "@/lib/lyric-scroll"
+import { normalizeViewportDistance } from "@/lib/lyric-line-visual"
 import { usePlayerStore } from "@/stores/player-store"
 import { getActiveLineIndex, getWordProgress } from "@/lib/sync-engine"
 
@@ -23,6 +23,14 @@ function idleMessage(videoId: string | undefined, videoReady: boolean | undefine
   return "Paste a link to start"
 }
 
+function arraysEqual(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false
+  }
+  return true
+}
+
 export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsStageProps) {
   const status = usePlayerStore((s) => s.status)
   const lyricsOutcome = usePlayerStore((s) => s.lyricsOutcome)
@@ -32,18 +40,30 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
   const currentTime = usePlayerStore((s) => s.currentTime)
   const syncOffsetMs = usePlayerStore((s) => s.syncOffsetMs)
   const lyricsSynced = usePlayerStore((s) => s.lyricsSynced)
-  const lyricsAutoTimed = usePlayerStore((s) => s.lyricsAutoTimed)
   const loadedFromCache = usePlayerStore((s) => s.loadedFromCache)
   const setActive = usePlayerStore((s) => s.setActive)
   const setLoadedFromCache = usePlayerStore((s) => s.setLoadedFromCache)
   const seekToMs = usePlayerStore((s) => s.seekToMs)
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef<HTMLButtonElement>(null)
+  const lineRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
+  const [viewportDistances, setViewportDistances] = useState<number[]>([])
   const [showCacheBadge, setShowCacheBadge] = useState(false)
 
   const timeMs = currentTime * 1000
   const activeIndex = getActiveLineIndex(lyrics, timeMs, syncOffsetMs)
   const activeLineText = activeIndex >= 0 ? lyrics[activeIndex].text : ""
+
+  const setLineRef = useCallback((index: number) => {
+    return (element: HTMLButtonElement | null) => {
+      if (element) {
+        lineRefs.current.set(index, element)
+        if (index === activeIndex) activeRef.current = element
+      } else {
+        lineRefs.current.delete(index)
+      }
+    }
+  }, [activeIndex])
 
   useEffect(() => {
     const progress =
@@ -63,6 +83,46 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
       behavior: getScrollBehavior(prefersReducedMotion),
     })
   }, [activeIndex])
+
+  useEffect(() => {
+    const container = scrollRef.current
+    if (!container || lyrics.length === 0) return
+
+    let rafId = 0
+    let scheduled = false
+
+    const measure = () => {
+      scheduled = false
+      const containerRect = container.getBoundingClientRect()
+      const centerY = containerRect.top + containerRect.height / 2
+      const firstLine = lineRefs.current.get(0)
+      const referenceLineHeight = firstLine?.getBoundingClientRect().height ?? 72
+      const next = lyrics.map((_, i) => {
+        const element = lineRefs.current.get(i)
+        if (!element) return Number.POSITIVE_INFINITY
+        const lineRect = element.getBoundingClientRect()
+        const lineCenterY = lineRect.top + lineRect.height / 2
+        return normalizeViewportDistance(lineCenterY - centerY, referenceLineHeight)
+      })
+      setViewportDistances((prev) => (arraysEqual(prev, next) ? prev : next))
+    }
+
+    const schedule = () => {
+      if (scheduled) return
+      scheduled = true
+      rafId = requestAnimationFrame(measure)
+    }
+
+    container.addEventListener("scroll", schedule, { passive: true })
+    window.addEventListener("resize", schedule)
+    measure()
+
+    return () => {
+      container.removeEventListener("scroll", schedule)
+      window.removeEventListener("resize", schedule)
+      cancelAnimationFrame(rafId)
+    }
+  }, [lyrics.length, activeIndex])
 
   useEffect(() => {
     if (!loadedFromCache) return
@@ -137,32 +197,6 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
           Loaded from cache
         </p>
       )}
-      <div className="mb-4 flex flex-col items-center gap-2">
-        {!lyricsSynced && lyrics.length > 0 && (
-          <div
-            className="flex max-w-lg items-start justify-center gap-2 px-2 text-sm text-foreground/90"
-            role="status"
-          >
-            <AlertTriangle
-              className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400"
-              aria-hidden
-            />
-            <p>
-              {lyricsAutoTimed ? (
-                <>
-                  Auto-timed from plain lyrics — syllable-weighted estimate. Use{" "}
-                  <span className="font-medium">±0.5s</span> below to adjust.
-                </>
-              ) : (
-                <>
-                  No synced lyrics — approximate timing. Use <span className="font-medium">±0.5s</span>{" "}
-                  below to adjust.
-                </>
-              )}
-            </p>
-          </div>
-        )}
-      </div>
       <MotionConfig reducedMotion="user">
         <div
           className="mx-auto w-full max-w-3xl"
@@ -172,11 +206,14 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
             {lyrics.map((line, i) => (
               <LyricLine
                 key={`${line.startMs}-${i}`}
-                ref={i === activeIndex ? activeRef : undefined}
+                ref={setLineRef(i)}
                 text={line.text}
+                sectionLabel={line.sectionLabel}
+                kind={line.kind}
                 englishText={englishLines[i]}
                 active={i === activeIndex}
                 distanceFromActive={activeIndex >= 0 ? i - activeIndex : i + 8}
+                viewportDistance={viewportDistances[i]}
                 synced={lyricsSynced}
                 progress={i === activeIndex ? getWordProgress(line, timeMs + syncOffsetMs) : 0}
                 displayMode={displayMode}
