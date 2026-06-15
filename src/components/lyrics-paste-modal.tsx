@@ -32,14 +32,14 @@ export function LyricsPasteModal({ open, onClose, onSubmit }: LyricsPasteModalPr
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-black/60 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="paste-lyrics-title"
       onClick={onClose}
     >
       <div
-        className="flex w-full max-w-lg flex-col gap-4 rounded-lg border border-border bg-background p-6 shadow-lg"
+        className="my-auto flex max-h-[min(92dvh,40rem)] w-full max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-border bg-background p-6 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div>
@@ -56,7 +56,7 @@ export function LyricsPasteModal({ open, onClose, onSubmit }: LyricsPasteModalPr
           onChange={(e) => setText(e.target.value)}
           placeholder={"[00:12.00] First line\n[00:18.50] Second line\n\nor plain text, one line per lyric"}
           className={cn(
-            "min-h-[200px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm",
+            "min-h-[12rem] flex-1 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           )}
         />

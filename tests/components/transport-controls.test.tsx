@@ -24,34 +24,21 @@ describe("TransportControls", () => {
     usePlayerStore.setState({
       syncOffsetMs: 0,
       videoHidden: false,
+      focusMode: false,
+      tvMode: false,
       displayMode: "native",
       languageCode: "ja",
       englishLines: [],
     })
   })
 
-  it("shows EyeOff when video visible and Eye when hidden", () => {
-    const { container, rerender } = renderControls()
+  it("groups view options in the View menu", () => {
+    renderControls()
 
-    expect(screen.getByRole("button", { name: "Hide video" })).toBeInTheDocument()
-    expect(container.querySelector(".lucide-eye-off")).toBeTruthy()
-    expect(container.querySelector(".lucide-eye")).toBeFalsy()
-
-    usePlayerStore.setState({ videoHidden: true })
-    rerender(
-      <TransportControls
-        duration={120}
-        currentTime={30}
-        isPlaying={false}
-        onPlay={noop}
-        onPause={noop}
-        onSeek={noop}
-      />,
-    )
-
-    expect(screen.getByRole("button", { name: "Show video" })).toBeInTheDocument()
-    expect(container.querySelector(".lucide-eye")).toBeTruthy()
-    expect(container.querySelector(".lucide-eye-off")).toBeFalsy()
+    expect(screen.getByRole("button", { name: "View" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Hide video" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Enable TV mode" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Focus mode" })).not.toBeInTheDocument()
   })
 
   it("labels lyrics timing controls", () => {
