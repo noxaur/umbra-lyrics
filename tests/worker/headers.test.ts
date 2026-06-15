@@ -16,4 +16,10 @@ describe("worker security headers", () => {
       "max-age=31536000; includeSubDomains",
     )
   })
+
+  it("adds cross-origin isolation headers when requested", () => {
+    const response = withSecurityHeaders(new Response("ok", { status: 200 }), true)
+    expect(response.headers.get("Cross-Origin-Opener-Policy")).toBe("same-origin")
+    expect(response.headers.get("Cross-Origin-Embedder-Policy")).toBe("credentialless")
+  })
 })

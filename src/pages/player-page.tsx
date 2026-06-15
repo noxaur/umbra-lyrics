@@ -642,7 +642,9 @@ export function PlayerPage() {
           </div>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            {!focusMode && <NowPlayingHeader onSelectAlternate={handleSelectAlternate} />}
+            {!focusMode && (
+              <NowPlayingHeader onSelectAlternate={handleSelectAlternate} durationSec={duration} />
+            )}
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               {youtubeError ? (

@@ -21,6 +21,12 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "credentialless",
+    },
+  },
   test: {
     globals: true,
     environment: "jsdom",
