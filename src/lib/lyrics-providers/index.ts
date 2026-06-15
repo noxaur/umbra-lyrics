@@ -176,7 +176,7 @@ export async function searchProvidersParallel(
   const results = await Promise.all(
     providers.map(async (provider) => {
       onProviderStart?.(provider.id, provider.searchPhase)
-      const providerTimeout = providerTimeoutMs(provider.id)
+      const providerTimeout = options.timeoutMs ?? providerTimeoutMs(provider.id)
       try {
         const candidates = await searchOneProvider(provider, params, providerTimeout)
         const status: ProviderSearchStatus = {

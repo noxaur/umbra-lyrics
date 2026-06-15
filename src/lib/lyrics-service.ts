@@ -213,7 +213,7 @@ export async function fetchLyricsByMetadata(match: SearchResult): Promise<Lyrics
 
 export async function fetchLyrics(params: FetchLyricsParams): Promise<LyricsResult | null> {
   const results = await collectSearchResults(params)
-  const match = pickBestMatch(results, params.durationSec, params.artist)
+  const match = pickBestMatch(results, params.durationSec, params.artist, params.track)
   if (!match) return null
 
   if (hasLyrics(match)) {
