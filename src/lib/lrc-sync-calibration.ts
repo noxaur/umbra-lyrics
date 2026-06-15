@@ -78,9 +78,12 @@ export function estimateIntroSyncOffsetMs(lines: LyricLine[], durationMs: number
   const vocal = lines.find((line) => line.kind !== "section" && line.text.trim())
   if (!vocal) return 0
 
-  const expectedIntro = Math.min(durationMs * 0.08, 20_000)
-  if (vocal.startMs <= expectedIntro) return 0
+  // Music videos often have 20–45s intros (e.g. Kendrick "Not Like Us" ~27s). Treat those as
+  // intentional and avoid auto-offsetting synced LRCLIB timestamps.
+  const intentionalIntroCap = Math.min(durationMs * 0.15, 60_000)
+  if (vocal.startMs <= intentionalIntroCap) return 0
 
+  const expectedIntro = Math.min(durationMs * 0.08, 20_000)
   const delta = vocal.startMs - expectedIntro
   return Math.min(5000, Math.max(-5000, -Math.round(delta * 0.35)))
 }
