@@ -23,6 +23,16 @@ jobs:
 
       - run: npm run build
 
+      - name: Strip zone routes for CI deploy
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = 'dist/song_kara/wrangler.json';
+          const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+          delete config.routes;
+          fs.writeFileSync(path, JSON.stringify(config));
+          "
+
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
