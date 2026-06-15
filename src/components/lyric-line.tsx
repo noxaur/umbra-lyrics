@@ -206,7 +206,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
       }}
     >
       {sectionLabel && (
-        <span className={cn(SECTION_LABEL_CLASS, "mb-1 text-left normal-case tracking-[0.12em]")}>
+        <span className={cn(SECTION_LABEL_CLASS, "mb-1 normal-case tracking-[0.12em]")}>
           {sectionLabel}
         </span>
       )}
