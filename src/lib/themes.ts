@@ -711,7 +711,6 @@ export function applyThemeToElement(element: HTMLElement, theme: Theme): void {
   for (const [key, cssVar] of Object.entries(TOKEN_CSS_MAP) as [keyof ThemeTokens, string][]) {
     element.style.setProperty(cssVar, theme.tokens[key])
   }
-  element.style.setProperty("--karaoke-active-line", theme.tokens.karaokeActive)
 }
 
 export function cacheThemeForBootstrap(theme: Theme): void {
@@ -746,9 +745,6 @@ export function bootstrapThemeFromStorage(): void {
 
   for (const [key, cssVar] of Object.entries(TOKEN_CSS_MAP) as [keyof ThemeTokens, string][]) {
     if (cached.tokens[key]) el.style.setProperty(cssVar, cached.tokens[key])
-  }
-  if (cached.tokens.karaokeActive) {
-    el.style.setProperty("--karaoke-active-line", cached.tokens.karaokeActive)
   }
 }
 

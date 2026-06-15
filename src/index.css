@@ -28,6 +28,7 @@
   --color-ring: var(--ring);
   --color-karaoke-active: var(--karaoke-active);
   --color-karaoke-active-line: var(--karaoke-active-line);
+  --color-karaoke-highlight: var(--karaoke-highlight);
   --color-karaoke-muted: var(--karaoke-muted);
   --color-karaoke-unsung: var(--karaoke-unsung);
   --color-karaoke-stage-bg: var(--karaoke-stage-bg);
@@ -65,6 +66,7 @@
   --ring: oklch(0.55 0.25 320);
   --karaoke-active: oklch(0.38 0.24 320);
   --karaoke-active-line: oklch(0.42 0.26 320);
+  --karaoke-highlight: oklch(0.48 0.24 320);
   --karaoke-muted: oklch(0.38 0.04 280);
   --karaoke-unsung: oklch(0.5 0.04 280 / 0.65);
   --karaoke-stage-bg: oklch(0.97 0.015 280);
@@ -97,6 +99,7 @@
   --ring: oklch(0.72 0.28 320);
   --karaoke-active: oklch(0.78 0.3 320);
   --karaoke-active-line: oklch(0.78 0.3 320);
+  --karaoke-highlight: oklch(0.78 0.3 320);
   --karaoke-muted: oklch(0.5 0.04 280);
   --karaoke-unsung: oklch(0.5 0.04 280 / 0.7);
   --karaoke-stage-bg: oklch(0.1 0.025 280);

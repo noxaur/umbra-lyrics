@@ -92,7 +92,8 @@ describe("themes", () => {
     expect(el.getAttribute("data-theme")).toBe("vaporwave")
     expect(el.classList.contains("dark")).toBe(true)
     expect(el.style.getPropertyValue("--primary")).toBe(theme.tokens.primary)
-    expect(el.style.getPropertyValue("--karaoke-active-line")).toBe(theme.tokens.karaokeActive)
+    expect(el.style.getPropertyValue("--karaoke-active-line")).toBe("")
+    expect(el.style.getPropertyValue("--karaoke-highlight")).toBe("")
   })
 
   it("tokensToCssVars maps all token keys to css custom properties", () => {

@@ -68,7 +68,7 @@ export function ThemePreviewMini({ tokens, animate = true, className }: ThemePre
                   key={i}
                   className={cn(
                     "rounded px-1.5 py-0.5 text-left transition-colors",
-                    isActive ? "text-karaoke-active" : "text-karaoke-muted",
+                    isActive ? "text-karaoke-highlight" : "text-karaoke-muted",
                   )}
                 >
                   <span
