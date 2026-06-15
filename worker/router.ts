@@ -34,8 +34,16 @@ function proxySearchRoute(
   return handler(artist, track)
 }
 
+type ApiEnv = {
+  LIBRETRANSLATE_URL?: string
+  LIBRETRANSLATE_API_KEY?: string
+}
+
 /** Shared API routing for Cloudflare Worker and Vite dev proxy. */
-export async function handleApiRequest(request: Request): Promise<Response | null> {
+export async function handleApiRequest(
+  request: Request,
+  env: ApiEnv = {},
+): Promise<Response | null> {
   if (request.method === "OPTIONS") return corsPreflight()
 
   const url = new URL(request.url)
@@ -104,7 +112,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
   if (pathname === "/api/translate/libretranslate" && request.method === "POST") {
     try {
       const body = (await request.json()) as { q?: string; source?: string; target?: string }
-      return handleLibreTranslate(body)
+      return handleLibreTranslate(body, env)
     } catch {
       return jsonResponse({ error: "Invalid JSON body" }, 400)
     }

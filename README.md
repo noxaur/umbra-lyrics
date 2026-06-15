@@ -53,6 +53,15 @@ If `song.opsec.rent` shows "Server Not Found" in your browser, your local DNS re
 
 Local dev runs the Worker runtime via `vp dev` (Vite+ + Cloudflare plugin).
 
+## Browser console noise
+
+Some console errors are expected and safe to ignore:
+
+- **YouTube `googlevideo.com` CORS** — the embedded player fetches video segments inside a cross-origin iframe. Browsers log CORS failures for those internal requests; playback is unaffected.
+- **MyMemory / LibreTranslate proxy errors** — MyMemory often blocks Cloudflare Worker egress; LibreTranslate requires an API key (`wrangler secret put LIBRETRANSLATE_API_KEY`). The app falls back to Google Translate (and Chrome Translator when available).
+
+Fonts are bundled via `@fontsource-variable/dm-sans` (no Google Fonts fetch). HTTP requests are redirected to HTTPS at the Worker edge.
+
 ## Attribution
 
 - Lyrics data from [LRCLIB](https://lrclib.net) — please respect their API usage guidelines.

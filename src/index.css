@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@fontsource-variable/dm-sans";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -26,10 +27,11 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-karaoke-active: var(--karaoke-active);
+  --color-karaoke-active-line: var(--karaoke-active-line);
   --color-karaoke-muted: var(--karaoke-muted);
   --color-karaoke-unsung: var(--karaoke-unsung);
   --color-karaoke-stage-bg: var(--karaoke-stage-bg);
-  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "DM Sans Variable", "DM Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
@@ -53,6 +55,7 @@
   --input: oklch(0.9 0.02 280);
   --ring: oklch(0.55 0.25 320);
   --karaoke-active: oklch(0.42 0.22 320);
+  --karaoke-active-line: oklch(0.55 0.28 320);
   --karaoke-muted: oklch(0.42 0.04 280);
   --karaoke-unsung: oklch(0.55 0.04 280 / 0.7);
   --karaoke-stage-bg: oklch(0.97 0.015 280);
@@ -78,6 +81,7 @@
   --input: oklch(0.28 0.03 280);
   --ring: oklch(0.72 0.28 320);
   --karaoke-active: oklch(0.78 0.3 320);
+  --karaoke-active-line: oklch(0.78 0.3 320);
   --karaoke-muted: oklch(0.5 0.04 280);
   --karaoke-unsung: oklch(0.5 0.04 280 / 0.7);
   --karaoke-stage-bg: oklch(0.1 0.025 280);

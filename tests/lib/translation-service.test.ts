@@ -40,11 +40,11 @@ describe("translateLinesWithFallback", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (String(url).includes("libretranslate")) {
-          return new Response(JSON.stringify({ error: "fail" }), { status: 502 })
+        if (String(url).includes("google")) {
+          return Response.json({ translatedText: "Hello\nWorld" })
         }
         if (String(url).includes("mymemory")) {
-          return Response.json({ translatedText: "Hello\nWorld" })
+          return new Response(JSON.stringify({ error: "fail" }), { status: 503 })
         }
         return new Response("{}", { status: 404 })
       }),
@@ -53,10 +53,10 @@ describe("translateLinesWithFallback", () => {
     const result = await translateLinesWithFallback(["こんにちは", "世界"], {
       videoId: "v2",
       sourceLang: "ja",
-      backends: ["libretranslate", "mymemory"],
+      backends: ["google", "mymemory"],
     })
 
-    expect(result?.backend).toBe("mymemory")
+    expect(result?.backend).toBe("google")
     expect(result?.lines).toEqual(["Hello", "World"])
     expect(result?.fromCache).toBe(false)
   })

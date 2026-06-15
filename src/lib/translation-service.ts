@@ -11,9 +11,9 @@ export type TranslationBackend = "browser" | "libretranslate" | "mymemory" | "go
 
 export const TRANSLATION_BACKEND_ORDER: TranslationBackend[] = [
   "browser",
-  "libretranslate",
-  "mymemory",
   "google",
+  "mymemory",
+  "libretranslate",
 ]
 
 export type TranslateLinesResult = {
