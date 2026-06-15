@@ -4,6 +4,9 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
 }
 
+/** YouTube video IDs are always 11 characters. */
+const VIDEO_ID_RE = /^[\w-]{11}$/
+
 export function withSecurityHeaders(response: Response): Response {
   const headers = new Headers(response.headers)
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
@@ -20,5 +23,18 @@ export function httpsRedirect(request: Request): Response | null {
   const url = new URL(request.url)
   if (url.protocol !== "http:") return null
   url.protocol = "https:"
+  return Response.redirect(url.toString(), 301)
+}
+
+/** YouTube-style `/watch?v=VIDEO_ID` → canonical `/play/VIDEO_ID`. */
+export function karaokeWatchRedirect(request: Request): Response | null {
+  const url = new URL(request.url)
+  if (url.pathname !== "/watch") return null
+
+  const videoId = url.searchParams.get("v")?.trim() ?? ""
+  if (!VIDEO_ID_RE.test(videoId)) return null
+
+  url.pathname = `/play/${videoId}`
+  url.search = ""
   return Response.redirect(url.toString(), 301)
 }

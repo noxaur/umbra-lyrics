@@ -4,6 +4,7 @@ import { HomePage } from "@/pages/home-page"
 import { PlayerPage } from "@/pages/player-page"
 import { ThemesPage } from "@/pages/themes-page"
 import { ThemeBuilderPage } from "@/pages/theme-builder-page"
+import { WatchRedirectPage } from "@/pages/watch-redirect-page"
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/themes" element={<ThemesPage />} />
         <Route path="/themes/build" element={<ThemeBuilderPage />} />
+        <Route path="/watch" element={<WatchRedirectPage />} />
         <Route path="/play/:videoId" element={<PlayerPage />} />
       </Routes>
     </ThemeProvider>

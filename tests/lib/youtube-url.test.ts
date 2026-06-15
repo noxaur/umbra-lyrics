@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest"
 import {
   extractYouTubeVideoId,
   isKaraokePlayUrl,
+  isKaraokeWatchUrl,
   isYouTubeUrl,
   karaokePlayUrl,
+  karaokeWatchUrl,
   KARAOKE_PUBLIC_ORIGIN,
   toKaraokePlayUrl,
   youTubeMusicWatchUrl,
@@ -69,6 +71,14 @@ describe("extractYouTubeVideoId", () => {
     expect(extractYouTubeVideoId(`/play/${ID}`)).toBe(ID)
   })
 
+  it("parses karaoke watch URLs", () => {
+    expect(extractYouTubeVideoId(`https://song.opsec.rent/watch?v=${ID}`)).toBe(ID)
+    expect(extractYouTubeVideoId(`/watch?v=${ID}`)).toBe(ID)
+    expect(
+      extractYouTubeVideoId(`https://song.opsec.rent/watch?si=share&v=${ID}`),
+    ).toBe(ID)
+  })
+
   it("accepts bare video id", () => {
     expect(extractYouTubeVideoId(ID)).toBe(ID)
   })
@@ -89,6 +99,23 @@ describe("isYouTubeUrl", () => {
   it("rejects karaoke and bare ids", () => {
     expect(isYouTubeUrl(`https://song.opsec.rent/play/${ID}`)).toBe(false)
     expect(isYouTubeUrl(ID)).toBe(false)
+  })
+})
+
+describe("isKaraokeWatchUrl", () => {
+  it("detects karaoke watch URLs", () => {
+    expect(isKaraokeWatchUrl(`https://song.opsec.rent/watch?v=${ID}`)).toBe(true)
+    expect(isKaraokeWatchUrl(`/watch?v=${ID}`)).toBe(true)
+  })
+
+  it("rejects play URLs", () => {
+    expect(isKaraokeWatchUrl(`https://song.opsec.rent/play/${ID}`)).toBe(false)
+  })
+})
+
+describe("karaokeWatchUrl", () => {
+  it("builds a YouTube-style karaoke share URL", () => {
+    expect(karaokeWatchUrl(ID)).toBe(`${KARAOKE_PUBLIC_ORIGIN}/watch?v=${ID}`)
   })
 })
 
@@ -153,6 +180,12 @@ describe("toKaraokePlayUrl", () => {
 
   it("passes through karaoke URLs unchanged in shape", () => {
     expect(toKaraokePlayUrl(`https://song.opsec.rent/play/${ID}`)).toBe(
+      `${KARAOKE_PUBLIC_ORIGIN}/play/${ID}`,
+    )
+  })
+
+  it("converts karaoke watch URLs", () => {
+    expect(toKaraokePlayUrl(`https://song.opsec.rent/watch?v=${ID}`)).toBe(
       `${KARAOKE_PUBLIC_ORIGIN}/play/${ID}`,
     )
   })
