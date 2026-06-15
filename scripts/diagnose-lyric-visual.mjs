@@ -1,7 +1,10 @@
 import { chromium } from "playwright"
+import { mkdir } from "node:fs/promises"
+import path from "node:path"
 
 const BASE = process.env.DEMO_URL ?? "https://song-kara.nox-heights.workers.dev"
 const VIDEO_ID = process.env.VIDEO_ID ?? "dQw4w9WgXcQ"
+const OUT_DIR = path.resolve(process.env.ARTIFACTS_DIR ?? "/opt/cursor/artifacts")
 
 async function sleep(ms) {
   await new Promise((r) => setTimeout(r, ms))
@@ -35,7 +38,7 @@ async function main() {
   const styles = await page.evaluate(() => {
     const root = getComputedStyle(document.documentElement)
     const tokens = {
-      karaokeActiveLine: root.getPropertyValue("--karaoke-active-line").trim(),
+      karaokeHighlight: root.getPropertyValue("--karaoke-highlight").trim(),
       karaokeMuted: root.getPropertyValue("--karaoke-muted").trim(),
       karaokeUnsung: root.getPropertyValue("--karaoke-unsung").trim(),
       karaokeStageBg: root.getPropertyValue("--karaoke-stage-bg").trim(),
@@ -77,7 +80,8 @@ async function main() {
   })
 
   console.log(JSON.stringify(styles, null, 2))
-  await page.screenshot({ path: "/opt/cursor/artifacts/lyric-visual-debug.png", fullPage: true })
+  await mkdir(OUT_DIR, { recursive: true })
+  await page.screenshot({ path: path.join(OUT_DIR, "lyric-visual-debug.png"), fullPage: true })
   await browser.close()
 }
 
