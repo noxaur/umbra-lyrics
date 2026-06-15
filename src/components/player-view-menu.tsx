@@ -30,14 +30,14 @@ export function PlayerViewMenu() {
         <DropdownMenuLabel>Display</DropdownMenuLabel>
         <DropdownMenuCheckboxItem
           checked={tvMode}
-          onCheckedChange={setTvMode}
+          onCheckedChange={(checked) => setTvMode(checked === true)}
           onSelect={(e) => e.preventDefault()}
         >
           TV mode
         </DropdownMenuCheckboxItem>
         <DropdownMenuCheckboxItem
           checked={focusMode}
-          onCheckedChange={setFocusMode}
+          onCheckedChange={(checked) => setFocusMode(checked === true)}
           onSelect={(e) => e.preventDefault()}
         >
           Focus mode
@@ -45,10 +45,10 @@ export function PlayerViewMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuCheckboxItem
           checked={videoHidden}
-          onCheckedChange={setVideoHidden}
+          onCheckedChange={(checked) => setVideoHidden(checked === true)}
           onSelect={(e) => e.preventDefault()}
         >
-          {videoHidden ? "Show video" : "Hide video"}
+          Hide video
         </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>
