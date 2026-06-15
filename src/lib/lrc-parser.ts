@@ -1,5 +1,7 @@
 import { canAutoTimePlainLyrics, estimatePlainLyricsTiming } from "@/lib/plain-lyrics-timing"
 import { parseLyricStructureTags } from "@/lib/lyric-structure"
+import { capLineEndTimes } from "@/lib/gap-detection"
+import { parseEnhancedLrcWords } from "@/lib/word-alignment"
 import type { LyricLine, ParsedLyrics } from "@/types/lyrics"
 
 const LRC_LINE = /\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/
@@ -86,10 +88,17 @@ export function parseLrc(
       lines[i].endMs = lines[i].startMs
     } else {
       lines[i].endMs = next ? next.startMs : durationMs > 0 ? durationMs : lines[i].startMs + 5000
+      const words = parseEnhancedLrcWords(lines[i].text, lines[i].startMs)
+      if (words.length > 0) {
+        lines[i].words = words
+        lines[i].text = words.map((w) => w.text).join(" ")
+      }
     }
   }
 
-  return { lines, synced: lines.length > 0, autoTimed: false }
+  const capped = capLineEndTimes(lines)
+
+  return { lines: capped, synced: capped.length > 0, autoTimed: false }
 }
 
 export function parsePlainLyrics(

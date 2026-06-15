@@ -7,23 +7,29 @@ import {
 } from "motion/react"
 import { getLyricLineVisual, lyricLineSpring } from "@/lib/lyric-line-visual"
 import { cn } from "@/lib/utils"
+import type { LyricWord } from "@/types/lyrics"
 
 type LyricLineProps = {
   text: string
+  words?: LyricWord[]
   englishText?: string
   sectionLabel?: string
   kind?: "lyric" | "section"
   active: boolean
   distanceFromActive: number
   progress: number
+  wordIndex?: number
   synced: boolean
   displayMode: "native" | "english" | "both"
+  tvMode?: boolean
   onSeek?: () => void
 }
 
 const ACTIVE_SIZE =
   "max-w-full text-[clamp(1.35rem,3.5vw,2.5rem)] leading-snug lg:text-[clamp(3.5rem,4.5vw,7rem)] lg:leading-tight"
+const TV_ACTIVE_SIZE = "max-w-full text-[clamp(2.5rem,6vw,5rem)] leading-tight lg:text-[clamp(5rem,8vw,8rem)] lg:leading-none"
 const INACTIVE_SIZE = "max-w-full text-[clamp(1rem,2.8vw,1.65rem)] leading-snug"
+const TV_INACTIVE_SIZE = "max-w-full text-[clamp(1.1rem,3vw,2rem)] leading-snug"
 const LINE_TEXT =
   "block w-full break-words [overflow-wrap:anywhere] text-balance hyphens-auto"
 const SECTION_LABEL_CLASS =
@@ -79,17 +85,59 @@ function WordProgressText({ text, progress }: { text: string; progress: number }
   )
 }
 
+function PerWordText({
+  words,
+  wordIndex,
+  progress,
+}: {
+  words: LyricWord[]
+  wordIndex: number
+  progress: number
+}) {
+  return (
+    <span className="inline">
+      {words.map((w, i) => {
+        const isPast = i < wordIndex
+        const isActive = i === wordIndex
+        if (isPast) {
+          return (
+            <span key={`${w.startMs}-${i}`} className="text-karaoke-active-line">
+              {w.text}{" "}
+            </span>
+          )
+        }
+        if (isActive) {
+          return (
+            <span key={`${w.startMs}-${i}`} className="inline">
+              <WordProgressText text={w.text} progress={progress} />
+              {" "}
+            </span>
+          )
+        }
+        return (
+          <span key={`${w.startMs}-${i}`} className="text-karaoke-unsung">
+            {w.text}{" "}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
 export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function LyricLine(
   {
     text,
+    words,
     englishText,
     sectionLabel,
     kind = "lyric",
     active,
     distanceFromActive,
     progress,
+    wordIndex = -1,
     synced,
     displayMode,
+    tvMode = false,
     onSeek,
   },
   ref,
@@ -105,6 +153,8 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
   const showEnglish = displayMode !== "native" && englishText
   const visual = getLyricLineVisual(distanceFromActive, Boolean(reducedMotion), compactStage)
   const staggerDelay = reducedMotion ? 0 : Math.min(Math.abs(distanceFromActive) * 0.018, 0.12)
+  const activeSize = tvMode ? TV_ACTIVE_SIZE : ACTIVE_SIZE
+  const inactiveSize = tvMode ? TV_INACTIVE_SIZE : INACTIVE_SIZE
 
   if (isSectionOnly && sectionLabel) {
     return (
@@ -112,6 +162,17 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
         <span className={SECTION_LABEL_CLASS}>{sectionLabel}</span>
       </div>
     )
+  }
+
+  const renderNativeText = () => {
+    if (!active) return text
+    if (!synced) {
+      return <span className="text-karaoke-active-line">{text}</span>
+    }
+    if (words && words.length > 0 && wordIndex >= 0) {
+      return <PerWordText words={words} wordIndex={wordIndex} progress={progress} />
+    }
+    return <WordProgressText text={text} progress={progress} />
   }
 
   return (
@@ -122,11 +183,12 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
       className={cn(
         "mx-auto w-full max-w-full origin-center scroll-my-6 rounded-lg px-3 py-2.5 text-center will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none sm:px-4 sm:py-3",
         active ? "text-karaoke-active-line" : "text-karaoke-muted hover:text-foreground",
+        tvMode && !active && "opacity-80",
       )}
       aria-current={active ? "true" : undefined}
       animate={{
         scale: visual.scale,
-        opacity: visual.opacity,
+        opacity: tvMode ? Math.max(visual.opacity, active ? 1 : 0.75) : visual.opacity,
         translateZ: visual.z,
         filter: visual.blur > 0 ? `blur(${visual.blur}px)` : "blur(0px)",
       }}
@@ -153,14 +215,22 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
           className={cn(
             LINE_TEXT,
             "font-semibold",
-            active ? ACTIVE_SIZE : INACTIVE_SIZE,
+            active ? activeSize : inactiveSize,
           )}
         >
-          {active && synced ? <WordProgressText text={text} progress={progress} /> : text}
+          {renderNativeText()}
         </span>
       )}
       {showEnglish && (
-        <span className={cn(LINE_TEXT, "mt-1 text-sm text-muted-foreground")}>{englishText}</span>
+        <span
+          className={cn(
+            LINE_TEXT,
+            tvMode ? "mt-1 text-[clamp(1rem,2vw,2rem)] text-muted-foreground" : "mt-1 text-sm text-muted-foreground",
+            active && synced && "text-karaoke-active-line/80",
+          )}
+        >
+          {active && synced ? <WordProgressText text={englishText} progress={progress} /> : englishText}
+        </span>
       )}
     </motion.button>
   )

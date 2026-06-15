@@ -93,6 +93,8 @@ export function PlayerPage() {
   const languageCode = usePlayerStore((s) => s.languageCode)
   const englishLines = usePlayerStore((s) => s.englishLines)
   const lyrics = usePlayerStore((s) => s.lyrics)
+  const resetSyncOffset = usePlayerStore((s) => s.resetSyncOffset)
+  const focusMode = usePlayerStore((s) => s.focusMode)
 
   const { available, translating } = useTranslation(languageCode)
 
@@ -106,6 +108,7 @@ export function PlayerPage() {
 
   useEffect(() => {
     if (!videoId) return
+    resetSyncOffset()
     setVideoId(videoId)
     loadedRef.current = false
     oembedAuthorRef.current = null
@@ -170,6 +173,7 @@ export function PlayerPage() {
     resetLyricsSearch,
     setLoadedFromCache,
     setLyricsAlternates,
+    resetSyncOffset,
   ])
 
   const loadEnglishTranslation = useCallback(
@@ -638,7 +642,7 @@ export function PlayerPage() {
           </div>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <NowPlayingHeader onSelectAlternate={handleSelectAlternate} />
+            {!focusMode && <NowPlayingHeader onSelectAlternate={handleSelectAlternate} />}
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               {youtubeError ? (
@@ -653,6 +657,7 @@ export function PlayerPage() {
                   onPaste={handlePaste}
                   videoId={videoId}
                   videoReady={ready}
+                  durationMs={duration * 1000}
                 />
               )}
             </div>

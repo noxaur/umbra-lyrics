@@ -1,3 +1,5 @@
+export type LyricWord = { text: string; startMs: number; endMs: number }
+
 export type LyricLine = {
   startMs: number
   endMs: number
@@ -6,8 +8,21 @@ export type LyricLine = {
   sectionLabel?: string
   /** `section` = standalone structure tag row, not highlighted as sung content */
   kind?: "lyric" | "section"
+  /** Per-word timestamps from enhanced LRC or forced alignment */
+  words?: LyricWord[]
 }
-export type ParsedLyrics = { lines: LyricLine[]; synced: boolean; autoTimed?: boolean }
+
+export type LyricStageMode = "idle" | "intro" | "lyric" | "gap" | "outro"
+
+export type LyricStageState = {
+  mode: LyricStageMode
+  activeIndex: number
+  gapLabel?: string
+  wordIndex: number
+  wordProgress: number
+}
+
+export type ParsedLyrics = { lines: LyricLine[]; synced: boolean; autoTimed?: boolean; aligned?: boolean }
 
 export type LyricDisplayMode = "native" | "english" | "both"
 

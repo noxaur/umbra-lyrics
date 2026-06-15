@@ -5,13 +5,14 @@ import { LyricsRetry } from "@/components/lyrics-retry"
 import { LyricsSearchProgress } from "@/components/lyrics-search-progress"
 import { getScrollBehavior, isOutsideCenterThird } from "@/lib/lyric-scroll"
 import { usePlayerStore } from "@/stores/player-store"
-import { getActiveLineIndex, getWordProgress } from "@/lib/sync-engine"
+import { getLyricStageState } from "@/lib/sync-engine"
 
 type LyricsStageProps = {
   onRetry?: (artist: string, track: string) => void
   onPaste?: (text: string) => void
   videoId?: string
   videoReady?: boolean
+  durationMs?: number
 }
 
 function idleMessage(videoId: string | undefined, videoReady: boolean | undefined): string {
@@ -22,7 +23,18 @@ function idleMessage(videoId: string | undefined, videoReady: boolean | undefine
   return "Paste a link to start"
 }
 
-export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsStageProps) {
+function StagePlaceholder({ label }: { label: string }) {
+  return (
+    <p
+      className="py-8 text-center text-[clamp(1.25rem,3vw,2.5rem)] font-medium tracking-wide text-muted-foreground/80 motion-safe:animate-pulse motion-reduce:animate-none"
+      role="status"
+    >
+      {label}
+    </p>
+  )
+}
+
+export function LyricsStage({ onRetry, onPaste, videoId, videoReady, durationMs = 0 }: LyricsStageProps) {
   const status = usePlayerStore((s) => s.status)
   const lyricsOutcome = usePlayerStore((s) => s.lyricsOutcome)
   const lyrics = usePlayerStore((s) => s.lyrics)
@@ -31,6 +43,7 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
   const currentTime = usePlayerStore((s) => s.currentTime)
   const syncOffsetMs = usePlayerStore((s) => s.syncOffsetMs)
   const lyricsSynced = usePlayerStore((s) => s.lyricsSynced)
+  const tvMode = usePlayerStore((s) => s.tvMode)
   const loadedFromCache = usePlayerStore((s) => s.loadedFromCache)
   const setActive = usePlayerStore((s) => s.setActive)
   const setLoadedFromCache = usePlayerStore((s) => s.setLoadedFromCache)
@@ -40,8 +53,9 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
   const [showCacheBadge, setShowCacheBadge] = useState(false)
 
   const timeMs = currentTime * 1000
-  const activeIndex = getActiveLineIndex(lyrics, timeMs, syncOffsetMs)
-  const activeLineText = activeIndex >= 0 ? lyrics[activeIndex].text : ""
+  const stage = getLyricStageState(lyrics, timeMs, syncOffsetMs, durationMs)
+  const activeIndex = stage.activeIndex
+  const activeLineText = activeIndex >= 0 ? lyrics[activeIndex].text : stage.gapLabel ?? ""
 
   const setLineRef = useCallback(
     (index: number) => (element: HTMLButtonElement | null) => {
@@ -51,10 +65,8 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
   )
 
   useEffect(() => {
-    const progress =
-      activeIndex >= 0 ? getWordProgress(lyrics[activeIndex], timeMs + syncOffsetMs) : 0
-    setActive(activeIndex, progress)
-  }, [activeIndex, timeMs, syncOffsetMs, lyrics, setActive])
+    setActive(activeIndex, stage.wordProgress)
+  }, [activeIndex, stage.wordProgress, setActive])
 
   useEffect(() => {
     const element = activeRef.current
@@ -125,10 +137,13 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
     )
   }
 
+  const showPlaceholder = stage.mode === "intro" || stage.mode === "gap" || stage.mode === "outro"
+
   return (
     <div
       ref={scrollRef}
-      className="relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain scroll-py-8 bg-karaoke-stage-bg px-3 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-8"
+      className={cnStage(tvMode)}
+      data-tv-mode={tvMode ? "true" : undefined}
     >
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {activeLineText}
@@ -142,6 +157,9 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
           Loaded from cache
         </p>
       )}
+
+      {showPlaceholder && stage.gapLabel ? <StagePlaceholder label={stage.gapLabel} /> : null}
+
       <MotionConfig reducedMotion="user">
         <div
           className="mx-auto w-full max-w-3xl overflow-x-hidden"
@@ -156,14 +174,17 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
                 key={`${line.startMs}-${i}`}
                 ref={setLineRef(i)}
                 text={line.text}
+                words={line.words}
                 sectionLabel={line.sectionLabel}
                 kind={line.kind}
                 englishText={englishLines[i]}
                 active={i === activeIndex}
                 distanceFromActive={activeIndex >= 0 ? i - activeIndex : i + 8}
                 synced={lyricsSynced}
-                progress={i === activeIndex ? getWordProgress(line, timeMs + syncOffsetMs) : 0}
+                progress={i === activeIndex ? stage.wordProgress : 0}
+                wordIndex={i === activeIndex ? stage.wordIndex : -1}
                 displayMode={displayMode}
+                tvMode={tvMode}
                 onSeek={() => seekToMs(line.startMs - syncOffsetMs)}
               />
             ))}
@@ -172,4 +193,11 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
       </MotionConfig>
     </div>
   )
+}
+
+function cnStage(tvMode: boolean) {
+  return [
+    "relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain scroll-py-8 bg-karaoke-stage-bg px-3 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-8",
+    tvMode ? "tv-mode" : "",
+  ].join(" ")
 }

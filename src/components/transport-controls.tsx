@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { Eye, EyeOff, HelpCircle, Pause, Play } from "lucide-react"
+import { Eye, EyeOff, Focus, HelpCircle, Monitor, Pause, Play, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { usePlayerStore } from "@/stores/player-store"
@@ -28,8 +28,14 @@ export function TransportControls({
 }: TransportControlsProps) {
   const syncOffsetMs = usePlayerStore((s) => s.syncOffsetMs)
   const adjustOffset = usePlayerStore((s) => s.adjustOffset)
+  const setSyncOffset = usePlayerStore((s) => s.setSyncOffset)
+  const resetSyncOffset = usePlayerStore((s) => s.resetSyncOffset)
   const videoHidden = usePlayerStore((s) => s.videoHidden)
   const setVideoHidden = usePlayerStore((s) => s.setVideoHidden)
+  const focusMode = usePlayerStore((s) => s.focusMode)
+  const setFocusMode = usePlayerStore((s) => s.setFocusMode)
+  const tvMode = usePlayerStore((s) => s.tvMode)
+  const setTvMode = usePlayerStore((s) => s.setTvMode)
   const displayMode = usePlayerStore((s) => s.displayMode)
   const setDisplayMode = usePlayerStore((s) => s.setDisplayMode)
   const languageCode = usePlayerStore((s) => s.languageCode)
@@ -94,33 +100,53 @@ export function TransportControls({
             <AnimatedIcon icon={isPlaying ? Pause : Play} active={isPlaying} />
           </Button>
 
-          <fieldset className="flex items-center gap-0.5 border-0 p-0" aria-labelledby="lyrics-timing-label">
-            <legend className="sr-only">Lyrics timing</legend>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-9 px-2 text-xs"
-              onClick={() => adjustOffset(-500)}
-              aria-label="Lyrics 0.5 seconds earlier"
-            >
-              −0.5s
-            </Button>
-            <span
-              className="min-w-10 text-center text-xs tabular-nums text-muted-foreground"
-              id="lyrics-timing-label"
-              aria-label={`Lyrics timing offset ${(syncOffsetMs / 1000).toFixed(1)} seconds`}
-            >
-              {(syncOffsetMs / 1000).toFixed(1)}s
+          <fieldset className="flex min-w-0 flex-1 flex-col gap-1 border-0 p-0 sm:max-w-[220px]" aria-labelledby="lyrics-timing-label">
+            <legend id="lyrics-timing-label" className="text-center text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+              Lyrics timing
+            </legend>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 shrink-0 px-1.5 text-xs"
+                onClick={() => adjustOffset(-500)}
+                aria-label="Lyrics 0.5 seconds earlier"
+              >
+                −0.5s
+              </Button>
+              <input
+                type="range"
+                min={-5000}
+                max={5000}
+                step={100}
+                value={syncOffsetMs}
+                onChange={(e) => setSyncOffset(Number(e.target.value))}
+                className="min-h-[36px] flex-1 accent-primary"
+                aria-label={`Lyrics timing offset ${(syncOffsetMs / 1000).toFixed(1)} seconds`}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 shrink-0 px-1.5 text-xs"
+                onClick={() => adjustOffset(500)}
+                aria-label="Lyrics 0.5 seconds later"
+              >
+                +0.5s
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 shrink-0"
+                onClick={resetSyncOffset}
+                aria-label="Reset lyrics timing"
+                title="Reset timing"
+              >
+                <RotateCcw className="size-3.5" />
+              </Button>
+            </div>
+            <span className="text-center text-[0.65rem] tabular-nums text-muted-foreground">
+              {(syncOffsetMs / 1000).toFixed(1)}s offset
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-9 px-2 text-xs"
-              onClick={() => adjustOffset(500)}
-              aria-label="Lyrics 0.5 seconds later"
-            >
-              +0.5s
-            </Button>
           </fieldset>
 
           {!isEnglish(languageCode) && (
@@ -138,6 +164,30 @@ export function TransportControls({
               ))}
             </select>
           )}
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-9"
+            onClick={() => setTvMode(!tvMode)}
+            aria-label={tvMode ? "Disable TV mode" : "Enable TV mode"}
+            aria-pressed={tvMode}
+            title="TV mode"
+          >
+            <Monitor className="size-4" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-9"
+            onClick={() => setFocusMode(!focusMode)}
+            aria-label={focusMode ? "Exit focus mode" : "Focus mode"}
+            aria-pressed={focusMode}
+            title="Focus mode"
+          >
+            <Focus className="size-4" />
+          </Button>
 
           <Button
             variant="ghost"
