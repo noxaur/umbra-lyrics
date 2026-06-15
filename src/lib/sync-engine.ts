@@ -3,7 +3,6 @@ import {
   getFirstLyricStartMs,
   getLastLyricEndMs,
   isInGap,
-  isInSoftGap,
   SOFT_GAP_HOLD_MS,
 } from "@/lib/gap-detection"
 
@@ -159,9 +158,6 @@ export function getLyricStageState(
 
   const activeIndex = getActiveLineIndex(lines, timeMs, offsetMs)
   if (activeIndex < 0) {
-    if (isInSoftGap(lines, t)) {
-      return { mode: "gap", activeIndex: -1, gapLabel: "…", wordIndex: -1, wordProgress: 0 }
-    }
     return { mode: "idle", activeIndex: -1, wordIndex: -1, wordProgress: 0 }
   }
 
