@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react"
 import { LyricLine } from "@/components/lyric-line"
 
 describe("LyricLine", () => {
-  it("renders a single text node when active and synced", () => {
+  it("renders accessible karaoke progress when active and synced", () => {
     const { container } = render(
       <LyricLine
         text="Hello world"
@@ -15,8 +15,8 @@ describe("LyricLine", () => {
       />,
     )
     expect(screen.getByRole("button", { name: "Hello world" })).toBeInTheDocument()
-    expect(container.querySelectorAll("span").length).toBe(2)
-    expect(screen.getAllByText("Hello world")).toHaveLength(1)
+    expect(container.querySelector(".bg-clip-text")).toBeNull()
+    expect(container.querySelector("[style*='clip-path']")).not.toBeNull()
   })
 
   it("skips word-progress wipe when unsynced", () => {
@@ -46,7 +46,25 @@ describe("LyricLine", () => {
         displayMode="native"
       />,
     )
-    const outerSpan = screen.getByText("Big line").parentElement
-    expect(outerSpan?.className).toContain("lg:text-[clamp(3.5rem,4.5vw,7rem)]")
+    const line = screen.getByRole("button", { name: "Big line" })
+    const outerSpan = line.querySelector(".font-semibold")
+    expect(outerSpan?.className).toContain("lg:text-[clamp(3rem,4.5vw,6rem)]")
+  })
+
+  it("shows LRC timestamp when enabled", () => {
+    render(
+      <LyricLine
+        text="Sing this line"
+        startMs={65_430}
+        showTimestamp
+        active={false}
+        distanceFromActive={2}
+        synced
+        progress={0}
+        displayMode="native"
+      />,
+    )
+    expect(screen.getByText("01:05.43")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Seek to 01:05.43, Sing this line" })).toBeInTheDocument()
   })
 })

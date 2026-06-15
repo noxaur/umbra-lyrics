@@ -57,6 +57,7 @@ export function LyricsStage({
   const syncOffsetMs = usePlayerStore((s) => s.syncOffsetMs)
   const lyricsSynced = usePlayerStore((s) => s.lyricsSynced)
   const tvMode = usePlayerStore((s) => s.tvMode)
+  const showTimestamps = usePlayerStore((s) => s.showTimestamps)
   const loadedFromCache = usePlayerStore((s) => s.loadedFromCache)
   const setActive = usePlayerStore((s) => s.setActive)
   const setLoadedFromCache = usePlayerStore((s) => s.setLoadedFromCache)
@@ -239,6 +240,8 @@ export function LyricsStage({
                 words={line.words}
                 sectionLabel={line.sectionLabel}
                 kind={line.kind}
+                startMs={line.startMs - syncOffsetMs}
+                showTimestamp={showTimestamps && line.kind !== "section"}
                 englishText={englishLines[i]}
                 active={i === activeIndex}
                 distanceFromActive={getDistanceFromActive(i, activeIndex)}

@@ -37,6 +37,7 @@ type PlayerState = {
   currentTime: number
   syncOffsetMs: number
   videoHidden: boolean
+  showTimestamps: boolean
   activeIndex: number
   wordProgress: number
   loadedFromCache: boolean
@@ -64,6 +65,7 @@ type PlayerState = {
   setCurrentTime: (t: number) => void
   adjustOffset: (deltaMs: number) => void
   setVideoHidden: (hidden: boolean) => void
+  setShowTimestamps: (show: boolean) => void
   setFocusMode: (on: boolean) => void
   setTvMode: (on: boolean) => void
   resetSyncOffset: () => void
@@ -91,6 +93,7 @@ type PlayerState = {
 }
 
 const VIDEO_HIDDEN_KEY = "song-kara-video-hidden"
+const SHOW_TIMESTAMPS_KEY = "song-kara-show-timestamps"
 const FOCUS_MODE_KEY = "song-kara-focus-mode"
 const TV_MODE_KEY = "song-kara-tv-mode"
 
@@ -122,6 +125,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   currentTime: 0,
   syncOffsetMs: 0,
   videoHidden: localStorage.getItem(VIDEO_HIDDEN_KEY) === "true",
+  showTimestamps: localStorage.getItem(SHOW_TIMESTAMPS_KEY) !== "false",
   focusMode: localStorage.getItem(FOCUS_MODE_KEY) === "true",
   tvMode: localStorage.getItem(TV_MODE_KEY) === "true",
   activeIndex: -1,
@@ -181,6 +185,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setVideoHidden: (hidden) => {
     localStorage.setItem(VIDEO_HIDDEN_KEY, String(hidden))
     set({ videoHidden: hidden })
+  },
+  setShowTimestamps: (show) => {
+    localStorage.setItem(SHOW_TIMESTAMPS_KEY, String(show))
+    set({ showTimestamps: show })
   },
   setFocusMode: (on) => {
     localStorage.setItem(FOCUS_MODE_KEY, String(on))
