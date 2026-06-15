@@ -57,6 +57,7 @@ export function PlayerPage() {
     duration,
     isPlaying,
     error: youtubeError,
+    playbackHint,
     play,
     pause,
     seekTo,
@@ -638,6 +639,7 @@ export function PlayerPage() {
           duration={duration}
           currentTime={currentTime}
           isPlaying={isPlaying}
+          playbackHint={playbackHint}
           onPlay={play}
           onPause={pause}
           onSeek={seekTo}

@@ -1,12 +1,55 @@
-import { useCallback } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useYTEmbed } from "@bogdanrn/yt-embed/react"
+import { youtubeErrorMessage } from "@/lib/youtube-errors"
 
 export function useYouTubePlayer(videoId: string) {
+  const origin = typeof window !== "undefined" ? window.location.origin : ""
+
+  const playerVars = useMemo(
+    () => ({
+      origin,
+      enablejsapi: 1 as const,
+      playsinline: 1 as const,
+      rel: 0 as const,
+    }),
+    [origin],
+  )
+
   const { containerRef, player, ready, currentTime, duration, isPlaying, error } =
-    useYTEmbed(videoId)
+    useYTEmbed(videoId, { playerVars })
+
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false)
+
+  useEffect(() => {
+    if (!player) return
+
+    const onAutoplayBlocked = () => setAutoplayBlocked(true)
+    const onState = (event: Event) => {
+      const state = (event as CustomEvent<{ state: number }>).detail.state
+      if (state === 1) setAutoplayBlocked(false)
+    }
+
+    player.addEventListener("autoplayblocked", onAutoplayBlocked)
+    player.addEventListener("statechange", onState)
+    return () => {
+      player.removeEventListener("autoplayblocked", onAutoplayBlocked)
+      player.removeEventListener("statechange", onState)
+    }
+  }, [player])
+
+  useEffect(() => {
+    if (!player || !ready) return
+    const iframe = player.iframe
+    if (!iframe) return
+    iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin")
+  }, [player, ready])
 
   const play = useCallback(() => {
-    void player?.playVideo()
+    if (!player) return
+    setAutoplayBlocked(false)
+    void player.playVideo({ awaitState: true }).catch(() => {
+      setAutoplayBlocked(true)
+    })
   }, [player])
 
   const pause = useCallback(() => {
@@ -30,13 +73,30 @@ export function useYouTubePlayer(videoId: string) {
     }
   }, [player])
 
+  const resolvedError = error
+    ? {
+        code: error.code,
+        message: youtubeErrorMessage(error.code, error.message),
+      }
+    : null
+
+  const playbackHint =
+    resolvedError || isPlaying
+      ? null
+      : autoplayBlocked
+        ? "Click Play to start"
+        : ready && duration > 0 && !isPlaying
+          ? "Click Play to start"
+          : null
+
   return {
     containerRef,
     ready,
     currentTime,
     duration,
     isPlaying,
-    error,
+    error: resolvedError,
+    playbackHint,
     play,
     pause,
     seekTo,

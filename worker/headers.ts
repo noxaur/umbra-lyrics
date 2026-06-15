@@ -1,5 +1,7 @@
 const SECURITY_HEADERS: Record<string, string> = {
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  // YouTube embeds require a Referer; avoid same-origin/no-referrer policies.
+  "Referrer-Policy": "strict-origin-when-cross-origin",
 }
 
 export function withSecurityHeaders(response: Response): Response {

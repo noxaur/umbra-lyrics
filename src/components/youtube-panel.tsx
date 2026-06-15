@@ -23,7 +23,9 @@ export function YouTubePanel({
     <div
       className={cn(
         "relative w-full shrink-0 overflow-hidden bg-black",
-        hidden ? "h-0 opacity-0" : "opacity-100",
+        hidden
+          ? "h-full w-full min-h-px min-w-px opacity-0"
+          : "opacity-100",
         !hidden &&
           resolvedLayout === "strip" &&
           "mx-auto h-[100px] max-w-3xl rounded-lg border border-border sm:h-[140px]",
@@ -41,10 +43,7 @@ export function YouTubePanel({
     >
       <div
         ref={containerRef}
-        className={cn(
-          "youtube-embed absolute inset-0",
-          hidden && "pointer-events-none",
-        )}
+        className="youtube-embed absolute inset-0"
       />
     </div>
   )

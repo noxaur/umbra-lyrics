@@ -11,6 +11,7 @@ type TransportControlsProps = {
   duration: number
   currentTime: number
   isPlaying: boolean
+  playbackHint?: string | null
   onPlay: () => void
   onPause: () => void
   onSeek: (seconds: number) => void
@@ -20,6 +21,7 @@ export function TransportControls({
   duration,
   currentTime,
   isPlaying,
+  playbackHint,
   onPlay,
   onPause,
   onSeek,
@@ -77,6 +79,11 @@ export function TransportControls({
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-2">
+          {playbackHint ? (
+            <p className="w-full text-center text-xs text-muted-foreground" role="status">
+              {playbackHint}
+            </p>
+          ) : null}
           <Button
             variant="default"
             size="icon"
