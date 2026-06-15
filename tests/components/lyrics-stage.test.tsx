@@ -142,7 +142,7 @@ describe("LyricsStage scroll", () => {
       lyricsSynced: true,
     })
 
-    const { getAllByText, getByText, queryByRole } = render(
+    const { getAllByText, queryByRole } = render(
       <div className="flex h-96 min-h-0 flex-col">
         <LyricsStage durationMs={60_000} />
       </div>,

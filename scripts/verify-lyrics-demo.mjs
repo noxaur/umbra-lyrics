@@ -45,11 +45,23 @@ async function waitForLyricsSource(page, timeoutMs = 120_000) {
 
 /** Seek past intro — lyric lines are hidden until vocals begin. */
 async function seekPastIntro(page) {
-  const slider = page.getByRole("slider", { name: /seek/i })
-  await slider.focus()
-  for (let i = 0; i < 4; i++) {
-    await page.keyboard.press("ArrowRight")
+  const seek = page.getByRole("slider", { name: /^Seek$/i })
+  let targetSec = 20
+
+  const introHint = page.getByText(/Lyrics start at/)
+  if (await introHint.isVisible().catch(() => false)) {
+    const text = await introHint.textContent()
+    const match = text?.match(/(\d+):(\d+(?:\.\d+)?)/)
+    if (match) {
+      targetSec = Number(match[1]) * 60 + Number(match[2]) + 0.5
+    }
   }
+
+  await seek.evaluate((el, sec) => {
+    el.value = String(sec)
+    el.dispatchEvent(new Event("input", { bubbles: true }))
+    el.dispatchEvent(new Event("change", { bubbles: true }))
+  }, targetSec)
   await sleep(500)
 }
 
