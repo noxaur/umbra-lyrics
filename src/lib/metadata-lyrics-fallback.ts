@@ -67,7 +67,7 @@ export async function tryMetadataLyricsFallback(
 
       try {
         const candidates = await provider.search(variant)
-        const hit = pickBestHit(candidates)
+        const hit = pickBestHit(candidates, variant)
         if (!hit) {
           attempts.push({
             strategy: `metadata_${provider.id}`,
