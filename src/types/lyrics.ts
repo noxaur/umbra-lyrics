@@ -30,7 +30,13 @@ export type ParsedLyrics = {
   suggestedOffsetMs?: number
 }
 
-export type LyricDisplayMode = "native" | "english" | "both"
+export type LyricDisplayMode =
+  | "native"
+  | "romaji"
+  | "english"
+  | "native-romaji"
+  | "both"
+  | "all"
 
 export type LyricsProviderId =
   | "musixmatch"

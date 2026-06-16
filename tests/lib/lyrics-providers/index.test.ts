@@ -8,6 +8,7 @@ import {
   PROVIDER_TIMEOUT_MS,
   rankCandidates,
   searchProvidersParallel,
+  searchProvidersStaged,
 } from "@/lib/lyrics-providers"
 import type { ProviderLyricsCandidate } from "@/lib/lyrics-providers/types"
 import type { LyricsProviderId } from "@/types/lyrics"
@@ -170,5 +171,40 @@ describe("lyrics-providers index", () => {
 
     expect(statuses.map((s) => s.providerId)).toEqual(["lrclib"])
     expect(completed).toEqual(["lrclib"])
+  })
+
+  it("starts fallback providers without waiting for slow lrclib to finish", async () => {
+    const completed: LyricsProviderId[] = []
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/api/lyrics/lrclib")) {
+          await new Promise((resolve) => setTimeout(resolve, 500))
+          return new Response("[]", { status: 200 })
+        }
+        if (url.includes("/api/lyrics/ovh/")) {
+          completed.push("lyrics-ovh")
+          return new Response(
+            JSON.stringify({ lyrics: "Fallback line one\nTwo\nThree\nFour" }),
+            { status: 200 },
+          )
+        }
+        return new Response("[]", { status: 200 })
+      }),
+    )
+
+    const startedAt = Date.now()
+    const { candidates } = await searchProvidersStaged({
+      params: { track: "Song", artist: "Artist", durationSec: 200 },
+      providerIds: ["lrclib", "lyrics-ovh"],
+      fallbackDelayMs: 20,
+      onProviderComplete: (status) => completed.push(status.providerId),
+    })
+    const elapsed = Date.now() - startedAt
+
+    expect(candidates.some((c) => c.providerId === "lyrics-ovh")).toBe(true)
+    expect(completed).toContain("lyrics-ovh")
+    expect(elapsed).toBeLessThan(300)
   })
 })

@@ -1,9 +1,10 @@
 import { useCallback, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, Pencil, Play, Trash2 } from "lucide-react"
+import { ArrowLeft, Download, Pencil, Play, Trash2 } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { NotFoundPage } from "@/pages/not-found-page"
 import { PlaylistFormDialog } from "@/components/playlist-form-dialog"
+import { PlaylistImportDialog } from "@/components/playlist-import-dialog"
 import { PlaylistTrackRow } from "@/components/playlist-track-row"
 import { Button } from "@/components/ui/button"
 import {
@@ -38,6 +39,7 @@ function PlaylistDetailContent({
 }) {
   const [playlist, setPlaylist] = useState<Playlist | undefined>(() => getPlaylistById(playlistId))
   const [renameOpen, setRenameOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -129,6 +131,15 @@ function PlaylistDetailContent({
               variant="outline"
               size="sm"
               className="gap-1.5"
+              onClick={() => setImportOpen(true)}
+            >
+              <Download className="size-3.5" aria-hidden />
+              Import
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
               onClick={() => setRenameOpen(true)}
             >
               <Pencil className="size-3.5" aria-hidden />
@@ -164,11 +175,18 @@ function PlaylistDetailContent({
           <div className="rounded-lg border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
             <p className="font-medium">This playlist is empty</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Search for a song on the home page, then use Add to playlist in the player.
+              Import from YouTube or search for a song on the home page, then use Add to playlist in
+              the player.
             </p>
-            <Button asChild className="mt-4">
-              <Link to="/">Find a song</Link>
-            </Button>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <Button className="gap-1.5" onClick={() => setImportOpen(true)}>
+                <Download className="size-4" aria-hidden />
+                Import from YouTube
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/">Find a song</Link>
+              </Button>
+            </div>
           </div>
         ) : (
           <ul className="divide-y divide-border rounded-lg border border-border bg-card">
@@ -208,6 +226,14 @@ function PlaylistDetailContent({
           setRenameOpen(false)
           setError(null)
         }}
+      />
+
+      <PlaylistImportDialog
+        open={importOpen}
+        mode="existing"
+        targetPlaylistId={playlist.id}
+        onImported={refresh}
+        onClose={() => setImportOpen(false)}
       />
     </AppShell>
   )

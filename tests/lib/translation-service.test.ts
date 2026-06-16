@@ -3,7 +3,10 @@ import {
   resetTranslationRateLimitForTests,
   setTranslationCache,
 } from "@/lib/translation-cache"
-import { translateLinesWithFallback } from "@/lib/translation-service"
+import {
+  TRANSLATION_BACKEND_TIMEOUT_MS,
+  translateLinesWithFallback,
+} from "@/lib/translation-service"
 
 describe("translateLinesWithFallback", () => {
   beforeEach(() => {
@@ -64,5 +67,19 @@ describe("translateLinesWithFallback", () => {
   it("skips translation for English source", async () => {
     const result = await translateLinesWithFallback(["Hello"], { sourceLang: "en" })
     expect(result).toBeNull()
+  })
+
+  it("times out a stalled translation backend", async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})))
+
+    const pending = translateLinesWithFallback(["こんにちは"], {
+      sourceLang: "ja",
+      backends: ["google"],
+    })
+
+    await vi.advanceTimersByTimeAsync(TRANSLATION_BACKEND_TIMEOUT_MS + 1)
+    await expect(pending).resolves.toBeNull()
+    vi.useRealTimers()
   })
 })

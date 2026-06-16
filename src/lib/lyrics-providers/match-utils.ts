@@ -1,4 +1,4 @@
-import { simplifyTrackName, stripDecorativeTitle } from "@/lib/parse-track-title"
+import { stripDecorativeTitle } from "@/lib/parse-track-title"
 
 const DURATION_TOLERANCE_SEC = 15
 const SYNCED_BONUS = 25
@@ -17,7 +17,8 @@ export function hasLyricsText(result: MatchableResult): boolean {
 }
 
 export function normalizeForMatch(value: string): string {
-  return simplifyTrackName(stripDecorativeTitle(value))
+  // Keep remix/mix/version tokens for scoring; search queries still use simplifyTrackName.
+  return stripDecorativeTitle(value)
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
