@@ -96,7 +96,6 @@ export const aggregatedScraperProvider: LyricsProvider = {
     for (let i = 0; i < settled.length; i++) {
       const outcome = settled[i]!
       if (outcome.status !== "fulfilled") continue
-      const { artist, track } = uniqueAttempts[i]!
       for (const hit of outcome.value) {
         candidates.push(toCandidate(hit, params.durationSec, params.artist, params.track))
       }
