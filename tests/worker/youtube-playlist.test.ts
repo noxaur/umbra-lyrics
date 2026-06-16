@@ -4,7 +4,7 @@ import {
   normalizePlaylistLimit,
 } from "../../worker/handlers/youtube-playlist"
 import { handleApiRequest } from "../../worker/router"
-import { mapPlaylistVideo } from "../../worker/lib/youtube-playlist-map"
+import { mapPlaylistPanelVideo, mapPlaylistVideo } from "../../worker/lib/youtube-playlist-map"
 
 vi.mock("../../worker/lib/youtube-innertube", () => ({
   fetchPlaylistViaInnertube: vi.fn(),
@@ -15,6 +15,22 @@ import { fetchPlaylistViaInnertube } from "../../worker/lib/youtube-innertube"
 const mockFetch = vi.mocked(fetchPlaylistViaInnertube)
 
 describe("youtube playlist map", () => {
+  it("maps playlist panel videos", () => {
+    expect(
+      mapPlaylistPanelVideo({
+        video_id: "dQw4w9WgXcQ",
+        title: { toString: () => "Artist - Track" },
+        author: "ArtistVEVO",
+        duration: { seconds: 240 },
+      }),
+    ).toEqual({
+      videoId: "dQw4w9WgXcQ",
+      title: "Artist - Track",
+      channel: "ArtistVEVO",
+      durationSec: 240,
+    })
+  })
+
   it("maps playlist videos and skips live entries", () => {
     expect(
       mapPlaylistVideo({
@@ -81,7 +97,7 @@ describe("youtube playlist handler", () => {
     const body = (await res.json()) as { title: string; items: unknown[] }
     expect(body.title).toBe("Karaoke Mix")
     expect(body.items).toHaveLength(1)
-    expect(mockFetch).toHaveBeenCalledWith("PLabc", 100)
+    expect(mockFetch).toHaveBeenCalledWith("PLabc", 100, { sourceUrl: undefined })
   })
 
   it("is registered on the api router", async () => {
@@ -94,9 +110,13 @@ describe("youtube playlist handler", () => {
     })
 
     const res = await handleApiRequest(
-      new Request("https://song.example/api/youtube/playlist?id=PLabc&limit=50"),
+      new Request(
+        "https://song.example/api/youtube/playlist?id=PLabc&limit=50&url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3Dx%26list%3DPLabc",
+      ),
     )
     expect(res?.status).toBe(200)
-    expect(mockFetch).toHaveBeenCalledWith("PLabc", 50)
+    expect(mockFetch).toHaveBeenCalledWith("PLabc", 50, {
+      sourceUrl: "https://www.youtube.com/watch?v=x&list=PLabc",
+    })
   })
 })

@@ -1,8 +1,8 @@
 /** YouTube video IDs are always 11 characters: letters, digits, underscore, hyphen. */
 export const YOUTUBE_VIDEO_ID_RE = /^[\w-]{11}$/
 
-/** YouTube playlist IDs from the `list` query param (e.g. PL..., OL..., RD...). */
-export const YOUTUBE_PLAYLIST_ID_RE = /^[A-Za-z0-9_-]{10,80}$/
+/** YouTube playlist IDs from the `list` query param (e.g. PL..., RD..., TL...). */
+export const YOUTUBE_PLAYLIST_ID_RE = /^[A-Za-z0-9_-]{2,80}$/
 
 /** Public karaoke share origin (custom domain). */
 export const KARAOKE_PUBLIC_ORIGIN = "https://song.opsec.rent"

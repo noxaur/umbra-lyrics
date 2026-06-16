@@ -114,6 +114,20 @@ describe("extractYouTubePlaylistId", () => {
     expect(extractYouTubePlaylistId(PL)).toBe(PL)
   })
 
+  it("accepts short mix playlist ids like RDMM", () => {
+    expect(
+      extractYouTubePlaylistId("https://www.youtube.com/watch?v=5MWcRauCR4w&list=RDMM&start_radio=1"),
+    ).toBe("RDMM")
+  })
+
+  it("accepts timeline mix playlist ids", () => {
+    expect(
+      extractYouTubePlaylistId(
+        "https://www.youtube.com/watch?v=AqI97zHMoQw&list=TLGGTO9zKWr2W4gxNjA2MjAyNg",
+      ),
+    ).toBe("TLGGTO9zKWr2W4gxNjA2MjAyNg")
+  })
+
   it("returns null for invalid input", () => {
     expect(extractYouTubePlaylistId(`https://www.youtube.com/watch?v=${ID}`)).toBeNull()
     expect(extractYouTubePlaylistId("not-a-playlist")).toBeNull()
