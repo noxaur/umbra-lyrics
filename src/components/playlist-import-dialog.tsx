@@ -51,9 +51,14 @@ export function PlaylistImportDialog({
   const urlId = useId()
   const nameId = useId()
   const urlRef = useRef<HTMLInputElement>(null)
+  const fetchAbortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      fetchAbortRef.current?.abort()
+      fetchAbortRef.current = null
+      return
+    }
     setUrl("")
     setName("")
     setStep("input")
@@ -81,8 +86,12 @@ export function PlaylistImportDialog({
     setStatus("Loading playlist from YouTube…")
     setStep("input")
 
+    fetchAbortRef.current?.abort()
+    const controller = new AbortController()
+    fetchAbortRef.current = controller
+
     try {
-      const response = await fetchYouTubePlaylist(trimmed)
+      const response = await fetchYouTubePlaylist(trimmed, { signal: controller.signal })
       if (response.items.length === 0) {
         setError("This playlist has no importable videos")
         setStatus(null)
@@ -96,6 +105,7 @@ export function PlaylistImportDialog({
       setStep("preview")
       setStatus(null)
     } catch (err) {
+      if (controller.signal.aborted) return
       const message = err instanceof Error ? err.message : "Could not load playlist"
       setError(
         message === "invalid_playlist_url"
@@ -108,6 +118,10 @@ export function PlaylistImportDialog({
 
   const handleImport = async () => {
     if (!preview) return
+    if (mode === "existing" && !targetPlaylistId) {
+      setError("Playlist not found")
+      return
+    }
 
     const tracks = playlistItemsToTracks(preview.items)
     setStep("importing")
@@ -163,7 +177,18 @@ export function PlaylistImportDialog({
           {mode === "existing" ? " Songs are added to this playlist." : " A new playlist is created."}
         </p>
 
-        <div className="mt-4 space-y-4">
+        <form
+          className="mt-4 space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (busy) return
+            if (step === "preview") {
+              void handleImport()
+            } else if (url.trim()) {
+              void handleFetch()
+            }
+          }}
+        >
           {step !== "preview" ? (
             <div>
               <label htmlFor={urlId} className="text-sm font-medium">
@@ -229,27 +254,27 @@ export function PlaylistImportDialog({
               {status}
             </p>
           ) : null}
-        </div>
 
-        <div className="mt-4 flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={close} disabled={busy}>
-            Cancel
-          </Button>
-          {step === "preview" ? (
-            <Button type="button" variant="outline" onClick={() => setStep("input")} disabled={busy}>
-              Back
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={close} disabled={busy}>
+              Cancel
             </Button>
-          ) : null}
-          {step === "preview" ? (
-            <Button type="button" onClick={() => void handleImport()} disabled={busy}>
-              Import
-            </Button>
-          ) : (
-            <Button type="button" onClick={() => void handleFetch()} disabled={busy || !url.trim()}>
-              {busy ? "Loading…" : "Load playlist"}
-            </Button>
-          )}
-        </div>
+            {step === "preview" ? (
+              <Button type="button" variant="outline" onClick={() => setStep("input")} disabled={busy}>
+                Back
+              </Button>
+            ) : null}
+            {step === "preview" ? (
+              <Button type="submit" disabled={busy}>
+                Import
+              </Button>
+            ) : (
+              <Button type="submit" disabled={busy || !url.trim()}>
+                {busy ? "Loading…" : "Load playlist"}
+              </Button>
+            )}
+          </div>
+        </form>
       </div>
     </div>
   )
