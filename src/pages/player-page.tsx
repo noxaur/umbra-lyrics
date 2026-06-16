@@ -1108,7 +1108,10 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       })
       resolvedMetadataRef.current = resolved
       setMeta({ title, artist: resolved.artist, track: resolved.track })
-      if (usePlayerStore.getState().lyrics.length === 0) {
+      const hasExistingLyrics = usePlayerStore.getState().lyrics.length > 0
+      const hasPastedLyrics = Boolean(getPastedLyrics(videoId))
+      if (!hasExistingLyrics && !hasPastedLyrics) {
+        resetLyricsSearch()
         setPendingMetadata({ title, artist: resolved.artist, track: resolved.track })
         return
       }
@@ -1116,7 +1119,17 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     }
 
     void load()
-  }, [ready, videoId, duration, getVideoTitle, loadLyrics, setMeta, ensureOEmbedAuthor, seedMetadata])
+  }, [
+    ready,
+    videoId,
+    duration,
+    getVideoTitle,
+    loadLyrics,
+    setMeta,
+    ensureOEmbedAuthor,
+    seedMetadata,
+    resetLyricsSearch,
+  ])
 
   const handleRetry = useCallback(
     (artist: string, track: string, providerIds?: LyricsProviderId[]) => {
@@ -1133,6 +1146,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const handleConfirmMetadata = useCallback(
     (artist: string, track: string) => {
       if (!pendingMetadata) return
+      const { title, options } = pendingMetadata
       setPendingMetadata(null)
       resolvedMetadataRef.current = {
         ...(resolvedMetadataRef.current ?? {
@@ -1143,7 +1157,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         artist,
         track,
       }
-      void loadLyrics(artist, track, pendingMetadata.title, duration, pendingMetadata.options)
+      setMeta({ title, artist, track })
+      void loadLyrics(artist, track, title, duration, options)
     },
     [duration, loadLyrics, pendingMetadata],
   )
@@ -1172,6 +1187,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     })
     resolvedMetadataRef.current = resolved
     setMeta({ title, artist: resolved.artist, track: resolved.track })
+    resetLyricsSearch()
     setPendingMetadata({
       title,
       artist: resolved.artist,
@@ -1184,7 +1200,6 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   }, [
     duration,
     getVideoTitle,
-    loadLyrics,
     setMeta,
     setLyricsSearchPhase,
     setLyricsSearchStep,
@@ -1192,6 +1207,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     setContentWarning,
     setVerificationScore,
     ensureOEmbedAuthor,
+    resetLyricsSearch,
+    seedMetadata,
   ])
 
   const handleTranscribe = useCallback(() => {

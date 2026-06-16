@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { Music2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,9 @@ type LyricsMetadataConfirmProps = {
   onConfirm: (artist: string, track: string) => void
 }
 
+const ARTIST_INPUT_ID = "lyrics-metadata-artist"
+const TRACK_INPUT_ID = "lyrics-metadata-track"
+
 export function LyricsMetadataConfirm({ artist, track, onConfirm }: LyricsMetadataConfirmProps) {
   const [artistInput, setArtistInput] = useState(artist)
   const [trackInput, setTrackInput] = useState(track)
@@ -17,6 +20,14 @@ export function LyricsMetadataConfirm({ artist, track, onConfirm }: LyricsMetada
     setArtistInput(artist)
     setTrackInput(track)
   }, [artist, track])
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const nextArtist = artistInput.trim()
+    const nextTrack = trackInput.trim()
+    if (!nextTrack) return
+    onConfirm(nextArtist, nextTrack)
+  }
 
   return (
     <div
@@ -46,31 +57,31 @@ export function LyricsMetadataConfirm({ artist, track, onConfirm }: LyricsMetada
         ) : null}
       </p>
 
-      <div className="flex w-full max-w-md flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm">
+      <form className="flex w-full max-w-md flex-col gap-3" onSubmit={handleSubmit}>
+        <label htmlFor={ARTIST_INPUT_ID} className="flex flex-col gap-1 text-sm">
           <span className="text-muted-foreground">Artist</span>
           <Input
+            id={ARTIST_INPUT_ID}
             value={artistInput}
             onChange={(e) => setArtistInput(e.target.value)}
             placeholder="Artist name"
+            autoComplete="off"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label htmlFor={TRACK_INPUT_ID} className="flex flex-col gap-1 text-sm">
           <span className="text-muted-foreground">Track</span>
           <Input
+            id={TRACK_INPUT_ID}
             value={trackInput}
             onChange={(e) => setTrackInput(e.target.value)}
             placeholder="Track title"
+            autoComplete="off"
           />
         </label>
-        <Button
-          className="w-full"
-          onClick={() => onConfirm(artistInput.trim(), trackInput.trim())}
-          disabled={!trackInput.trim()}
-        >
+        <Button className="w-full" type="submit" disabled={!trackInput.trim()}>
           Search lyrics
         </Button>
-      </div>
+      </form>
     </div>
   )
 }

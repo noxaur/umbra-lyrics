@@ -20,4 +20,12 @@ describe("LyricsMetadataConfirm", () => {
 
     expect(onConfirm).toHaveBeenCalledWith("Correct Artist", "Correct Track")
   })
+
+  it("disables search when track title is empty", () => {
+    render(
+      <LyricsMetadataConfirm artist="Artist" track="" onConfirm={vi.fn()} />,
+    )
+
+    expect(screen.getByRole("button", { name: "Search lyrics" })).toBeDisabled()
+  })
 })
