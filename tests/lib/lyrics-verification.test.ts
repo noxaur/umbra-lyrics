@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   assessContentType,
   buildTranscriptProfile,
+  shouldPromoteTranscription,
   verifyLyricsAgainstTranscript,
 } from "@/lib/lyrics-verification"
 import type { ProviderLyricsCandidate } from "@/lib/lyrics-providers/types"
@@ -55,5 +56,28 @@ describe("lyrics-verification", () => {
     const assessment = assessContentType(profile)
     expect(assessment.type).toBe("speech")
     expect(assessment.recommendTranscription).toBe(true)
+  })
+
+  it("promotes transcription when provider verification is weak", () => {
+    const profile = buildTranscriptProfile([
+      { start: 0, end: 2, text: "actual sung lyrics from audio" },
+    ])
+    const content = assessContentType(profile)
+
+    expect(
+      shouldPromoteTranscription({ score: 0.4, lineCoverage: 0.3, wordOverlap: 0.3, flags: [] }, profile, content),
+    ).toBe(true)
+    expect(
+      shouldPromoteTranscription({ score: 0.7, lineCoverage: 0.8, wordOverlap: 0.8, flags: [] }, profile, content),
+    ).toBe(false)
+  })
+
+  it("does not promote transcription for instrumental content", () => {
+    const profile = buildTranscriptProfile([], { coverageSec: 120 })
+    const content = assessContentType({ ...profile, vocalDensity: 0.02, coverageSec: 120 })
+
+    expect(
+      shouldPromoteTranscription({ score: 0.2, lineCoverage: 0, wordOverlap: 0, flags: [] }, profile, content),
+    ).toBe(false)
   })
 })

@@ -1,5 +1,7 @@
 import { lyricsApiBase } from "@/lib/lyrics-providers/api-base"
+import type { ProviderLyricsCandidate } from "@/lib/lyrics-providers/types"
 import type { TranscriptSegment } from "@/lib/transcript-to-lyrics"
+import { transcriptToPlainLyrics } from "@/lib/transcript-to-lyrics"
 import { resolveYouTubeStreamForApi } from "@/lib/youtube-stream-resolve"
 
 export type TranscribeResponse = {
@@ -91,6 +93,41 @@ export async function sampleTranscribeForVerification(
 ): Promise<TranscribeResponse | null> {
   try {
     return await transcribeFromYouTube({ ...options, mode: "sample" })
+  } catch {
+    return null
+  }
+}
+
+export type TranscriptionAsProvider = {
+  candidate: ProviderLyricsCandidate
+  partial: boolean
+  language?: string
+}
+
+/** Full-track transcription packaged as a first-class lyrics provider candidate. */
+export async function fullTranscribeAsProvider(
+  options: TranscribeOptions,
+): Promise<TranscriptionAsProvider | null> {
+  try {
+    const transcript = await transcribeFromYouTube({ ...options, mode: "full" })
+    const plainLyrics = transcriptToPlainLyrics(transcript.segments) || transcript.text.trim()
+    if (!plainLyrics) return null
+
+    return {
+      candidate: {
+        providerId: "transcription",
+        externalId: `transcription:${options.videoId}`,
+        trackName: options.track ?? "",
+        artistName: options.artist ?? "",
+        plainLyrics,
+        syncedLyrics: null,
+        synced: false,
+        confidence: 1,
+        languageHint: transcript.language,
+      },
+      partial: transcript.partial ?? false,
+      language: transcript.language,
+    }
   } catch {
     return null
   }

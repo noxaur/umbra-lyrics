@@ -6,6 +6,7 @@ import {
   buildTranscriptProfile,
   isStrongVerification,
   passesVerification,
+  shouldPromoteTranscription,
   verifyAllCandidates,
   type ContentAssessment,
   type TranscriptProfile,
@@ -23,7 +24,7 @@ import {
 import { pickBestAndAlternates } from "@/lib/lyrics-ranking"
 import { tryMetadataLyricsFallback } from "@/lib/metadata-lyrics-fallback"
 import type { ProviderLyricsCandidate, ProviderSearchParams } from "@/lib/lyrics-providers/types"
-import { sampleTranscribeForVerification } from "@/lib/transcription-service"
+import { sampleTranscribeForVerification, fullTranscribeAsProvider } from "@/lib/transcription-service"
 import type { ResolvedTrackMetadata } from "@/lib/track-metadata-resolver"
 
 export type LyricsSearchAttempt = {
@@ -248,6 +249,77 @@ export async function orchestrateLyricsSearch(
   const bestVerification = best
     ? verified.find((v) => v.candidate.externalId === best.candidate.externalId)?.verification
     : undefined
+
+  if (
+    params.videoId &&
+    shouldPromoteTranscription(bestVerification, transcriptProfile, contentAssessment)
+  ) {
+    report("Transcribing from audio…", "match")
+    attempts.push({
+      strategy: "transcription:promote",
+      provider: "transcription",
+      result: "skipped",
+      message: "Provider verification below threshold — using audio transcription",
+    })
+
+    const transcription = await fullTranscribeAsProvider({
+      videoId: params.videoId,
+      artist: params.artist,
+      track: params.track,
+      language: params.preferredLanguage,
+      durationSec: Math.round(params.durationSec) || undefined,
+    })
+
+    if (transcription?.candidate.plainLyrics?.trim()) {
+      if (!providersTried.includes("transcription")) providersTried.push("transcription")
+      attempts.push({
+        strategy: "transcription:primary",
+        provider: "transcription",
+        result: "found",
+        message: transcription.partial ? "Partial transcript" : "Full transcript",
+      })
+
+      const lyrics = candidateToResult(transcription.candidate)
+      const nativeLines = lyrics.plainLyrics?.split("\n").filter(Boolean) ?? []
+      const lang = detectLanguage(nativeLines.join("\n"))
+      const english = await resolveEnglishLyrics({
+        track: params.track,
+        artist: params.artist,
+        nativeLines,
+        language: lang,
+        durationSec: params.durationSec,
+        videoId: params.videoId,
+        onProgress: (phase) => report(phase, "search"),
+      })
+
+      report(
+        transcription.partial
+          ? "Transcribed partial audio — timing may drift on long tracks"
+          : "Transcribed from audio",
+        "ready",
+        { provider: "transcription" },
+      )
+
+      return successResult(
+        "transcription_primary",
+        attempts,
+        providersTried,
+        lyrics,
+        false,
+        [],
+        {
+          matchId: lyrics.id,
+          verificationScore: 1,
+          contentAssessment,
+          transcriptProfile: transcriptProfile ?? undefined,
+          english,
+          message: transcription.partial
+            ? "Transcribed partial audio — timing may drift on long tracks"
+            : "Transcribed from audio",
+        },
+      )
+    }
+  }
 
   if (best && (best.candidate.plainLyrics?.trim() || best.candidate.syncedLyrics?.trim())) {
     const lyrics = candidateToResult(best.candidate)

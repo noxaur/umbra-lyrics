@@ -288,3 +288,16 @@ export function passesVerification(verification: VerificationResult): boolean {
 export function isStrongVerification(verification: VerificationResult): boolean {
   return verification.score >= VERIFICATION_ACCEPT_THRESHOLD
 }
+
+/** Transcription is ground truth — promote when provider verification is not strong enough. */
+export function shouldPromoteTranscription(
+  bestVerification: VerificationResult | undefined,
+  profile: TranscriptProfile | null,
+  content: ContentAssessment,
+): boolean {
+  if (!profile?.plainText.trim()) return false
+  if (content.type === "instrumental") return false
+
+  const score = bestVerification?.score ?? 0
+  return score < VERIFICATION_ACCEPT_THRESHOLD
+}
