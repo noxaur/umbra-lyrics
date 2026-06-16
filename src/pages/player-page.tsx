@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { AppShell } from "@/components/app-shell"
 import { MisroutedRouteView } from "@/components/misrouted-route-view"
+import { LyricsMetadataConfirm } from "@/components/lyrics-metadata-confirm"
 import { LyricsStage } from "@/components/lyrics-stage"
 import { NowPlayingHeader } from "@/components/now-playing-header"
 import { PlayerError } from "@/components/player-error"
@@ -77,6 +78,17 @@ export function PlayerPage() {
 
 function PlayerPageContent({ videoId }: { videoId: string }) {
   const [searchParams] = useSearchParams()
+  const [pendingMetadata, setPendingMetadata] = useState<{
+    title: string
+    artist: string
+    track: string
+    options?: {
+      skipPasted?: boolean
+      skipCache?: boolean
+      providerIds?: LyricsProviderId[]
+      transcribeOnly?: boolean
+    }
+  } | null>(null)
   const debugPlayer = searchParams.get("debug") === "1"
   const location = useLocation()
   const navigate = useNavigate()
@@ -237,6 +249,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     setEnglishLines([])
     setRomajiLines([])
     setMeta({ title: "", artist: "", track: "" })
+    setPendingMetadata(null)
     setLoadedFromCache(false)
     setLrclibTrackId(null)
 
@@ -1095,11 +1108,28 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       })
       resolvedMetadataRef.current = resolved
       setMeta({ title, artist: resolved.artist, track: resolved.track })
+      const hasExistingLyrics = usePlayerStore.getState().lyrics.length > 0
+      const hasPastedLyrics = Boolean(getPastedLyrics(videoId))
+      if (!hasExistingLyrics && !hasPastedLyrics) {
+        resetLyricsSearch()
+        setPendingMetadata({ title, artist: resolved.artist, track: resolved.track })
+        return
+      }
       await loadLyrics(resolved.artist, resolved.track, title, duration)
     }
 
     void load()
-  }, [ready, videoId, duration, getVideoTitle, loadLyrics, setMeta, ensureOEmbedAuthor, seedMetadata])
+  }, [
+    ready,
+    videoId,
+    duration,
+    getVideoTitle,
+    loadLyrics,
+    setMeta,
+    ensureOEmbedAuthor,
+    seedMetadata,
+    resetLyricsSearch,
+  ])
 
   const handleRetry = useCallback(
     (artist: string, track: string, providerIds?: LyricsProviderId[]) => {
@@ -1111,6 +1141,26 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       })
     },
     [duration, loadLyrics],
+  )
+
+  const handleConfirmMetadata = useCallback(
+    (artist: string, track: string) => {
+      if (!pendingMetadata) return
+      const { title, options } = pendingMetadata
+      setPendingMetadata(null)
+      resolvedMetadataRef.current = {
+        ...(resolvedMetadataRef.current ?? {
+          source: "parse" as const,
+          confidence: 0,
+          alternates: [],
+        }),
+        artist,
+        track,
+      }
+      setMeta({ title, artist, track })
+      void loadLyrics(artist, track, title, duration, options)
+    },
+    [duration, loadLyrics, pendingMetadata],
   )
 
   const handleRefreshLyrics = useCallback(async () => {
@@ -1137,14 +1187,19 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     })
     resolvedMetadataRef.current = resolved
     setMeta({ title, artist: resolved.artist, track: resolved.track })
-    await loadLyrics(resolved.artist, resolved.track, title, duration, {
-      skipPasted: true,
-      skipCache: true,
+    resetLyricsSearch()
+    setPendingMetadata({
+      title,
+      artist: resolved.artist,
+      track: resolved.track,
+      options: {
+        skipPasted: true,
+        skipCache: true,
+      },
     })
   }, [
     duration,
     getVideoTitle,
-    loadLyrics,
     setMeta,
     setLyricsSearchPhase,
     setLyricsSearchStep,
@@ -1152,6 +1207,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     setContentWarning,
     setVerificationScore,
     ensureOEmbedAuthor,
+    resetLyricsSearch,
+    seedMetadata,
   ])
 
   const handleTranscribe = useCallback(() => {
@@ -1304,6 +1361,12 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
                   title="Video couldn't load"
                   message={youtubeError.message || `YouTube error ${youtubeError.code}`}
                   onRetry={handleYoutubeRetry}
+                />
+              ) : pendingMetadata ? (
+                <LyricsMetadataConfirm
+                  artist={pendingMetadata.artist}
+                  track={pendingMetadata.track}
+                  onConfirm={handleConfirmMetadata}
                 />
               ) : (
                 <LyricsStage
