@@ -63,6 +63,7 @@ export function PlayerPage() {
   const transcribeAbortRef = useRef<AbortController | null>(null)
   const alignAbortRef = useRef<AbortController | null>(null)
   const alignRequestRef = useRef(0)
+  const transcribeRequestRef = useRef(0)
   const {
     containerRef,
     ready,
@@ -286,6 +287,7 @@ export function PlayerPage() {
       durationSec: number,
       signal?: AbortSignal,
     ): Promise<boolean> => {
+      const requestId = ++transcribeRequestRef.current
       setLyricsSearchPhase("Transcribing from audio…")
       setLyricsSearchStep("search")
 
@@ -304,7 +306,10 @@ export function PlayerPage() {
           signal,
         })
 
-        if (signal?.aborted) return false
+        if (signal?.aborted || requestId !== transcribeRequestRef.current) return false
+
+        const state = usePlayerStore.getState()
+        if (state.videoId !== videoId || requestId !== transcribeRequestRef.current) return false
 
         const durationMs = durationSec * 1000
         const parsed = segmentsToLyricLines(transcript.segments, durationMs)

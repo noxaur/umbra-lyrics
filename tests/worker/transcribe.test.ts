@@ -237,7 +237,9 @@ describe("transcribe handler", () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  it("transcribes using client-provided streamUrl without worker innertube", async () => {
+  it("transcribes using client-provided streamUrl when worker innertube fails", async () => {
+    mockResolve.mockResolvedValue(null)
+
     const target = "https://rr3---sn-abc.googlevideo.com/videoplayback?client=1"
     const streamUrl = `/api/beta/youtube/proxy-url?u=${encodeURIComponent(btoa(target))}`
 
@@ -263,11 +265,50 @@ describe("transcribe handler", () => {
     )
 
     expect(result.text).toBe("client stream")
-    expect(mockResolve).not.toHaveBeenCalled()
+    expect(mockResolve).toHaveBeenCalled()
+    expect(fetchSpy).toHaveBeenCalled()
+  })
+
+  it("prefers worker-resolved stream over client streamUrl", async () => {
+    const workerUrl = "https://rr3---sn-worker.googlevideo.com/videoplayback?x=worker"
+    const clientTarget = "https://rr3---sn-client.googlevideo.com/videoplayback?x=client"
+    const streamUrl = `/api/beta/youtube/proxy-url?u=${encodeURIComponent(btoa(clientTarget))}`
+
+    mockResolve.mockResolvedValue({
+      url: workerUrl,
+      mimeType: "audio/mp4",
+      client: "IOS",
+    })
+
+    const fetchSpy = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === "HEAD") {
+        return new Response(null, { status: 200, headers: { "Content-Length": "4" } })
+      }
+      expect(url).toBe(workerUrl)
+      return new Response(new Uint8Array([1, 2, 3, 4]), {
+        status: 200,
+        headers: { "Content-Length": "4" },
+      })
+    })
+    vi.stubGlobal("fetch", fetchSpy)
+
+    const aiRun = vi.fn(async () => ({
+      text: "worker stream",
+      segments: [{ start: 0, end: 1, text: "worker stream" }],
+    }))
+
+    const result = await transcribeYouTubeAudio(
+      { AI: { run: aiRun } },
+      { videoId: "H58vbez_m4E", streamUrl },
+    )
+
+    expect(result.text).toBe("worker stream")
     expect(fetchSpy).toHaveBeenCalled()
   })
 
   it("rejects invalid client streamUrl", async () => {
+    mockResolve.mockResolvedValue(null)
+
     await expect(
       transcribeYouTubeAudio(
         { AI: { run: vi.fn() } },

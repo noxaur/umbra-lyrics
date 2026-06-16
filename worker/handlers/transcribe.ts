@@ -425,20 +425,16 @@ export async function transcribeYouTubeAudio(
   const videoId = request.videoId.trim()
   let streamUrl: string | null = null
 
-  if (request.streamUrl?.trim()) {
+  const workerResolved = await resolveYouTubeStream(videoId, "audio")
+  if (workerResolved && isAllowedStreamUrl(workerResolved.url)) {
+    streamUrl = workerResolved.url
+  } else if (request.streamUrl?.trim()) {
     streamUrl = decodeStreamReference(request.streamUrl)
     if (!streamUrl) {
       throw new Error("INVALID_STREAM_URL")
     }
   } else {
-    const resolved = await resolveYouTubeStream(videoId, "audio")
-    if (!resolved) {
-      throw new Error("STREAM_UNAVAILABLE")
-    }
-    if (!isAllowedStreamUrl(resolved.url)) {
-      throw new Error("STREAM_UNAVAILABLE")
-    }
-    streamUrl = resolved.url
+    throw new Error("STREAM_UNAVAILABLE")
   }
 
   const totalBytes = await probeStreamSize(streamUrl)
@@ -492,18 +488,6 @@ export async function handleTranscribe(
   request: Request,
   env: TranscribeEnv,
 ): Promise<Response> {
-  const ip = clientIp(request)
-  const rate = checkTranscribeRateLimit(ip)
-  if (!rate.allowed) {
-    return jsonResponse(
-      {
-        error: "Transcription rate limit exceeded — try again later",
-        retryAfterSec: rate.retryAfterSec,
-      },
-      429,
-    )
-  }
-
   let body: TranscribeRequest
   try {
     body = (await request.json()) as TranscribeRequest
@@ -520,6 +504,18 @@ export async function handleTranscribe(
     return jsonResponse({ error: "Transcription not available — Workers AI not configured" }, 503)
   }
 
+  const ip = clientIp(request)
+  const rate = checkTranscribeRateLimit(ip)
+  if (!rate.allowed) {
+    return jsonResponse(
+      {
+        error: "Transcription rate limit exceeded — try again later",
+        retryAfterSec: rate.retryAfterSec,
+      },
+      429,
+    )
+  }
+
   try {
     const result = await transcribeYouTubeAudio(env, { ...body, videoId })
     return jsonResponse(result)
@@ -534,18 +530,12 @@ export async function handleTranscribe(
     if (message === "EMPTY_AUDIO") {
       return jsonResponse({ error: "Could not download audio" }, 502)
     }
-    if (message === "AUDIO_TOO_LONG") {
-      return jsonResponse(
-        { error: "Audio too long for server transcription — try paste lyrics or a shorter clip" },
-        413,
-      )
-    }
     if (message === "EMPTY_TRANSCRIPT") {
       return jsonResponse({ error: "No speech detected in audio" }, 422)
     }
     if (message.includes("timeout") || message.includes("Timeout")) {
       return jsonResponse({ error: "Transcription timed out — try again" }, 504)
     }
-    return jsonResponse({ error: message }, 500)
+    return jsonResponse({ error: "Transcription failed" }, 500)
   }
 }
