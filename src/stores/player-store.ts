@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import type { PlaylistPlaybackContext } from "@/lib/playlists"
+import { getPlaylistById, type PlaylistPlaybackContext } from "@/lib/playlists"
 import type { LyricDisplayMode, LyricLine, LyricsAlternate, LyricsProviderId } from "@/types/lyrics"
 import type { LyricsOrchestratorStatus, LyricsSearchStep } from "@/lib/lyrics-orchestrator"
 import type { TranslationBackend } from "@/lib/translation-service"
@@ -263,11 +263,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   goToNextPlaylistTrack: () => {
     const { playlistContext, playlistNavigateRef } = get()
     if (!playlistContext || !playlistNavigateRef) return
+    const playlist = getPlaylistById(playlistContext.playlistId)
+    if (!playlist || playlistContext.trackIndex >= playlist.tracks.length - 1) return
     playlistNavigateRef(playlistContext.trackIndex + 1)
   },
   goToPrevPlaylistTrack: () => {
     const { playlistContext, playlistNavigateRef } = get()
     if (!playlistContext || !playlistNavigateRef) return
+    if (playlistContext.trackIndex <= 0) return
     playlistNavigateRef(playlistContext.trackIndex - 1)
   },
 }))

@@ -171,6 +171,10 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   }, [location.state, setPlaylistContext])
 
   useEffect(() => {
+    return () => setPlaylistContext(null)
+  }, [setPlaylistContext])
+
+  useEffect(() => {
     bindPlaylistNavigation(navigateToPlaylistTrack)
     return () => bindPlaylistNavigation(null)
   }, [bindPlaylistNavigation, navigateToPlaylistTrack])

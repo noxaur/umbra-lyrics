@@ -17,7 +17,11 @@ import { youtubeThumbnailUrl } from "@/lib/youtube-thumbnail"
 
 export function HomePage() {
   const [recent, setRecent] = useState<RecentSong[]>(() => getRecentSongs())
-  const [playlists] = useState(() => readPlaylists())
+  const [playlists, setPlaylists] = useState(() => readPlaylists())
+
+  useEffect(() => {
+    setPlaylists(readPlaylists())
+  }, [])
 
   useEffect(() => {
     let cancelled = false
