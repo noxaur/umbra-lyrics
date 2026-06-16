@@ -90,6 +90,20 @@ describe("lyrics-cache", () => {
     expect(getLyricsCache("xyz98765432")).toBeNull()
   })
 
+  it("round-trips englishStatus skipped", () => {
+    setLyricsCache({
+      ...sampleEntry,
+      englishLines: ["Line one"],
+      englishSource: "found",
+      englishStatus: "skipped",
+    })
+
+    const cached = getLyricsCache("abc12345678") as LyricsCacheEntry
+    expect(cached.englishStatus).toBe("skipped")
+    expect(cached.englishSource).toBe("found")
+    expect(cached.englishLines).toEqual(["Line one"])
+  })
+
   it("overwrites prior cache for the same videoId", () => {
     setLyricsCache(sampleEntry)
     setLyricsCache({
