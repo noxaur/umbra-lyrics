@@ -181,14 +181,17 @@ export function LyricsStage({
 
       if (ease && !reducedMotion) {
         beginProgrammaticScroll(LYRICS_RESYNC_SNAP_MS)
-        scrollLineToCenterEase(element, container, LYRICS_RESYNC_SNAP_MS)
+        scrollLineToCenterEase(element, container, LYRICS_RESYNC_SNAP_MS, {
+          force: true,
+          onTick: measureCenterLineIndex,
+        })
         return
       }
 
       beginProgrammaticScroll(0)
       scrollLineToCenter(element, container, "auto", { force: true })
     },
-    [activeIndex, beginProgrammaticScroll, finishProgrammaticScroll, reducedMotion],
+    [activeIndex, beginProgrammaticScroll, measureCenterLineIndex, reducedMotion],
   )
 
   const handleScrollEnd = useCallback(() => {
@@ -252,12 +255,16 @@ export function LyricsStage({
       const durationMs = getLineHandoffDurationMs(prefersReducedMotion, lineChangeIntervalMs)
       beginProgrammaticScroll(durationMs)
       if (durationMs > 0) {
-        scrollLineToCenterEase(element, container, durationMs, { force })
+        scrollLineToCenterEase(element, container, durationMs, {
+          force,
+          onTick: measureCenterLineIndex,
+        })
       } else {
         scrollLineToCenter(element, container, "auto", { force })
+        measureCenterLineIndex()
       }
     },
-    [activeIndex, beginProgrammaticScroll, lyricsFollowMode],
+    [activeIndex, beginProgrammaticScroll, lyricsFollowMode, measureCenterLineIndex],
   )
 
   useEffect(() => {
@@ -319,7 +326,7 @@ export function LyricsStage({
 
   useEffect(() => {
     measureCenterLineIndex()
-  }, [activeIndex, lyrics.length, displayMode, measureCenterLineIndex])
+  }, [lyrics.length, displayMode, measureCenterLineIndex])
 
   useEffect(() => {
     if (lyricsScrollSyncRequest === 0) return
@@ -365,6 +372,7 @@ export function LyricsStage({
     if (!element || !container || activeIndex < 0 || lyricsFollowMode !== "follow") return
 
     const observer = new ResizeObserver(() => {
+      if (programmaticScrollRef.current) return
       if (!isOutsideCenterThird(element, container)) return
       beginProgrammaticScroll(0)
       scrollLineToCenter(element, container, "auto")
@@ -543,8 +551,8 @@ export function LyricsStage({
 
 function cnStage(tvMode: boolean) {
   return [
-    "relative flex w-full min-h-0 flex-none flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain scroll-py-10",
-    "rounded-2xl border bg-karaoke-stage-bg px-4 py-8 pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+    "relative flex w-full min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain scroll-py-10",
+    "rounded-2xl border bg-karaoke-stage-bg px-4 py-8",
     "max-h-[min(100%,calc(5*4.25rem+4rem))]",
     tvMode ? "tv-mode" : "",
   ].join(" ")

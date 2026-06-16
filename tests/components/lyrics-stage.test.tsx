@@ -80,7 +80,8 @@ describe("LyricsStage scroll", () => {
 
     expect(easeSpy).toHaveBeenCalled()
     const lastCall = easeSpy.mock.calls.at(-1)
-    expect(lastCall?.[3]).toEqual({ force: true })
+    expect(lastCall?.[3]).toMatchObject({ force: true })
+    expect(typeof lastCall?.[3]?.onTick).toBe("function")
   })
 
   it("recenters when bilingual display mode changes line height", async () => {

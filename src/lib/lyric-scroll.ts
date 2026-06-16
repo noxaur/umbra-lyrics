@@ -65,7 +65,7 @@ export function scrollLineToCenter(
   const containerRect = container.getBoundingClientRect()
   const elementRect = element.getBoundingClientRect()
   const elementCenter = elementRect.top + elementRect.height / 2
-  const containerCenter = containerRect.top + container.clientHeight / 2
+  const containerCenter = containerRect.top + containerRect.height / 2
   const nextTop = clampScrollTop(
     container,
     container.scrollTop + (elementCenter - containerCenter),
@@ -88,14 +88,14 @@ export function scrollLineToCenterEase(
   element: HTMLElement,
   container: HTMLElement,
   durationMs = 200,
-  { force = false }: { force?: boolean } = {},
+  { force = false, onTick }: { force?: boolean; onTick?: () => void } = {},
 ): void {
   if (!force && !isOutsideCenterThird(element, container)) return
 
   const containerRect = container.getBoundingClientRect()
   const elementRect = element.getBoundingClientRect()
   const elementCenter = elementRect.top + elementRect.height / 2
-  const containerCenter = containerRect.top + container.clientHeight / 2
+  const containerCenter = containerRect.top + containerRect.height / 2
   const targetTop = clampScrollTop(
     container,
     container.scrollTop + (elementCenter - containerCenter),
@@ -104,6 +104,7 @@ export function scrollLineToCenterEase(
   const delta = targetTop - startTop
   if (Math.abs(delta) < 0.5) {
     container.scrollTop = targetTop
+    onTick?.()
     return
   }
 
@@ -111,6 +112,7 @@ export function scrollLineToCenterEase(
   const tick = (now: number) => {
     const t = Math.min(1, (now - startTime) / durationMs)
     container.scrollTop = startTop + delta * easeOutCubic(t)
+    onTick?.()
     if (t < 1) requestAnimationFrame(tick)
   }
   requestAnimationFrame(tick)
