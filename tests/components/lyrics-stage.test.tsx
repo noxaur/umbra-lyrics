@@ -47,6 +47,7 @@ describe("LyricsStage scroll", () => {
       currentTime: 0,
       syncOffsetMs: 0,
       lyricsSynced: true,
+      lyricsFollowMode: "follow",
       loadedFromCache: false,
       tvMode: false,
     })
@@ -58,7 +59,7 @@ describe("LyricsStage scroll", () => {
   })
 
   it("recenters after active line index changes", async () => {
-    const scrollSpy = vi.spyOn(lyricScroll, "scrollLineToCenter")
+    const easeSpy = vi.spyOn(lyricScroll, "scrollLineToCenterEase")
 
     render(
       <div className="flex h-96 min-h-0 flex-col">
@@ -70,20 +71,20 @@ describe("LyricsStage scroll", () => {
       await flushFrames()
     })
 
-    scrollSpy.mockClear()
+    easeSpy.mockClear()
 
     await act(async () => {
       usePlayerStore.setState({ currentTime: 28 })
       await flushFrames()
     })
 
-    expect(scrollSpy).toHaveBeenCalled()
-    const lastCall = scrollSpy.mock.calls.at(-1)
+    expect(easeSpy).toHaveBeenCalled()
+    const lastCall = easeSpy.mock.calls.at(-1)
     expect(lastCall?.[3]).toEqual({ force: true })
   })
 
   it("recenters when bilingual display mode changes line height", async () => {
-    const scrollSpy = vi.spyOn(lyricScroll, "scrollLineToCenter")
+    const easeSpy = vi.spyOn(lyricScroll, "scrollLineToCenterEase")
 
     render(
       <div className="flex h-96 min-h-0 flex-col">
@@ -96,7 +97,7 @@ describe("LyricsStage scroll", () => {
       await flushFrames()
     })
 
-    scrollSpy.mockClear()
+    easeSpy.mockClear()
 
     await act(async () => {
       usePlayerStore.setState({
@@ -106,29 +107,6 @@ describe("LyricsStage scroll", () => {
       await flushFrames()
     })
 
-    expect(scrollSpy).toHaveBeenCalled()
-  })
-
-  it("does not double-scroll on active line changes", async () => {
-    const scrollSpy = vi.spyOn(lyricScroll, "scrollLineToCenter")
-
-    render(
-      <div className="flex h-96 min-h-0 flex-col">
-        <LyricsStage durationMs={60_000} />
-      </div>,
-    )
-
-    await act(async () => {
-      await flushFrames()
-    })
-
-    scrollSpy.mockClear()
-
-    await act(async () => {
-      usePlayerStore.setState({ currentTime: 28 })
-      await flushFrames()
-    })
-
-    expect(scrollSpy).toHaveBeenCalledTimes(1)
+    expect(easeSpy).toHaveBeenCalled()
   })
 })

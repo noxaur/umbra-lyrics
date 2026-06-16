@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { mapSearchVideos } from "../../worker/lib/youtube-search-map"
+import { mapSearchVideos, searchCandidateLimit } from "../../worker/lib/youtube-search-map"
 import { rankSongSearchHits, scoreSongSearchHit, type SongSearchHit } from "../../worker/lib/youtube-search-rank"
-import { searchCandidateLimit } from "../../worker/lib/youtube-search-map"
 
 function hit(overrides: Partial<SongSearchHit> = {}): SongSearchHit {
   return {

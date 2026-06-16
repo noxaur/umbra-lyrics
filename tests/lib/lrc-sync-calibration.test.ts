@@ -33,6 +33,18 @@ describe("lrc-sync-calibration", () => {
     expect(offset).toBeLessThan(0)
   })
 
+  it("does not offset intentional MV intros like Not Like Us (~27s on 354s)", () => {
+    const lines: LyricLine[] = [{ startMs: 26_970, endMs: 30_000, text: "Psst, I see dead people" }]
+    const offset = estimateIntroSyncOffsetMs(lines, 354_000)
+    expect(offset).toBe(0)
+  })
+
+  it("still suggests offset when first vocal starts beyond intentional intro cap", () => {
+    const lines: LyricLine[] = [{ startMs: 55_000, endMs: 58_000, text: "Way past intro" }]
+    const offset = estimateIntroSyncOffsetMs(lines, 354_000)
+    expect(offset).toBeLessThan(0)
+  })
+
   it("finalizes word ends to the parent line window", () => {
     const lines: LyricLine[] = [
       {

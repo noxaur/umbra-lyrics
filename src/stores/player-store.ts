@@ -4,6 +4,7 @@ import type { LyricsOrchestratorStatus, LyricsSearchStep } from "@/lib/lyrics-or
 import type { TranslationBackend } from "@/lib/translation-service"
 
 export type PlayerStatus = "idle" | "loading" | "ready" | "error"
+export type LyricsFollowMode = "follow" | "manual"
 export type LyricsSource = LyricsProviderId | "pasted" | "translated" | null
 export type EnglishSource = "found" | "translated" | null
 
@@ -41,6 +42,8 @@ type PlayerState = {
   activeIndex: number
   wordProgress: number
   loadedFromCache: boolean
+  lyricsFollowMode: LyricsFollowMode
+  lyricsScrollSyncRequest: number
   playRef: (() => void) | null
   pauseRef: (() => void) | null
   seekRef: ((s: number) => void) | null
@@ -81,6 +84,8 @@ type PlayerState = {
   setNetworkRetryCount: (count: number) => void
   setLrclibTrackId: (id: number | null) => void
   setLoadedFromCache: (fromCache: boolean) => void
+  setLyricsFollowMode: (mode: LyricsFollowMode) => void
+  requestLyricsScrollSync: () => void
   bindControls: (controls: {
     play: () => void
     pause: () => void
@@ -125,12 +130,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   currentTime: 0,
   syncOffsetMs: 0,
   videoHidden: localStorage.getItem(VIDEO_HIDDEN_KEY) === "true",
-  showTimestamps: localStorage.getItem(SHOW_TIMESTAMPS_KEY) !== "false",
+  showTimestamps: localStorage.getItem(SHOW_TIMESTAMPS_KEY) === "true",
   focusMode: localStorage.getItem(FOCUS_MODE_KEY) === "true",
   tvMode: localStorage.getItem(TV_MODE_KEY) === "true",
   activeIndex: -1,
   wordProgress: 0,
   loadedFromCache: false,
+  lyricsFollowMode: "follow",
+  lyricsScrollSyncRequest: 0,
   playRef: null,
   pauseRef: null,
   seekRef: null,
@@ -178,6 +185,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setNetworkRetryCount: (count) => set({ networkRetryCount: count }),
   setLrclibTrackId: (id) => set({ lrclibTrackId: id }),
   setLoadedFromCache: (fromCache) => set({ loadedFromCache: fromCache }),
+  setLyricsFollowMode: (mode) => set({ lyricsFollowMode: mode }),
+  requestLyricsScrollSync: () =>
+    set((s) => ({
+      lyricsFollowMode: "follow",
+      lyricsScrollSyncRequest: s.lyricsScrollSyncRequest + 1,
+    })),
   adjustOffset: (deltaMs) =>
     set((s) => ({ syncOffsetMs: Math.max(-5000, Math.min(5000, s.syncOffsetMs + deltaMs)) })),
   setSyncOffset: (ms) => set({ syncOffsetMs: Math.max(-5000, Math.min(5000, ms)) }),

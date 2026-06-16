@@ -44,9 +44,6 @@
           for (var key in map) {
             if (tokens[key]) el.style.setProperty(map[key], tokens[key]);
           }
-          if (tokens.karaokeActive) {
-            el.style.setProperty("--karaoke-active-line", tokens.karaokeActive);
-          }
         } catch (e) {}
       })();
     </script>

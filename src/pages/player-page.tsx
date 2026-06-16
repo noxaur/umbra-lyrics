@@ -35,7 +35,7 @@ import type { LyricLine, LyricsAlternate, LyricsProviderId } from "@/types/lyric
 function applyLyricsText(
   text: string,
   durationSec: number,
-): { lines: LyricLine[]; synced: boolean; autoTimed?: boolean } | null {
+): { lines: LyricLine[]; synced: boolean; autoTimed?: boolean; suggestedOffsetMs?: number } | null {
   const trimmed = prepareLyricsText(text.trim())
   if (!trimmed) return null
 
@@ -75,6 +75,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const transcribeAbortRef = useRef<AbortController | null>(null)
   const alignAbortRef = useRef<AbortController | null>(null)
   const alignRequestRef = useRef(0)
+  const transcribeRequestRef = useRef(0)
   const {
     containerRef,
     ready,
@@ -114,6 +115,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const lyrics = usePlayerStore((s) => s.lyrics)
   const resetSyncOffset = usePlayerStore((s) => s.resetSyncOffset)
   const setSyncOffset = usePlayerStore((s) => s.setSyncOffset)
+  const setLyricsFollowMode = usePlayerStore((s) => s.setLyricsFollowMode)
   const focusMode = usePlayerStore((s) => s.focusMode)
 
   const { available, translating } = useTranslation(languageCode)
@@ -133,6 +135,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   useEffect(() => {
     if (!videoId) return
     resetSyncOffset()
+    setLyricsFollowMode("follow")
     setVideoId(videoId)
     loadedRef.current = false
     oembedAuthorRef.current = null
@@ -201,6 +204,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     setLoadedFromCache,
     setLyricsAlternates,
     resetSyncOffset,
+    setLyricsFollowMode,
   ])
 
   const loadEnglishTranslation = useCallback(
@@ -307,6 +311,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       durationSec: number,
       signal?: AbortSignal,
     ): Promise<boolean> => {
+      const requestId = ++transcribeRequestRef.current
       setLyricsSearchPhase("Transcribing from audio…")
       setLyricsSearchStep("search")
 
@@ -325,7 +330,10 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           signal,
         })
 
-        if (signal?.aborted) return false
+        if (signal?.aborted || requestId !== transcribeRequestRef.current) return false
+
+        const state = usePlayerStore.getState()
+        if (state.videoId !== videoId || requestId !== transcribeRequestRef.current) return false
 
         const durationMs = durationSec * 1000
         const parsed = segmentsToLyricLines(transcript.segments, durationMs)
@@ -383,7 +391,9 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
         return true
       } catch (err) {
-        if (signal?.aborted) return false
+        if (signal?.aborted || requestId !== transcribeRequestRef.current) return false
+        const state = usePlayerStore.getState()
+        if (state.videoId !== videoId) return false
         if (err instanceof TranscriptionError) {
           const isTransient = err.status === 429 || (err.status >= 502 && err.status <= 504)
           setLyricsOutcome(isTransient ? "network_error" : "not_found")
@@ -586,6 +596,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         if (pasted) {
           const parsed = applyLyricsText(pasted, durationSec)
           if (parsed) {
+            if (parsed.suggestedOffsetMs) setSyncOffset(parsed.suggestedOffsetMs)
+            else resetSyncOffset()
             await applyParsedLyrics(
               parsed,
               "pasted",
@@ -756,6 +768,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       setLyricsAlternates,
       setLyricsProvidersSearched,
       setSyncOffset,
+      resetSyncOffset,
       tryTranscribeLyrics,
     ],
   )
@@ -841,9 +854,11 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         setStatus("error", "Could not parse pasted lyrics")
         return
       }
+      if (parsed.suggestedOffsetMs) setSyncOffset(parsed.suggestedOffsetMs)
+      else resetSyncOffset()
       void applyParsedLyrics(parsed, "pasted", { title, track, artist }, duration, text)
     },
-    [videoId, duration, applyParsedLyrics, setStatus],
+    [videoId, duration, applyParsedLyrics, setStatus, setSyncOffset, resetSyncOffset],
   )
 
   const handleTranslate = async () => {

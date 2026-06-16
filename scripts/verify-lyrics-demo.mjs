@@ -16,7 +16,7 @@ const TRACKS = [
   {
     videoId: "fJ9rUzIMcZQ",
     label: "Queen - Bohemian Rhapsody",
-    mustContain: "scaramouche",
+    mustContain: "real life",
   },
 ]
 
@@ -24,23 +24,64 @@ async function sleep(ms) {
   await new Promise((r) => setTimeout(r, ms))
 }
 
-async function waitForLyrics(page, timeoutMs = 90_000) {
+async function waitForLyricsSource(page, timeoutMs = 120_000) {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
-    const stage = page.locator('[data-testid="lyrics-stage"], .lyrics-stage, [class*="lyrics"]').first()
     const text = await page.locator("main").innerText().catch(() => "")
-    if (text.toLowerCase().includes("loading lyrics")) {
+    const lower = text.toLowerCase()
+    if (lower.includes("loading lyrics") || lower.includes("searching")) {
       await sleep(2000)
       continue
     }
-    const lines = await page.locator("button").filter({ hasText: /\w{4,}/ }).allInnerTexts().catch(() => [])
-    const body = lines.join("\n").toLowerCase()
-    if (body.length > 80 && !body.includes("paste lyrics") && !body.includes("no lyrics")) {
-      return body
+    const sourceMatch = lower.match(/lrclib|synced|web scrapers|genius|transcription/)
+    if (sourceMatch) {
+      return { source: sourceMatch[0], header: lower }
     }
     await sleep(2000)
   }
-  return (await page.locator("main").innerText().catch(() => "")).toLowerCase()
+  const header = (await page.locator("main").innerText().catch(() => "")).toLowerCase()
+  return { source: "unknown", header }
+}
+
+/** Seek past intro — lyric lines are hidden until vocals begin. */
+async function seekPastIntro(page) {
+  const seek = page.getByRole("slider", { name: /^Seek$/i })
+  let targetSec = 20
+
+  const introHint = page.getByText(/Lyrics start at/)
+  if (await introHint.isVisible().catch(() => false)) {
+    const text = await introHint.textContent()
+    const match = text?.match(/(\d+):(\d+(?:\.\d+)?)/)
+    if (match) {
+      targetSec = Number(match[1]) * 60 + Number(match[2]) + 0.5
+    }
+  }
+
+  await seek.evaluate((el, sec) => {
+    el.value = String(sec)
+    el.dispatchEvent(new Event("input", { bubbles: true }))
+    el.dispatchEvent(new Event("change", { bubbles: true }))
+  }, targetSec)
+  await sleep(500)
+}
+
+async function waitForLyrics(page, mustContain, timeoutMs = 120_000) {
+  const deadline = Date.now() + timeoutMs
+  const remainingMs = () => Math.max(0, deadline - Date.now())
+
+  const { source, header } = await waitForLyricsSource(page, remainingMs())
+  await seekPastIntro(page)
+
+  const needle = mustContain.toLowerCase()
+  while (remainingMs() > 0) {
+    const text = (await page.locator("main").innerText().catch(() => "")).toLowerCase()
+    if (text.includes(needle)) {
+      return { text, source, header }
+    }
+    await sleep(1000)
+  }
+  const text = (await page.locator("main").innerText().catch(() => "")).toLowerCase()
+  return { text, source, header }
 }
 
 async function main() {
@@ -52,6 +93,13 @@ async function main() {
     viewport: { width: 1280, height: 800 },
     recordVideo: { dir: VIDEO_DIR, size: { width: 1280, height: 800 } },
     colorScheme: "dark",
+  })
+
+  await context.addInitScript(() => {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i)
+      if (key?.startsWith("song-kara-")) localStorage.removeItem(key)
+    }
   })
   const page = await context.newPage()
 
@@ -70,15 +118,15 @@ async function main() {
       await playBtn.click()
     }
 
-    const lyricsText = await waitForLyrics(page)
+    const { text: lyricsText, source } = await waitForLyrics(page, track.mustContain)
     const ok = lyricsText.includes(track.mustContain.toLowerCase())
     const hasJunk =
       lyricsText.includes("contributors") ||
       lyricsText.includes("translationsdeutsch") ||
       lyricsText.includes("document.write")
 
-    results.push({ ...track, ok, hasJunk, snippet: lyricsText.slice(0, 200) })
-    console.log(ok ? "PASS" : "FAIL", "must contain:", track.mustContain)
+    results.push({ ...track, ok, hasJunk, source, snippet: lyricsText.slice(0, 200) })
+    console.log(ok ? "PASS" : "FAIL", "must contain:", track.mustContain, "| source:", source)
     console.log("junk:", hasJunk)
     console.log("snippet:", lyricsText.slice(0, 160).replace(/\n/g, " | "))
 

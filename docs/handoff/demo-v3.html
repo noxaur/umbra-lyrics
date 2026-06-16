@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lyrics animation v3 demo</title>
+  <style>
+    :root { color-scheme: dark; --bg: #0c0a14; --stage: #12101c; --active: #c4b5fd; --ink: #f3f4f6; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: #e5e7eb; }
+    header { padding: 1rem 1.25rem; border-bottom: 1px solid #1f2937; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+    h1 { margin: 0; font-size: 1rem; flex: 1; }
+    button.ctl { background: #312e81; color: #e9d5ff; border: 0; border-radius: 0.5rem; padding: 0.45rem 0.8rem; cursor: pointer; font-size: 0.8rem; }
+    .layout { display: grid; grid-template-columns: 1fr 280px; gap: 1rem; padding: 1rem 1.25rem 2rem; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+    .stage {
+      perspective: 1200px;
+      background: var(--stage);
+      border: 1px solid #1f2937;
+      border-radius: 1rem;
+      max-height: calc(5 * 4.25rem + 4rem);
+      overflow: auto;
+      padding: 2rem 1rem;
+      scroll-padding: 2.5rem 0;
+    }
+    .inner { transform-style: preserve-3d; display: flex; flex-direction: column; gap: 0.65rem; }
+    .line {
+      width: 100%; max-width: 36rem; margin: 0 auto; text-align: center; border: 0; background: transparent;
+      color: var(--ink); font-weight: 600; font-size: clamp(1.15rem, 3.2vw, 2.25rem);
+      padding: 0.55rem 0.75rem; transform-style: preserve-3d;
+    }
+    .edge-spacer { flex-shrink: 0; }
+    .line.active { color: var(--active); text-shadow: 0 0 24px color-mix(in oklch, var(--active) 40%, transparent); }
+    .panel { font-size: 0.8rem; color: #9ca3af; display: grid; gap: 0.75rem; }
+    .card { background: #111827; border: 1px solid #1f2937; border-radius: 0.75rem; padding: 0.85rem; }
+    .ok { color: #86efac; }
+    code { color: #c4b5fd; }
+    #status { font-size: 0.75rem; color: #9ca3af; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Lyrics animation v3 — viewport center log stack</h1>
+    <button type="button" class="ctl" id="syncBtn" hidden>Sync lyrics</button>
+    <span id="mode">follow</span>
+  </header>
+  <div class="layout">
+    <div>
+      <div class="stage" id="stage"><div class="inner" id="inner"></div></div>
+      <p id="status">Active line: —</p>
+    </div>
+    <div class="panel">
+      <div class="card"><strong class="ok">Follow mode</strong><br/>Log stack peaks on the active (synced) line; stage auto-scrolls to keep it centered.</div>
+      <div class="card"><strong class="ok">Manual mode</strong><br/>Stack peaks on viewport center; active line keeps purple highlight.</div>
+      <div class="card">Scroll manually → manual. Tap the <strong>purple</strong> line or press Sync lyrics to re-lock.</div>
+    </div>
+  </div>
+  <script>
+    const lines = [
+      "We're no strangers to love",
+      "You know the rules and so do I",
+      "A full commitment's what I'm thinking of",
+      "You wouldn't get this from any other guy",
+      "Never gonna give you up",
+      "Never gonna let you down",
+      "Never gonna run around and desert you",
+      "Never gonna make you cry",
+      "Never gonna say goodbye",
+      "Never gonna tell a lie and hurt you",
+    ];
+
+    let active = 0;
+    let center = 0;
+    let follow = true;
+    let programmatic = false;
+    let intentional = false;
+
+    const stage = document.getElementById("stage");
+    const inner = document.getElementById("inner");
+    const syncBtn = document.getElementById("syncBtn");
+    const modeEl = document.getElementById("mode");
+    const statusEl = document.getElementById("status");
+    const buttons = [];
+
+    const tiers = [
+      { s: 1, z: 0, b: 0 },
+      { s: 0.92, z: -12, b: 0.5 },
+      { s: 0.85, z: -24, b: 1 },
+      { s: 0.78, z: -36, b: 2 },
+    ];
+
+    function visualContinuous(d) {
+      d = Math.max(0, d);
+      const max = tiers.length - 1;
+      if (d >= max) {
+        const tier = tiers[max];
+        return { ...tier, o: Math.max(0, 2 * tier.s - 1) };
+      }
+      const lo = Math.floor(d);
+      const hi = Math.min(lo + 1, max);
+      const t = d - lo;
+      const a = tiers[lo];
+      const b = tiers[hi];
+      return {
+        s: a.s + (b.s - a.s) * t,
+        z: a.z + (b.z - a.z) * t,
+        b: a.b + (b.b - a.b) * t,
+        o: Math.max(0, 2 * (a.s + (b.s - a.s) * t) - 1),
+      };
+    }
+
+    function measureCenter() {
+      const rect = stage.getBoundingClientRect();
+      const cy = rect.top + rect.height / 2;
+      let best = 0;
+      let bestD = Infinity;
+      buttons.forEach((btn, i) => {
+        const r = btn.getBoundingClientRect();
+        const d = Math.abs(r.top + r.height / 2 - cy);
+        if (d < bestD) {
+          best = i;
+          bestD = d;
+        }
+      });
+      center = best;
+      return best;
+    }
+
+    function isActiveCentered() {
+      const rect = stage.getBoundingClientRect();
+      const cy = rect.top + rect.height / 2;
+      const r = buttons[active].getBoundingClientRect();
+      return Math.abs(r.top + r.height / 2 - cy) <= 24;
+    }
+
+    function applyVisuals() {
+      const rect = stage.getBoundingClientRect();
+      const cy = rect.top + rect.height / 2;
+      buttons.forEach((btn, i) => {
+        const r = btn.getBoundingClientRect();
+        const distPx = Math.abs(r.top + r.height / 2 - cy);
+        const pitch = Math.max(r.height, 40);
+        const v = visualContinuous(distPx / pitch);
+        btn.classList.toggle("active", i === active);
+        btn.style.transform = `translateZ(${v.z}px) scale(${v.s})`;
+        btn.style.filter = v.b ? `blur(${v.b}px)` : "none";
+        btn.style.opacity = String(v.o);
+        btn.style.color = i === active ? "var(--active)" : "var(--ink)";
+      });
+      modeEl.textContent = follow ? "follow" : "manual";
+      syncBtn.hidden = follow;
+      statusEl.textContent = `Active line: ${active + 1}/${lines.length} — “${lines[active]}”`;
+    }
+
+    const HANDOFF_MS = 360;
+
+    function edgeSpacerPx() {
+      return Math.max(96, Math.round(stage.clientHeight / 2 - 32));
+    }
+
+    function refreshEdgeSpacers() {
+      const h = edgeSpacerPx();
+      inner.querySelectorAll(".edge-spacer").forEach((el) => {
+        el.style.height = `${h}px`;
+      });
+    }
+
+    function easeOutCubic(t) {
+      return 1 - (1 - t) ** 3;
+    }
+
+    function targetScrollTopFor(index) {
+      const rect = stage.getBoundingClientRect();
+      const btnRect = buttons[index].getBoundingClientRect();
+      return stage.scrollTop + (btnRect.top + btnRect.height / 2 - (rect.top + rect.height / 2));
+    }
+
+    function animateScrollTo(targetTop, durationMs, onDone) {
+      const startTop = stage.scrollTop;
+      const delta = targetTop - startTop;
+      if (Math.abs(delta) < 0.5 || durationMs <= 0) {
+        stage.scrollTop = targetTop;
+        onDone();
+        return;
+      }
+      const start = performance.now();
+      const tick = (now) => {
+        const t = Math.min(1, (now - start) / durationMs);
+        stage.scrollTop = startTop + delta * easeOutCubic(t);
+        measureCenter();
+        applyVisuals();
+        if (t < 1) requestAnimationFrame(tick);
+        else onDone();
+      };
+      requestAnimationFrame(tick);
+    }
+
+    function scrollIndexToCenter(index, animate) {
+      programmatic = true;
+      const finish = () => {
+        measureCenter();
+        programmatic = false;
+        applyVisuals();
+      };
+      const targetTop = targetScrollTopFor(index);
+      if (animate) animateScrollTo(targetTop, HANDOFF_MS, finish);
+      else {
+        stage.scrollTop = targetTop;
+        requestAnimationFrame(() => requestAnimationFrame(finish));
+      }
+    }
+
+    function snapToActive(smooth = true) {
+      follow = true;
+      scrollIndexToCenter(active, smooth);
+    }
+
+    function onScrollEnd() {
+      measureCenter();
+      const intentionalNow = intentional || center === active;
+      intentional = false;
+
+      if (intentionalNow) {
+        if (isActiveCentered()) snapToActive(true);
+        else applyVisuals();
+        return;
+      }
+
+      if (Math.abs(active - center) <= 1) {
+        snapToActive(true);
+        return;
+      }
+
+      applyVisuals();
+    }
+
+    const topSpacer = document.createElement("div");
+    topSpacer.className = "edge-spacer";
+    topSpacer.setAttribute("aria-hidden", "true");
+    inner.appendChild(topSpacer);
+
+    lines.forEach((text, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "line";
+      btn.textContent = text;
+      btn.addEventListener("click", () => {
+        if (i === active) intentional = true;
+        scrollIndexToCenter(i, true);
+      });
+      inner.appendChild(btn);
+      buttons.push(btn);
+    });
+
+    const bottomSpacer = document.createElement("div");
+    bottomSpacer.className = "edge-spacer";
+    bottomSpacer.setAttribute("aria-hidden", "true");
+    inner.appendChild(bottomSpacer);
+
+    refreshEdgeSpacers();
+    window.addEventListener("resize", refreshEdgeSpacers);
+    applyVisuals();
+
+    stage.addEventListener("scroll", () => {
+      if (!programmatic && follow) follow = false;
+      if (!programmatic) applyVisuals();
+      clearTimeout(stage._t);
+      stage._t = window.setTimeout(onScrollEnd, 150);
+    });
+
+    syncBtn.addEventListener("click", () => snapToActive(true));
+
+    window.setInterval(() => {
+      if (!follow) return;
+      active = (active + 1) % lines.length;
+      scrollIndexToCenter(active, true);
+    }, 2800);
+
+    scrollIndexToCenter(active, false);
+  </script>
+</body>
+</html>
