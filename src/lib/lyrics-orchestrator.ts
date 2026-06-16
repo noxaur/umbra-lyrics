@@ -1,6 +1,6 @@
 import type { EnglishLyricsResult } from "@/lib/english-lyrics-service"
 import { resolveEnglishLyrics } from "@/lib/english-lyrics-service"
-import { detectLanguage } from "@/lib/language-service"
+import { detectLanguage, inferPreferredLanguage } from "@/lib/language-service"
 import {
   assessContentType,
   buildTranscriptProfile,
@@ -80,6 +80,40 @@ export type OrchestratorParams = {
   onProgress?: (update: OrchestratorProgress) => void
 }
 
+function languageMetaFromParams(params: OrchestratorParams) {
+  return {
+    title: params.title,
+    artist: params.artist,
+    track: params.track,
+    oembedAuthor: params.oembedAuthor,
+    preferredLanguage: params.preferredLanguage ?? inferPreferredLanguage({
+      title: params.title,
+      artist: params.artist,
+      track: params.track,
+      oembedAuthor: params.oembedAuthor,
+    }),
+  }
+}
+
+function resolveEnglishForNativeLines(
+  params: OrchestratorParams,
+  nativeLines: string[],
+  onProgress?: (phase: string) => void,
+) {
+  const languageMeta = languageMetaFromParams(params)
+  const sample = nativeLines.join("\n")
+  return resolveEnglishLyrics({
+    track: params.track,
+    artist: params.artist,
+    nativeLines,
+    language: detectLanguage(sample, languageMeta),
+    durationSec: params.durationSec,
+    videoId: params.videoId,
+    skipCache: params.skipCache,
+    metadata: languageMeta,
+    onProgress,
+  })
+}
 function toProviderParams(params: OrchestratorParams): ProviderSearchParams {
   const meta = params.resolvedMetadata
   return {
@@ -285,16 +319,11 @@ export async function orchestrateLyricsSearch(
 
       const lyrics = candidateToResult(transcription.candidate)
       const nativeLines = lyrics.plainLyrics?.split("\n").filter(Boolean) ?? []
-      const lang = detectLanguage(nativeLines.join("\n"))
-      const english = await resolveEnglishLyrics({
-        track: params.track,
-        artist: params.artist,
+      const english = await resolveEnglishForNativeLines(
+        params,
         nativeLines,
-        language: lang,
-        durationSec: params.durationSec,
-        videoId: params.videoId,
-        onProgress: (phase) => report(phase, "search"),
-      })
+        (phase) => report(phase, "search"),
+      )
 
       report(
         transcription.partial
@@ -355,17 +384,11 @@ export async function orchestrateLyricsSearch(
       .replace(/\[[\d:.]+\]/g, "")
       .split("\n")
       .filter(Boolean)
-    const lang = detectLanguage(nativeLines.join("\n"))
-    const english = await resolveEnglishLyrics({
-      track: params.track,
-      artist: params.artist,
+    const english = await resolveEnglishForNativeLines(
+      params,
       nativeLines,
-      language: lang,
-      durationSec: params.durationSec,
-      videoId: params.videoId,
-      skipCache: params.skipCache,
-      onProgress: (phase) => report(phase, "search"),
-    })
+      (phase) => report(phase, "search"),
+    )
 
     report(
       altCount > 0
@@ -429,16 +452,11 @@ export async function orchestrateLyricsSearch(
       .replace(/\[[\d:.]+\]/g, "")
       .split("\n")
       .filter(Boolean)
-    const english = await resolveEnglishLyrics({
-      track: params.track,
-      artist: params.artist,
+    const english = await resolveEnglishForNativeLines(
+      params,
       nativeLines,
-      language: detectLanguage(nativeLines.join("\n")),
-      durationSec: params.durationSec,
-      videoId: params.videoId,
-      skipCache: params.skipCache,
-      onProgress: (phase) => report(phase, "search"),
-    })
+      (phase) => report(phase, "search"),
+    )
     report(metadataHit.synced ? "Found synced lyrics" : "Found plain lyrics", "ready", {
       provider: metadataHit.providerId,
     })
