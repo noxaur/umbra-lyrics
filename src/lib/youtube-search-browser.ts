@@ -1,4 +1,4 @@
-import { mapSearchVideos } from "../../worker/lib/youtube-search-map"
+import { mapSearchVideos, searchCandidateLimit } from "../../worker/lib/youtube-search-map"
 import { rankSongSearchHits } from "../../worker/lib/youtube-search-rank"
 import type { SongSearchHit } from "./youtube-search"
 
@@ -49,7 +49,7 @@ export async function searchSongsInBrowser(
   const search = await yt.search(trimmed, { type: "video" })
   const mapped = mapSearchVideos(
     [...search.videos] as Parameters<typeof mapSearchVideos>[0],
-    limit,
+    searchCandidateLimit(limit),
   )
 
   throwIfAborted(options?.signal)

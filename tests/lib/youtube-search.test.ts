@@ -37,6 +37,17 @@ describe("searchSongs", () => {
     expect(mockBrowserSearch).not.toHaveBeenCalled()
   })
 
+  it("does not fall back when the worker request is aborted", async () => {
+    const controller = new AbortController()
+    controller.abort()
+    mockProxyFetch.mockRejectedValue(new DOMException("Aborted", "AbortError"))
+
+    await expect(searchSongs("queen", { signal: controller.signal })).rejects.toMatchObject({
+      name: "AbortError",
+    })
+    expect(mockBrowserSearch).not.toHaveBeenCalled()
+  })
+
   it("falls back to browser search when the worker API is blocked", async () => {
     mockProxyFetch.mockResolvedValue(
       new Response("<!DOCTYPE html><html>Just a moment...", {

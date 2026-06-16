@@ -54,7 +54,11 @@ export async function searchSongs(
 
   try {
     return await searchSongsViaWorker(trimmed, options)
-  } catch {
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err
+    if (options?.signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError")
+    }
     return searchSongsInBrowser(trimmed, options)
   }
 }
