@@ -80,6 +80,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   )
   const seedMetadata = (location.state as PlayerNavigationState | null)?.seedMetadata
   const onEndedRef = useRef<() => void>(() => {})
+  const playlistAutoPlayPending = useRef(false)
   const loadedRef = useRef(false)
   const oembedAuthorRef = useRef<string | null>(null)
   const transcribeAbortRef = useRef<AbortController | null>(null)
@@ -150,6 +151,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             playlistId: ctx.playlistId,
             trackIndex,
           } satisfies PlaylistPlaybackContext,
+          playlistAutoPlay: true,
         },
       })
     },
@@ -169,9 +171,19 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   onEndedRef.current = handleVideoEnded
 
   useEffect(() => {
-    const state = location.state as { playlistContext?: PlaylistPlaybackContext } | null
+    const state = location.state as {
+      playlistContext?: PlaylistPlaybackContext
+      playlistAutoPlay?: boolean
+    } | null
     setPlaylistContext(state?.playlistContext ?? null)
+    playlistAutoPlayPending.current = Boolean(state?.playlistAutoPlay)
   }, [location.state, setPlaylistContext])
+
+  useEffect(() => {
+    if (!ready || !playlistAutoPlayPending.current) return
+    playlistAutoPlayPending.current = false
+    play()
+  }, [ready, videoId, play])
 
   useEffect(() => {
     return () => setPlaylistContext(null)

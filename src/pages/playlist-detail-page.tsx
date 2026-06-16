@@ -54,6 +54,7 @@ function PlaylistDetailContent({
       playlistId: playlist.id,
       trackIndex,
     } satisfies PlaylistPlaybackContext,
+    playlistAutoPlay: true,
   })
 
   const handlePlay = () => {
@@ -94,6 +95,13 @@ function PlaylistDetailContent({
   }
 
   const handleDelete = () => {
+    if (
+      !window.confirm(
+        `Delete "${playlist.name}"? This cannot be undone.`,
+      )
+    ) {
+      return
+    }
     deletePlaylist(playlist.id)
     void navigate("/playlists")
   }
