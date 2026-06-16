@@ -299,7 +299,6 @@ export async function searchProvidersStaged(
       if (settled) return
 
       if (
-        !fallbackStarted &&
         options.earlyExitOnDefinitiveLrclib !== false &&
         isDefinitiveLrclibSyncedWin(candidates, options.params)
       ) {
@@ -383,6 +382,13 @@ export async function searchProvidersStaged(
             finish()
           }
         })()
+      }
+
+      if (stage === "first" && firstPending === 0) {
+        finish()
+      } else if (stage === "fallback" && fallbackPending === 0) {
+        fallbackDone = true
+        finish()
       }
     }
 

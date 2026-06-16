@@ -499,7 +499,8 @@ export function LyricsStage({
         </p>
       ) : null}
 
-      {englishStatus === "loading" && displayMode === "both" ? (
+      {englishStatus === "loading" &&
+      (displayMode === "both" || displayMode === "all") ? (
         <p className="pointer-events-none absolute inset-x-3 bottom-3 z-10 text-center text-xs text-muted-foreground motion-safe:animate-pulse">
           Loading English lyrics…
         </p>
