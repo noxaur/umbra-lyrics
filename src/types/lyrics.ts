@@ -33,6 +33,7 @@ export type ParsedLyrics = {
 export type LyricDisplayMode = "native" | "english" | "both"
 
 export type LyricsProviderId =
+  | "musixmatch"
   | "lrclib"
   | "lyrics-ovh"
   | "megalobiz"
@@ -50,6 +51,7 @@ export type LyricsProviderId =
   | "transcription"
 
 export const LYRICS_PROVIDER_LABELS: Record<LyricsProviderId, string> = {
+  musixmatch: "Musixmatch",
   lrclib: "LRCLIB",
   "lyrics-ovh": "lyrics.ovh",
   megalobiz: "Megalobiz",

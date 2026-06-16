@@ -4,11 +4,25 @@ import type { ProviderSearchParams } from "./types"
 export function buildSearchAttempts(
   params: ProviderSearchParams,
 ): Array<{ artist: string; track: string }> {
-  return [
+  const attempts: Array<{ artist: string; track: string }> = [
+    {
+      artist: params.canonicalArtist ?? params.artist,
+      track: params.canonicalTrack ?? params.track,
+    },
     { artist: params.artist, track: params.track },
-    { artist: params.artist, track: simplifyTrackName(params.track) },
+    {
+      artist: params.artist,
+      track: simplifyTrackName(params.canonicalTrack ?? params.track),
+    },
     { artist: params.oembedAuthor ?? "", track: params.track },
-  ].filter((a) => a.track.trim())
+  ]
+
+  for (const alt of params.metadataAlternates ?? []) {
+    attempts.push({ artist: alt.artist, track: alt.track })
+    attempts.push({ artist: alt.artist, track: simplifyTrackName(alt.track) })
+  }
+
+  return attempts.filter((a) => a.track.trim())
 }
 
 export function dedupeAttempts(

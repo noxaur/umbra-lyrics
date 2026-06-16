@@ -81,6 +81,9 @@ export function LyricsStage({
   const tvMode = usePlayerStore((s) => s.tvMode)
   const showTimestamps = usePlayerStore((s) => s.showTimestamps)
   const loadedFromCache = usePlayerStore((s) => s.loadedFromCache)
+  const contentWarning = usePlayerStore((s) => s.contentWarning)
+  const verificationScore = usePlayerStore((s) => s.verificationScore)
+  const englishStatus = usePlayerStore((s) => s.englishStatus)
   const lyricsFollowMode = usePlayerStore((s) => s.lyricsFollowMode)
   const lyricsScrollSyncRequest = usePlayerStore((s) => s.lyricsScrollSyncRequest)
   const setActive = usePlayerStore((s) => s.setActive)
@@ -468,6 +471,30 @@ export function LyricsStage({
           Loaded from cache
         </p>
       )}
+
+      {contentWarning ? (
+        <p
+          className="pointer-events-none absolute inset-x-3 top-3 z-10 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-200/90"
+          role="status"
+        >
+          {contentWarning}
+        </p>
+      ) : null}
+
+      {verificationScore != null && verificationScore >= 0.6 ? (
+        <p
+          className="pointer-events-none absolute right-3 top-3 z-10 rounded-full border border-border bg-background/90 px-2 py-1 text-[0.65rem] text-muted-foreground"
+          role="status"
+        >
+          Verified against audio
+        </p>
+      ) : null}
+
+      {englishStatus === "loading" && displayMode === "both" ? (
+        <p className="pointer-events-none absolute inset-x-3 bottom-3 z-10 text-center text-xs text-muted-foreground motion-safe:animate-pulse">
+          Loading English lyrics…
+        </p>
+      ) : null}
 
       {showPlaceholder && stage.gapLabel ? (
         <StagePlaceholder label={stage.gapLabel} detail={placeholderDetail} />

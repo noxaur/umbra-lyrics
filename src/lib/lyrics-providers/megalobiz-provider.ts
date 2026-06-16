@@ -24,7 +24,7 @@ async function searchMegalobiz(artist: string, track: string): Promise<Megalobiz
 export const megalobizProvider: LyricsProvider = {
   id: "megalobiz",
   label: "Megalobiz",
-  priority: 4,
+  priority: 3,
   supportsSync: true,
   searchPhase: "Trying Megalobiz…",
   async search(params) {

@@ -12,6 +12,7 @@ import { simplifyTrackName } from "@/lib/parse-track-title"
 import type { LyricsProvider, ProviderSearchParams } from "@/lib/lyrics-providers/types"
 
 function toProviderParams(params: OrchestratorParams): ProviderSearchParams {
+  const meta = params.resolvedMetadata
   return {
     track: params.track,
     artist: params.artist,
@@ -19,12 +20,16 @@ function toProviderParams(params: OrchestratorParams): ProviderSearchParams {
     title: params.title,
     oembedAuthor: params.oembedAuthor,
     preferredLanguage: params.preferredLanguage,
+    canonicalArtist: meta?.artist,
+    canonicalTrack: meta?.track,
+    metadataAlternates: meta?.alternates,
   }
 }
 
 const METADATA_PROVIDERS: LyricsProvider[] = [lyricsOvhProvider, megalobizProvider]
 
 const METADATA_PROVIDER_PRIORITY: Record<LyricsProviderId, number> = {
+  musixmatch: 0,
   "lyrics-ovh": 1,
   megalobiz: 2,
   lrclib: 99,

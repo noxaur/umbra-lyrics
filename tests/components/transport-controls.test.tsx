@@ -49,15 +49,15 @@ describe("TransportControls", () => {
     expect(screen.getByRole("button", { name: "Lyrics 0.5 seconds later" })).toBeInTheDocument()
   })
 
-  it("disables English/Both when no english lines and shows helper", () => {
+  it("keeps English enabled without lines and shows helper", () => {
     renderControls()
 
     const select = screen.getByRole("combobox", { name: "Lyric display mode" })
     const english = screen.getByRole("option", { name: "English" })
     const both = screen.getByRole("option", { name: "Both" })
 
-    expect(english).toBeDisabled()
-    expect(both).toBeDisabled()
+    expect(english).toBeEnabled()
+    expect(both).toBeEnabled()
     expect(screen.getByText("No English lyrics found")).toBeInTheDocument()
     expect(select).toHaveAttribute("aria-describedby", "bilingual-helper")
   })

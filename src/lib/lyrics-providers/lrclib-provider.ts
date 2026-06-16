@@ -180,7 +180,7 @@ export async function fetchLrclibCandidate(
 export const lrclibProvider: LyricsProvider = {
   id: "lrclib",
   label: "LRCLIB",
-  priority: 1,
+  priority: 2,
   supportsSync: true,
   searchPhase: "Searching LRCLIB…",
   async search(params) {

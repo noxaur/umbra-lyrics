@@ -10,6 +10,9 @@ export type TranscribeResponse = {
   partial?: boolean
   chunks?: number
   retryAfterSec?: number
+  vocalDensity?: number
+  coverageSec?: number
+  mode?: "sample" | "full"
 }
 
 export type TranscribeOptions = {
@@ -19,6 +22,7 @@ export type TranscribeOptions = {
   language?: string
   durationSec?: number
   signal?: AbortSignal
+  mode?: "sample" | "full"
 }
 
 export class TranscriptionError extends Error {
@@ -45,6 +49,7 @@ async function postTranscribe(
       track: options.track,
       language: options.language,
       durationSec: options.durationSec,
+      mode: options.mode ?? "full",
       ...(streamUrl ? { streamUrl } : {}),
     }),
     signal: options.signal,
@@ -78,4 +83,15 @@ export async function transcribeFromYouTube(options: TranscribeOptions): Promise
   }
 
   return body
+}
+
+/** Fast sample transcription for lyrics verification (~90s of audio). */
+export async function sampleTranscribeForVerification(
+  options: Omit<TranscribeOptions, "mode">,
+): Promise<TranscribeResponse | null> {
+  try {
+    return await transcribeFromYouTube({ ...options, mode: "sample" })
+  } catch {
+    return null
+  }
 }

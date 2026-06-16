@@ -7,6 +7,7 @@ export type PlayerStatus = "idle" | "loading" | "ready" | "error"
 export type LyricsFollowMode = "follow" | "manual"
 export type LyricsSource = LyricsProviderId | "pasted" | "translated" | null
 export type EnglishSource = "found" | "translated" | null
+export type EnglishLyricsStatus = "ready" | "loading" | "failed" | "skipped" | null
 
 type PlayerState = {
   videoId: string | null
@@ -18,7 +19,10 @@ type PlayerState = {
   lyrics: LyricLine[]
   englishLines: string[]
   englishSource: EnglishSource
+  englishStatus: EnglishLyricsStatus
   translationBackend: TranslationBackend | null
+  contentWarning: string | null
+  verificationScore: number | null
   lyricsSynced: boolean
   lyricsAutoTimed: boolean
   lyricsAligned: boolean
@@ -62,7 +66,11 @@ type PlayerState = {
     lines: string[],
     source?: EnglishSource,
     backend?: TranslationBackend | null,
+    status?: EnglishLyricsStatus,
   ) => void
+  setEnglishStatus: (status: EnglishLyricsStatus) => void
+  setContentWarning: (warning: string | null) => void
+  setVerificationScore: (score: number | null) => void
   setLanguageCode: (code: string) => void
   setDisplayMode: (mode: LyricDisplayMode) => void
   setCurrentTime: (t: number) => void
@@ -112,7 +120,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   lyrics: [],
   englishLines: [],
   englishSource: null,
+  englishStatus: null,
   translationBackend: null,
+  contentWarning: null,
+  verificationScore: null,
   lyricsSynced: true,
   lyricsAutoTimed: false,
   lyricsAligned: false,
@@ -153,8 +164,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       lyricsAligned: aligned,
       lyricsSource: source,
     }),
-  setEnglishLines: (lines, source = null, backend = null) =>
-    set({ englishLines: lines, englishSource: source, translationBackend: backend }),
+  setEnglishLines: (lines, source = null, backend = null, status = lines.length > 0 ? "ready" : null) =>
+    set({
+      englishLines: lines,
+      englishSource: source,
+      translationBackend: backend,
+      englishStatus: status,
+    }),
+  setEnglishStatus: (status) => set({ englishStatus: status }),
+  setContentWarning: (warning) => set({ contentWarning: warning }),
+  setVerificationScore: (score) => set({ verificationScore: score }),
   setLanguageCode: (code) => set({ languageCode: code }),
   setDisplayMode: (mode) => set({ displayMode: mode }),
   setCurrentTime: (t) => set({ currentTime: t }),
@@ -178,6 +197,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       lrclibTrackId: null,
       lyricsSource: null,
       englishSource: null,
+      englishStatus: null,
+      contentWarning: null,
+      verificationScore: null,
       translationBackend: null,
       error: null,
     }),

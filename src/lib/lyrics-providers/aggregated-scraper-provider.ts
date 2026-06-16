@@ -66,7 +66,7 @@ function toCandidate(
 export const aggregatedScraperProvider: LyricsProvider = {
   id: "aggregated-scraper",
   label: "Web scrapers",
-  priority: 5,
+  priority: 15,
   supportsSync: true,
   searchPhase: "Searching lyric sites…",
   async search(params) {
