@@ -1,6 +1,11 @@
 import { proxyFetch } from "@/lib/lyrics-providers/api-base"
 import { artistMatchScore, trackMatchScore } from "@/lib/lyrics-providers/match-utils"
-import { parseTrackTitle, simplifyTrackName } from "@/lib/parse-track-title"
+import {
+  extractTopicChannelArtist,
+  parseTrackTitle,
+  simplifyTrackName,
+  stripChannelSuffix,
+} from "@/lib/parse-track-title"
 
 export type MetadataSource = "spotify" | "musicbrainz" | "deezer" | "itunes" | "parse" | "oembed"
 
@@ -72,11 +77,22 @@ function scoreCandidate(
   score += trackMatchScore(matchable, roughTrack)
   score += SOURCE_PRIORITY[candidate.source] * 3
 
+  const channelArtist = params.oembedAuthor?.trim()
+    ? stripChannelSuffix(params.oembedAuthor)
+    : ""
   if (
-    params.oembedAuthor?.trim() &&
-    candidate.artist.toLowerCase().includes(params.oembedAuthor.trim().toLowerCase())
+    channelArtist &&
+    candidate.artist.toLowerCase().includes(channelArtist.toLowerCase())
   ) {
     score -= 5
+  }
+
+  const topicArtist = extractTopicChannelArtist(params.oembedAuthor)
+  if (
+    topicArtist &&
+    candidate.artist.toLowerCase() === topicArtist.toLowerCase()
+  ) {
+    score -= 10
   }
 
   return Math.max(0, score)
@@ -176,22 +192,41 @@ function buildParseFallback(params: ResolveTrackMetadataParams): MetadataCandida
   const rough =
     params.roughArtist != null || params.roughTrack != null
       ? { artist: params.roughArtist ?? "", track: params.roughTrack ?? "" }
-      : parseTrackTitle(params.title)
+      : parseTrackTitle(params.title, params.oembedAuthor)
 
   const candidates: MetadataCandidate[] = []
-  if (rough.track.trim()) {
+  const track = simplifyTrackName(rough.track)
+  if (track.trim()) {
     candidates.push({
       artist: rough.artist,
-      track: simplifyTrackName(rough.track),
+      track,
       source: "parse",
       confidence: 0,
     })
   }
 
-  if (params.oembedAuthor?.trim() && rough.track.trim()) {
+  const topicArtist = extractTopicChannelArtist(params.oembedAuthor)
+  if (topicArtist && track.trim() && topicArtist !== rough.artist) {
     candidates.push({
-      artist: params.oembedAuthor.trim(),
-      track: simplifyTrackName(rough.track),
+      artist: topicArtist,
+      track,
+      source: "oembed",
+      confidence: 0,
+    })
+  }
+
+  const channelArtist = params.oembedAuthor?.trim()
+    ? stripChannelSuffix(params.oembedAuthor)
+    : ""
+  if (
+    channelArtist &&
+    track.trim() &&
+    channelArtist !== rough.artist &&
+    channelArtist !== topicArtist
+  ) {
+    candidates.push({
+      artist: channelArtist,
+      track,
       source: "oembed",
       confidence: 0,
     })
@@ -218,24 +253,34 @@ export async function resolveTrackMetadata(
   const rough =
     params.roughArtist != null || params.roughTrack != null
       ? { artist: params.roughArtist ?? "", track: params.roughTrack ?? "" }
-      : parseTrackTitle(params.title)
+      : parseTrackTitle(params.title, params.oembedAuthor)
 
   const searchTrack = simplifyTrackName(rough.track) || rough.track
-  const searchArtist = rough.artist
+  const topicArtist = extractTopicChannelArtist(params.oembedAuthor)
+  const searchArtist = rough.artist || topicArtist || ""
   const freeText = [searchArtist, searchTrack].filter(Boolean).join(" ")
+  const altFreeText =
+    topicArtist && topicArtist !== searchArtist
+      ? [topicArtist, searchTrack].filter(Boolean).join(" ")
+      : ""
 
-  const [spotify, musicbrainz, deezer, itunes] = await Promise.allSettled([
-    fetchSpotifyCandidates(searchArtist, searchTrack),
-    fetchMusicBrainzCandidates(searchArtist, searchTrack),
-    freeText ? fetchDeezerCandidates(freeText) : Promise.resolve([]),
-    freeText ? fetchItunesCandidates(freeText) : Promise.resolve([]),
-  ])
+  const [spotify, musicbrainz, deezer, itunes, altDeezer, altItunes] =
+    await Promise.allSettled([
+      fetchSpotifyCandidates(searchArtist, searchTrack),
+      fetchMusicBrainzCandidates(searchArtist, searchTrack),
+      freeText ? fetchDeezerCandidates(freeText) : Promise.resolve([]),
+      freeText ? fetchItunesCandidates(freeText) : Promise.resolve([]),
+      altFreeText ? fetchDeezerCandidates(altFreeText) : Promise.resolve([]),
+      altFreeText ? fetchItunesCandidates(altFreeText) : Promise.resolve([]),
+    ])
 
   const all: MetadataCandidate[] = [
     ...(spotify.status === "fulfilled" ? spotify.value : []),
     ...(musicbrainz.status === "fulfilled" ? musicbrainz.value : []),
     ...(deezer.status === "fulfilled" ? deezer.value : []),
     ...(itunes.status === "fulfilled" ? itunes.value : []),
+    ...(altDeezer.status === "fulfilled" ? altDeezer.value : []),
+    ...(altItunes.status === "fulfilled" ? altItunes.value : []),
     ...buildParseFallback({ ...params, roughArtist: rough.artist, roughTrack: rough.track }),
   ]
 

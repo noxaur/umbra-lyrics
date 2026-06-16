@@ -13,15 +13,41 @@ const LEADING_PROMO_RE =
 const FEAT_RE =
   /\s*[\(\[]?\s*(?:feat\.?|ft\.?|featuring)\s+[^\)\]]+[\)\]]?\s*$/i
 const REMIX_RE =
-  /\s*[\(\[]?\s*(?:remix|mix|ver\.?|version|edit|instrumental)\s*[^\)\]]*[\)\]]?\s*$/i
+  /\s*[\(\[]?\s*\b(?:remix|mix|ver\.|version|edit|instrumental)\b[^\)\]]*[\)\]]?\s*$/i
+
+/** YouTube auto-generated channels: "Artist - Topic", "Artist - VEVO", etc. */
+const CHANNEL_SUFFIX_RE = /\s*-\s*(?:topic|vevo|records|official\s+channel)\s*$/i
+const TRAILING_TOPIC_RE = /\s*-\s*topic\s*$/i
+
+const TRAILING_PROMO_RE =
+  /\s+(?:music\s+video|official\s+(?:music\s+)?video|lyrics?\s+video|lyric\s+video|audio|visualizer|mv|amv|mad)\s*$/i
+
+/** Strip YouTube channel suffixes from titles and author names. */
+export function stripChannelSuffix(value: string): string {
+  return value
+    .replace(CHANNEL_SUFFIX_RE, "")
+    .replace(/\s+official\s*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+/** Artist from YouTube's auto-generated "Artist - Topic" channel. */
+export function extractTopicChannelArtist(oembedAuthor?: string): string | null {
+  if (!oembedAuthor?.trim()) return null
+  const match = oembedAuthor.trim().match(/^(.+?)\s*-\s*topic\s*$/i)
+  if (!match?.[1]?.trim()) return null
+  return match[1].trim()
+}
 
 export function stripDecorativeTitle(title: string): string {
   let cleaned = title
+    .replace(TRAILING_TOPIC_RE, " ")
     .replace(FULLWIDTH_BRACKET_RE, " ")
     .replace(FULLWIDTH_PAREN_RE, " ")
     .replace(CORNER_QUOTE_RE, " ")
     .replace(PAREN_SUFFIX_RE, " ")
     .replace(/\|/g, " ")
+    .replace(TRAILING_PROMO_RE, " ")
     .replace(/\s+/g, " ")
     .trim()
 
@@ -29,11 +55,13 @@ export function stripDecorativeTitle(title: string): string {
     cleaned = cleaned.replace(LEADING_PROMO_RE, "").trim()
   }
 
-  return cleaned
+  return stripChannelSuffix(cleaned)
 }
 
 export function simplifyTrackName(track: string): string {
-  return track.replace(FEAT_RE, "").replace(REMIX_RE, "").replace(/\s+/g, " ").trim()
+  return stripChannelSuffix(
+    track.replace(FEAT_RE, "").replace(REMIX_RE, "").replace(TRAILING_PROMO_RE, ""),
+  )
 }
 
 function shouldSwapTrackArtist(left: string, originalTitle: string, separator: string): boolean {
@@ -54,11 +82,7 @@ function shouldSwapForJapanese(left: string, right: string): boolean {
 }
 
 function normalizeChannelHint(author: string): string {
-  return author
-    .replace(/\s*-\s*topic$/i, "")
-    .replace(/\s*official$/i, "")
-    .trim()
-    .toLowerCase()
+  return stripChannelSuffix(author).toLowerCase()
 }
 
 /** Swap when trailing segment matches YouTube channel / oEmbed author name. */
@@ -70,13 +94,25 @@ export function shouldSwapForOEmbedAuthor(
   if (!oembedAuthor?.trim()) return false
   const hint = normalizeChannelHint(oembedAuthor)
   if (!hint) return false
-  const rightNorm = right.trim().toLowerCase()
-  const leftNorm = left.trim().toLowerCase()
-  return rightNorm.includes(hint) || hint.includes(rightNorm) || leftNorm.includes(hint)
+  const rightNorm = stripChannelSuffix(right).toLowerCase()
+  return rightNorm.includes(hint) || hint.includes(rightNorm)
 }
 
-const TRAILING_PROMO_RE =
-  /\s+(?:music\s+video|official\s+video|lyrics?\s+video|mv|amv|mad)\s*$/i
+function finalizeParsedPair(
+  pair: { artist: string; track: string },
+  oembedAuthor?: string,
+): { artist: string; track: string } {
+  let artist = stripChannelSuffix(simplifyTrackName(pair.artist))
+  let track = stripChannelSuffix(simplifyTrackName(pair.track))
+
+  if (!artist.trim()) {
+    const topicArtist = extractTopicChannelArtist(oembedAuthor)
+    if (topicArtist) artist = topicArtist
+    else if (oembedAuthor?.trim()) artist = stripChannelSuffix(oembedAuthor)
+  }
+
+  return { artist, track }
+}
 
 /** `"Song Title" by Artist` — common in Netflix / promo pipe titles. */
 function extractQuotedByArtist(title: string): { artist: string; track: string } | null {
@@ -157,22 +193,22 @@ export function parseTrackTitle(
   oembedAuthor?: string,
 ): { artist: string; track: string } {
   const fromPipe = tryPipeSegments(title)
-  if (fromPipe) return fromPipe
+  if (fromPipe) return finalizeParsedPair(fromPipe, oembedAuthor)
 
   const cleaned = stripDecorativeTitle(title)
 
   const fromQuoted =
     extractQuotedByArtist(title) ??
     extractQuotedByArtist(cleaned)
-  if (fromQuoted) return fromQuoted
+  if (fromQuoted) return finalizeParsedPair(fromQuoted, oembedAuthor)
 
   const fromArtistQuoted =
     extractArtistQuotedTrack(title) ??
     extractArtistQuotedTrack(cleaned)
-  if (fromArtistQuoted) return fromArtistQuoted
+  if (fromArtistQuoted) return finalizeParsedPair(fromArtistQuoted, oembedAuthor)
 
   const separated = parseSeparatedTitle(cleaned, title, oembedAuthor)
-  if (separated) return separated
+  if (separated) return finalizeParsedPair(separated, oembedAuthor)
 
-  return { artist: "", track: simplifyTrackName(cleaned) }
+  return finalizeParsedPair({ artist: "", track: simplifyTrackName(cleaned) }, oembedAuthor)
 }
