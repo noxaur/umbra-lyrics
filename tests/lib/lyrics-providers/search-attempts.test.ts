@@ -11,13 +11,8 @@ describe("buildSearchAttempts", () => {
       durationSec: 229,
     })
 
-    expect(attempts.map((a) => a.track)).toEqual(
-      expect.arrayContaining([
-        "Despacito (feat. Daddy Yankee)",
-        "Despacito",
-        "Despacito (feat. Daddy Yankee)",
-        "Despacito",
-      ]),
+    expect(new Set(attempts.map((a) => a.track))).toEqual(
+      new Set(["Despacito (feat. Daddy Yankee)", "Despacito"]),
     )
   })
 
