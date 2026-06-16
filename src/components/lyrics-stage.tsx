@@ -74,6 +74,7 @@ export function LyricsStage({
   const lyricsOutcome = usePlayerStore((s) => s.lyricsOutcome)
   const lyrics = usePlayerStore((s) => s.lyrics)
   const englishLines = usePlayerStore((s) => s.englishLines)
+  const romajiLines = usePlayerStore((s) => s.romajiLines)
   const displayMode = usePlayerStore((s) => s.displayMode)
   const currentTime = usePlayerStore((s) => s.currentTime)
   const syncOffsetMs = usePlayerStore((s) => s.syncOffsetMs)
@@ -523,6 +524,7 @@ export function LyricsStage({
                   ref={setLineRef(i)}
                   text={line.text}
                   words={line.words}
+                  romajiText={romajiLines[i]}
                   sectionLabel={line.sectionLabel}
                   kind={line.kind}
                   startMs={line.startMs - syncOffsetMs}

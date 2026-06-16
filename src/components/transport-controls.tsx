@@ -40,6 +40,7 @@ export function TransportControls({
   const setDisplayMode = usePlayerStore((s) => s.setDisplayMode)
   const languageCode = usePlayerStore((s) => s.languageCode)
   const englishLines = usePlayerStore((s) => s.englishLines)
+  const romajiLines = usePlayerStore((s) => s.romajiLines)
   const englishStatus = usePlayerStore((s) => s.englishStatus)
   const englishSource = usePlayerStore((s) => s.englishSource)
   const lyricsFollowMode = usePlayerStore((s) => s.lyricsFollowMode)
@@ -59,14 +60,22 @@ export function TransportControls({
   const lyricsRefreshing = status === "loading"
 
   const hasEnglish = englishLines.length > 0
+  const hasRomaji = romajiLines.length > 0
   const englishLoading = englishStatus === "loading"
   const englishFailed = englishStatus === "failed"
 
   useEffect(() => {
-    if (!hasEnglish && !englishLoading && !englishFailed && displayMode !== "native") {
+    const needsEnglish =
+      displayMode === "english" || displayMode === "both" || displayMode === "all"
+    const needsRomaji =
+      displayMode === "romaji" || displayMode === "native-romaji" || displayMode === "all"
+    if (
+      ((needsEnglish && !hasEnglish && !englishLoading && !englishFailed) ||
+        (needsRomaji && !hasRomaji))
+    ) {
       setDisplayMode("native")
     }
-  }, [hasEnglish, englishLoading, englishFailed, displayMode, setDisplayMode])
+  }, [hasEnglish, hasRomaji, englishLoading, englishFailed, displayMode, setDisplayMode])
 
   useEffect(() => {
     if (hasEnglish && englishSource === "translated" && displayMode === "native") {
@@ -77,14 +86,29 @@ export function TransportControls({
   const modes: { value: LyricDisplayMode; label: string; disabled?: boolean }[] = [
     { value: "native", label: "Native" },
     {
+      value: "romaji",
+      label: "Romaji",
+      disabled: !hasRomaji,
+    },
+    {
       value: "english",
       label: englishLoading ? "English…" : englishFailed ? "English (retry)" : "English",
       disabled: false,
     },
     {
+      value: "native-romaji",
+      label: "Native + Romaji",
+      disabled: !hasRomaji,
+    },
+    {
       value: "both",
       label: englishLoading ? "Both…" : "Both",
       disabled: englishLoading,
+    },
+    {
+      value: "all",
+      label: "All",
+      disabled: !hasRomaji || englishLoading,
     },
   ]
 

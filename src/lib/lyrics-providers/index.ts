@@ -144,10 +144,20 @@ export type MultiProviderSearchOptions = {
   params: ProviderSearchParams
   providerIds?: LyricsProviderId[]
   timeoutMs?: number
+  fallbackDelayMs?: number
   earlyExitOnDefinitiveLrclib?: boolean
   onProviderStart?: (providerId: LyricsProviderId, phase: string) => void
   onProviderComplete?: (status: ProviderSearchStatus) => void
 }
+
+const STAGED_FALLBACK_DELAY_MS = 1_200
+
+const FIRST_STAGE_PROVIDER_IDS = new Set<LyricsProviderId>([
+  "musixmatch",
+  "lrclib",
+  "megalobiz",
+  "musicbrainz",
+])
 
 /** LRCLIB synced + strong metadata match cannot be beaten by lower-priority providers. */
 export function isDefinitiveLrclibSyncedWin(
@@ -251,6 +261,135 @@ export async function searchProvidersParallel(
         }
       })()
     }
+  })
+}
+
+function buildProviderStages(providerIds: LyricsProviderId[]): LyricsProviderId[][] {
+  const firstStage = providerIds.filter((id) => FIRST_STAGE_PROVIDER_IDS.has(id))
+  const fallbackStage = providerIds.filter((id) => !FIRST_STAGE_PROVIDER_IDS.has(id))
+  return [firstStage, fallbackStage].filter((stage) => stage.length > 0)
+}
+
+export async function searchProvidersStaged(
+  options: MultiProviderSearchOptions,
+): Promise<{ candidates: ProviderLyricsCandidate[]; statuses: ProviderSearchStatus[] }> {
+  const providerIds = options.providerIds ?? PROVIDER_FALLBACK_ORDER
+  const stages = buildProviderStages(providerIds)
+  const firstStage = stages[0] ?? []
+  const fallbackStage = stages[1] ?? []
+
+  if (fallbackStage.length === 0) {
+    return searchProvidersParallel({ ...options, providerIds: firstStage })
+  }
+
+  const providersById = new Map(ALL_LYRICS_PROVIDERS.map((provider) => [provider.id, provider]))
+  const fallbackDelayMs = options.fallbackDelayMs ?? STAGED_FALLBACK_DELAY_MS
+  const candidates: ProviderLyricsCandidate[] = []
+  const statuses: ProviderSearchStatus[] = []
+
+  let firstPending = 0
+  let fallbackPending = 0
+  let fallbackFoundCandidates = false
+  let fallbackStarted = false
+  let fallbackDone = false
+  let settled = false
+
+  return new Promise((resolve) => {
+    const finish = () => {
+      if (settled) return
+
+      if (
+        !fallbackStarted &&
+        options.earlyExitOnDefinitiveLrclib !== false &&
+        isDefinitiveLrclibSyncedWin(candidates, options.params)
+      ) {
+        settled = true
+        resolve({ candidates: [...candidates], statuses: [...statuses] })
+        return
+      }
+
+      if (!fallbackStarted && firstPending === 0) {
+        startStage(fallbackStage, "fallback")
+        return
+      }
+
+      if (fallbackStarted && fallbackDone && (fallbackFoundCandidates || firstPending === 0)) {
+        settled = true
+        resolve({ candidates: [...candidates], statuses: [...statuses] })
+      }
+    }
+
+    const recordStatus = (status: ProviderSearchStatus) => {
+      if (settled) return
+      statuses.push(status)
+      options.onProviderComplete?.(status)
+    }
+
+    const startStage = (ids: LyricsProviderId[], stage: "first" | "fallback") => {
+      if (stage === "fallback") {
+        if (fallbackStarted) return
+        fallbackStarted = true
+        fallbackPending = ids.length
+        if (fallbackPending === 0) {
+          fallbackDone = true
+          finish()
+          return
+        }
+      } else {
+        firstPending = ids.length
+      }
+
+      for (const id of ids) {
+        const provider = providersById.get(id)
+        if (!provider) {
+          if (stage === "first") firstPending -= 1
+          else fallbackPending -= 1
+          continue
+        }
+
+        options.onProviderStart?.(provider.id, provider.searchPhase)
+        void (async () => {
+          const providerTimeout = options.timeoutMs ?? providerTimeoutMs(provider.id)
+          try {
+            const providerCandidates = await searchOneProvider(
+              provider,
+              options.params,
+              providerTimeout,
+            )
+            if (stage === "fallback" && providerCandidates.length > 0) {
+              fallbackFoundCandidates = true
+            }
+            if (!settled) candidates.push(...providerCandidates)
+            recordStatus({
+              providerId: provider.id,
+              outcome: providerCandidates.length > 0 ? "found" : "empty",
+              candidateCount: providerCandidates.length,
+            })
+          } catch (error) {
+            const outcome: ProviderSearchOutcome =
+              error instanceof Error && error.message === "timeout" ? "timeout" : "error"
+            recordStatus({
+              providerId: provider.id,
+              outcome,
+              candidateCount: 0,
+              message: error instanceof Error ? error.message : "Unknown error",
+            })
+          } finally {
+            if (stage === "first") firstPending -= 1
+            else {
+              fallbackPending -= 1
+              fallbackDone = fallbackPending === 0
+            }
+            finish()
+          }
+        })()
+      }
+    }
+
+    startStage(firstStage, "first")
+    setTimeout(() => {
+      if (!settled && !fallbackStarted) startStage(fallbackStage, "fallback")
+    }, fallbackDelayMs)
   })
 }
 

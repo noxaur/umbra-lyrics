@@ -16,7 +16,7 @@ import {
   pickBestHit,
   PROVIDER_FALLBACK_ORDER,
   rankCandidatesWithParams,
-  searchProvidersParallel,
+  searchProvidersStaged,
   type ProviderSearchStatus,
 } from "@/lib/lyrics-providers/index"
 import { pickBestAndAlternates } from "@/lib/lyrics-ranking"
@@ -185,7 +185,7 @@ export async function orchestrateLyricsSearch(
   report(`Searching ${providerIds.length} sources…`, "search")
 
   const [{ candidates, statuses }, sampleTranscript] = await Promise.all([
-    searchProvidersParallel({
+    searchProvidersStaged({
       params: providerParams,
       providerIds,
       onProviderStart: (providerId) => {

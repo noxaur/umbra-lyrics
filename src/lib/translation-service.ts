@@ -15,6 +15,7 @@ export const TRANSLATION_BACKEND_ORDER: TranslationBackend[] = [
   "mymemory",
   "libretranslate",
 ]
+export const TRANSLATION_BACKEND_TIMEOUT_MS = 4_000
 
 export type TranslateLinesResult = {
   lines: string[]
@@ -29,6 +30,15 @@ type TranslatorInstance = {
 /** Unlikely to appear in song lyrics; keeps line boundaries through bulk APIs. */
 export const LINE_BREAK_SENTINEL = "\n[[[SONG_KARA_LINE]]]\n"
 const SENTINEL_SPLIT_RE = /\[\[\[SONG_KARA_LINE\]\]\]/
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => {
+      setTimeout(() => resolve(null), timeoutMs)
+    }),
+  ])
+}
 
 async function browserTranslate(lines: string[], sourceLang: string): Promise<string[] | null> {
   if (!window.Translator) return null
@@ -233,9 +243,15 @@ export async function translateLinesWithFallback(
     let translated: string[] | null = null
 
     if (backend === "browser") {
-      translated = await browserTranslate(lines, options.sourceLang)
+      translated = await withTimeout(
+        browserTranslate(lines, options.sourceLang),
+        TRANSLATION_BACKEND_TIMEOUT_MS,
+      )
     } else {
-      translated = await BACKEND_FN[backend](lines, options.sourceLang)
+      translated = await withTimeout(
+        BACKEND_FN[backend](lines, options.sourceLang),
+        TRANSLATION_BACKEND_TIMEOUT_MS,
+      )
     }
 
     if (!translated?.some((l) => l.trim())) continue

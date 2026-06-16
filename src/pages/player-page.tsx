@@ -23,6 +23,7 @@ import {
 } from "@/lib/lyrics-pipeline"
 import { getLyricsCache, reparseCachedLyrics, setLyricsCache } from "@/lib/lyrics-cache"
 import { detectLanguage, inferPreferredLanguage, isEnglish, resolveTranslationSourceLang, type LyricsLanguageMeta } from "@/lib/language-service"
+import { buildRomajiLines, type RomajiLyricsResult } from "@/lib/romaji-service"
 import { prepareLyricsText } from "@/lib/prepare-lyrics-text"
 import { translateLinesWithFallback } from "@/lib/translation-service"
 import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
@@ -113,6 +114,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const setMeta = usePlayerStore((s) => s.setMeta)
   const setLyrics = usePlayerStore((s) => s.setLyrics)
   const setEnglishLines = usePlayerStore((s) => s.setEnglishLines)
+  const setRomajiLines = usePlayerStore((s) => s.setRomajiLines)
   const setLanguageCode = usePlayerStore((s) => s.setLanguageCode)
   const setDisplayMode = usePlayerStore((s) => s.setDisplayMode)
   const setLyricsOutcome = usePlayerStore((s) => s.setLyricsOutcome)
@@ -233,6 +235,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     setStatus("idle")
     setLyrics([], true, null)
     setEnglishLines([])
+    setRomajiLines([])
     setMeta({ title: "", artist: "", track: "" })
     setLoadedFromCache(false)
     setLrclibTrackId(null)
@@ -258,6 +261,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         cached.translationBackend ?? null,
         cached.englishStatus ?? (cached.englishLines.length > 0 ? "ready" : null),
       )
+      setRomajiLines(cached.romajiLines ?? [], cached.romajiStatus ?? null)
       setLanguageCode(cached.languageCode)
       setLyricsAlternates(cached.alternates ?? [])
       setLrclibTrackId(
@@ -285,6 +289,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     setStatus,
     setLyrics,
     setEnglishLines,
+    setRomajiLines,
     setMeta,
     setLanguageCode,
     setLrclibTrackId,
@@ -394,6 +399,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       fromCache = false,
       preResolvedEnglish?: EnglishLyricsResult,
       pipelineHandlesEnglish = false,
+      preResolvedRomaji?: RomajiLyricsResult,
     ) => {
       setLyrics(
         parsed.lines,
@@ -406,6 +412,23 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       setLyricsSearchPhase(source === "pasted" ? "Using pasted lyrics" : "Ready")
       setLyricsSearchStep("ready")
       if (fromCache) setLoadedFromCache(true)
+      const languageMeta: LyricsLanguageMeta = {
+        title: meta.title,
+        artist: meta.artist,
+        track: meta.track,
+        oembedAuthor: oembedAuthorRef.current ?? undefined,
+        preferredLanguage: inferPreferredLanguage({
+          title: meta.title,
+          artist: meta.artist,
+          track: meta.track,
+          oembedAuthor: oembedAuthorRef.current ?? undefined,
+        }),
+      }
+      const language = detectLanguage(sample || parsed.lines.map((l) => l.text).join("\n"), languageMeta)
+      const romaji =
+        preResolvedRomaji ??
+        buildRomajiLines(parsed.lines.map((line) => line.text), { language })
+      setRomajiLines(romaji.lines, romaji.status)
       addRecentSong({
         videoId,
         title: meta.title || meta.track,
@@ -414,7 +437,13 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       })
       void enrichRecentSongEnglish(videoId)
       setStatus("ready")
-      if (cachePayload) setLyricsCache(cachePayload)
+      if (cachePayload) {
+        setLyricsCache({
+          ...cachePayload,
+          romajiLines: romaji.lines,
+          romajiStatus: romaji.status,
+        })
+      }
       if (preResolvedEnglish) {
         applyEnglishResult(preResolvedEnglish, parsed.lines.map((l) => l.text), sample)
       } else if (!pipelineHandlesEnglish && !cachePayload?.englishLines?.length) {
@@ -437,6 +466,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       setLoadedFromCache,
       ensureEnglishLyrics,
       applyEnglishResult,
+      setRomajiLines,
     ],
   )
 
@@ -712,6 +742,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         false,
         preResolvedEnglish,
         pipelineHandlesEnglish,
+        undefined,
       )
 
       if (!parsed.synced && parsed.lines.length > 0) {
