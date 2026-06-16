@@ -85,7 +85,8 @@ describe("handoff-demo parity (lyrics stage structure)", () => {
     expect(stage.className).toContain("scroll-py-10")
     expect(stage.className).toContain("max-h-[min(100%,calc(5*4.25rem+4rem))]")
     expect(inner?.className).toContain("gap-[0.65rem]")
-    expect(inner?.parentElement?.className).toContain("max-w-xl")
+    expect(inner?.className).toContain("max-w-xl")
+    expect(getComputedStyle(stage).perspective).toBe("1200px")
 
     expect(active?.className).toContain("text-karaoke-active-line")
     expect(inactive?.className).toContain("text-karaoke-ink")

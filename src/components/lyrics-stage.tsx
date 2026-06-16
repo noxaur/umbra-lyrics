@@ -454,6 +454,7 @@ export function LyricsStage({
       className={cnStage(tvMode)}
       data-tv-mode={tvMode ? "true" : undefined}
       data-lyrics-follow={lyricsFollowMode}
+      style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
     >
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {activeLineText}
@@ -511,13 +512,9 @@ export function LyricsStage({
       ) : (
         <MotionConfig reducedMotion="user">
           <div
-            className="mx-auto w-full max-w-xl overflow-x-clip overflow-y-visible"
-            style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
+            className="mx-auto flex w-full max-w-xl flex-col gap-[0.65rem]"
+            style={{ transformStyle: "preserve-3d" }}
           >
-            <div
-              className="flex flex-col gap-[0.65rem]"
-              style={{ transformStyle: "preserve-3d" }}
-            >
               <div aria-hidden className="shrink-0" style={{ height: edgeSpacerPx }} />
               {lyrics.map((line, i) => (
                 <LyricLine
@@ -544,7 +541,6 @@ export function LyricsStage({
                 />
               ))}
               <div aria-hidden className="shrink-0" style={{ height: edgeSpacerPx }} />
-            </div>
           </div>
         </MotionConfig>
       )}
