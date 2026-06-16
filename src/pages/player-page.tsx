@@ -18,7 +18,7 @@ import { resolveEnglishLyrics } from "@/lib/english-lyrics-service"
 import type { EnglishLyricsResult } from "@/lib/english-lyrics-service"
 import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
 import { getLyricsCache, reparseCachedLyrics, setLyricsCache } from "@/lib/lyrics-cache"
-import { detectLanguage, inferPreferredLanguage, isEnglish } from "@/lib/language-service"
+import { detectLanguage, inferPreferredLanguage, isEnglish, resolveTranslationSourceLang, type LyricsLanguageMeta } from "@/lib/language-service"
 import { prepareLyricsText } from "@/lib/prepare-lyrics-text"
 import { translateLinesWithFallback } from "@/lib/translation-service"
 import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
@@ -115,6 +115,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const bindControls = usePlayerStore((s) => s.bindControls)
   const languageCode = usePlayerStore((s) => s.languageCode)
   const englishLines = usePlayerStore((s) => s.englishLines)
+  const englishStatus = usePlayerStore((s) => s.englishStatus)
   const lyrics = usePlayerStore((s) => s.lyrics)
   const resetSyncOffset = usePlayerStore((s) => s.resetSyncOffset)
   const setSyncOffset = usePlayerStore((s) => s.setSyncOffset)
@@ -224,11 +225,26 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
   const applyEnglishResult = useCallback(
     (english: EnglishLyricsResult | undefined, nativeLines: string[], sample: string) => {
-      const lang = detectLanguage(sample || nativeLines.join("\n"))
+      const languageMeta: LyricsLanguageMeta = {
+        title: usePlayerStore.getState().title,
+        artist: usePlayerStore.getState().artist,
+        track: usePlayerStore.getState().track,
+        oembedAuthor: oembedAuthorRef.current ?? undefined,
+        preferredLanguage: inferPreferredLanguage({
+          title: usePlayerStore.getState().title,
+          artist: usePlayerStore.getState().artist,
+          track: usePlayerStore.getState().track,
+          oembedAuthor: oembedAuthorRef.current ?? undefined,
+        }),
+      }
+      const lang = detectLanguage(sample || nativeLines.join("\n"), languageMeta)
       setLanguageCode(lang)
 
       if (!english || english.status === "skipped") {
         setEnglishStatus("skipped")
+        if (english?.lines.length) {
+          setEnglishLines(english.lines, "found", null, "skipped")
+        }
         return
       }
 
@@ -255,13 +271,27 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       sample: string,
     ) => {
       setEnglishStatus("loading")
+      const languageMeta: LyricsLanguageMeta = {
+        title: usePlayerStore.getState().title,
+        artist,
+        track,
+        oembedAuthor: oembedAuthorRef.current ?? undefined,
+        preferredLanguage: inferPreferredLanguage({
+          title: usePlayerStore.getState().title,
+          artist,
+          track,
+          oembedAuthor: oembedAuthorRef.current ?? undefined,
+        }),
+      }
+      const sampleText = sample || nativeLines.join("\n")
       const english = await resolveEnglishLyrics({
         track,
         artist,
         nativeLines,
-        language: detectLanguage(sample || nativeLines.join("\n")),
+        language: detectLanguage(sampleText, languageMeta),
         durationSec,
         videoId,
+        metadata: languageMeta,
         onProgress: (phase) => setLyricsSearchPhase(phase),
       })
       applyEnglishResult(english, nativeLines, sample)
@@ -976,12 +1006,30 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   )
 
   const handleTranslate = async () => {
+    const { title, artist, track } = usePlayerStore.getState()
+    const languageMeta: LyricsLanguageMeta = {
+      title,
+      artist,
+      track,
+      oembedAuthor: oembedAuthorRef.current ?? undefined,
+      preferredLanguage: inferPreferredLanguage({
+        title,
+        artist,
+        track,
+        oembedAuthor: oembedAuthorRef.current ?? undefined,
+      }),
+    }
+    const nativeText = lyrics.map((l) => l.text).join("\n")
     const result = await translateLinesWithFallback(
       lyrics.map((l) => l.text),
-      { sourceLang: languageCode, videoId },
+      {
+        sourceLang: resolveTranslationSourceLang(nativeText, languageMeta),
+        videoId,
+        mandatory: true,
+      },
     )
     if (!result) return
-    setEnglishLines(result.lines, "translated", result.backend)
+    setEnglishLines(result.lines, "translated", result.backend, "ready")
     setDisplayMode("both")
     const cached = getLyricsCache(videoId)
     if (cached) {
@@ -990,6 +1038,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         englishLines: result.lines,
         englishSource: "translated",
         translationBackend: result.backend,
+        englishStatus: "ready",
       })
     }
   }
@@ -1069,7 +1118,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
                 showTranslate={
                   !isEnglish(languageCode) &&
                   englishLines.length === 0 &&
-                  (available || translating)
+                  lyrics.length > 0 &&
+                  (available || translating || englishStatus === "failed")
                 }
               />
             )}

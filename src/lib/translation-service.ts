@@ -1,5 +1,5 @@
 import { proxyFetch } from "@/lib/lyrics-providers/api-base"
-import { francToBcp47, toLangPair } from "@/lib/language-service"
+import { francToBcp47, toLangPair, toTranslationSourceCode } from "@/lib/language-service"
 import {
   canRequestTranslation,
   getTranslationCache,
@@ -28,8 +28,8 @@ type TranslatorInstance = {
 
 async function browserTranslate(lines: string[], sourceLang: string): Promise<string[] | null> {
   if (!window.Translator) return null
-  const source = francToBcp47(sourceLang)
-  if (source === "en") return null
+  const source = toTranslationSourceCode(sourceLang)
+  if (source === "en" || source === "auto") return null
 
   try {
     const status = await window.Translator.availability({
@@ -60,7 +60,7 @@ async function libreTranslate(lines: string[], sourceLang: string): Promise<stri
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       q: text,
-      source: francToBcp47(sourceLang),
+      source: toTranslationSourceCode(sourceLang),
       target: "en",
     }),
   })
@@ -89,7 +89,7 @@ async function googleTranslate(lines: string[], sourceLang: string): Promise<str
   const text = lines.join("\n")
   const q = new URLSearchParams({
     q: text,
-    sl: francToBcp47(sourceLang),
+    sl: toTranslationSourceCode(sourceLang),
     tl: "en",
   })
   const res = await proxyFetch(`/api/translate/google?${q}`)
@@ -138,7 +138,7 @@ export async function translateLinesWithFallback(
   const nonEmpty = lines.some((l) => l.trim())
   if (!nonEmpty) return null
 
-  const sourceLang = francToBcp47(options.sourceLang)
+  const sourceLang = toTranslationSourceCode(options.sourceLang)
   if (sourceLang === "en") return null
 
   const videoId = options.videoId ?? ""
