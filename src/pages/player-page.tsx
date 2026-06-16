@@ -16,8 +16,11 @@ import { parseLrc, parsePlainLyrics } from "@/lib/lrc-parser"
 import { resolveTrackMetadata } from "@/lib/track-metadata-resolver"
 import { resolveEnglishLyrics } from "@/lib/english-lyrics-service"
 import type { EnglishLyricsResult } from "@/lib/english-lyrics-service"
-import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
-import { runLyricsPipeline, lyricsResultSampleText } from "@/lib/lyrics-pipeline"
+import {
+  runLyricsPipeline,
+  lyricsResultSampleText,
+  lyricsResultToNativeLines,
+} from "@/lib/lyrics-pipeline"
 import { getLyricsCache, reparseCachedLyrics, setLyricsCache } from "@/lib/lyrics-cache"
 import { detectLanguage, inferPreferredLanguage, isEnglish, resolveTranslationSourceLang, type LyricsLanguageMeta } from "@/lib/language-service"
 import { prepareLyricsText } from "@/lib/prepare-lyrics-text"
@@ -865,7 +868,10 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             if (providersTried) setLyricsProvidersSearched(providersTried)
             if (retryRound) setNetworkRetryCount(retryRound)
           },
-          onEnglishProgress: (phase) => setLyricsSearchPhase(phase),
+          onEnglishProgress: (phase) => {
+            if (isStale()) return
+            setLyricsSearchPhase(phase)
+          },
           onNativeReady: (nativeResult) => {
             if (isStale()) return
             if (!nativeResult.lyrics) return
@@ -909,15 +915,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
         if ((result.status === "found" || result.status === "instrumental") && result.lyrics) {
           const sample =
-            pipelineEnglishSample ||
-            result.lyrics.plainLyrics ||
-            result.lyrics.syncedLyrics ||
-            ""
-          const nativeLines = sample
-            .replace(/\[[\d:.]+\]/g, "")
-            .split("\n")
-            .filter(Boolean)
-          setEnglishStatus("loading")
+            pipelineEnglishSample || lyricsResultSampleText(result.lyrics)
+          const nativeLines = lyricsResultToNativeLines(result.lyrics)
           applyEnglishResult(english, nativeLines, sample)
 
           const cached = getLyricsCache(videoId)

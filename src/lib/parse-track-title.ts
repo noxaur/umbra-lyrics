@@ -87,7 +87,7 @@ function normalizeChannelHint(author: string): string {
 
 /** Swap when trailing segment matches YouTube channel / oEmbed author name. */
 export function shouldSwapForOEmbedAuthor(
-  left: string,
+  _left: string,
   right: string,
   oembedAuthor?: string,
 ): boolean {
