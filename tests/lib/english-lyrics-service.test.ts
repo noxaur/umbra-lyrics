@@ -165,4 +165,58 @@ describe("resolveEnglishLyrics", () => {
     expect(result.lines).toHaveLength(3)
     expect(result.lines[1]).toBe("")
   })
+
+  it("prefetches raw English candidates from providers", async () => {
+    mockSearch.mockResolvedValue({
+      id: 1,
+      providerId: "lrclib",
+      plainLyrics: "Line one\nLine two",
+      syncedLyrics: null,
+    })
+
+    const { prefetchEnglishCandidates } = await import("@/lib/english-lyrics-service")
+    const candidates = await prefetchEnglishCandidates("別世界", "天音かなた", 200)
+    expect(candidates.length).toBeGreaterThan(0)
+    expect(candidates[0].providerId).toBe("lrclib")
+  })
+
+  it("searches English providers in parallel", async () => {
+    const { lyricstranslateProvider } = await import("@/lib/lyrics-providers/lyricstranslate-provider")
+    const { musixmatchProvider } = await import("@/lib/lyrics-providers/musixmatch-provider")
+    const ltSearch = vi.mocked(lyricstranslateProvider.search)
+    const mmSearch = vi.mocked(musixmatchProvider.search)
+
+    let inFlight = 0
+    let maxInFlight = 0
+    const track = async <T>(fn: () => Promise<T>) => {
+      inFlight += 1
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      inFlight -= 1
+      return fn()
+    }
+
+    mockSearch.mockImplementation(() =>
+      track(async () => ({
+        id: 1,
+        providerId: "lrclib" as const,
+        plainLyrics: "Line one\nLine two",
+        syncedLyrics: null,
+      })),
+    )
+    ltSearch.mockImplementation(() => track(async () => []))
+    mmSearch.mockImplementation(() => track(async () => []))
+
+    const result = await resolveEnglishLyrics({
+      track: "別世界",
+      artist: "天音かなた",
+      nativeLines: ["別の世界へ", "遠い空"],
+      language: "ja",
+      durationSec: 200,
+      metadata: jpMeta,
+    })
+
+    expect(result.status).toBe("ready")
+    expect(maxInFlight).toBeGreaterThan(1)
+  })
 })

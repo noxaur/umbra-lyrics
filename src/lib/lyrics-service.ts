@@ -254,7 +254,7 @@ export async function searchEnglishLyrics(
     { track, artist: `${artist} english` },
   ]
 
-  for (const { track: searchTrack, artist: searchArtist } of strategies) {
+  async function tryStrategy(searchTrack: string, searchArtist: string): Promise<LyricsResult | null> {
     const results = await collectSearchResults({
       track: searchTrack,
       artist: searchArtist,
@@ -262,9 +262,9 @@ export async function searchEnglishLyrics(
       durationSec,
     })
     const match = preferEnglishTitledMatch(results, durationSec, artist, track)
-    if (!match || !hasLyrics(match)) continue
-    if (artistMatchScore(match, artist) >= 80 && artist.trim()) continue
-    if (trackMatchScore(match, track) >= 80 && track.trim()) continue
+    if (!match || !hasLyrics(match)) return null
+    if (artistMatchScore(match, artist) >= 80 && artist.trim()) return null
+    if (trackMatchScore(match, track) >= 80 && track.trim()) return null
 
     const byMetadata = await fetchLyricsByMetadata(match)
     const candidate =
@@ -274,6 +274,17 @@ export async function searchEnglishLyrics(
 
     const plain = candidate.plainLyrics?.trim() ?? ""
     if (plain && looksLikeEnglishLyrics(plain)) return candidate
+    return null
+  }
+
+  const settled = await Promise.allSettled(
+    strategies.map(({ track: searchTrack, artist: searchArtist }) =>
+      tryStrategy(searchTrack, searchArtist),
+    ),
+  )
+
+  for (const outcome of settled) {
+    if (outcome.status === "fulfilled" && outcome.value) return outcome.value
   }
 
   const queryResults = await searchByQuery(`${artist} ${track} english`.trim())

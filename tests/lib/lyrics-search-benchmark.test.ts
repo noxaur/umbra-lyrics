@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { beforeAll, describe, expect, it, vi } from "vitest"
-import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
+import { runLyricsPipeline } from "@/lib/lyrics-pipeline"
 import { fetchLyrics } from "@/lib/lyrics-service"
 import { pickBestCandidate, scoreCandidate } from "@/lib/lyrics-providers/match-utils"
 
@@ -219,24 +219,24 @@ describe.runIf(runLive)("lyrics search live benchmark", () => {
       const results: Array<Record<string, unknown>> = []
 
       for (const track of englishTracks) {
-        const t0 = performance.now()
-        const result = await orchestrateLyricsSearch({
+        const result = await runLyricsPipeline({
           track: track.track,
           artist: track.artist,
           title: track.title,
           durationSec: track.durationSec ?? DURATION_BY_VIDEO[track.videoId] ?? 200,
           providerIds: ["lrclib"],
         })
-        const elapsedMs = Math.round(performance.now() - t0)
-        const text = `${result.lyrics?.plainLyrics ?? ""}\n${result.lyrics?.syncedLyrics ?? ""}`.toLowerCase()
+        const elapsedMs = result.timings.parallelMs
+        const text = `${result.native.lyrics?.plainLyrics ?? ""}\n${result.native.lyrics?.syncedLyrics ?? ""}`.toLowerCase()
         const ok = track.mustContain.every((needle) => text.includes(needle.toLowerCase()))
 
         results.push({
           videoId: track.videoId,
           elapsedMs,
-          status: result.status,
-          providerId: result.providerId,
-          synced: result.synced,
+          status: result.native.status,
+          providerId: result.native.providerId,
+          synced: result.native.synced,
+          englishStatus: result.english.status,
           ok,
         })
       }
@@ -245,5 +245,55 @@ describe.runIf(runLive)("lyrics search live benchmark", () => {
       expect(results.every((r) => r.ok)).toBe(true)
     },
     90_000,
+  )
+
+  it(
+    "dual-track pipeline fetches native and English with timing",
+    async () => {
+      const track = LIVE_BENCHMARK_TRACKS.find((t) => t.videoId === "Ktk_EDLDPeY")
+      expect(track).toBeDefined()
+
+      const pipeline = await runLyricsPipeline({
+        track: track!.track,
+        artist: track!.artist,
+        title: track!.title,
+        durationSec: DURATION_BY_VIDEO[track!.videoId],
+        providerIds: ["lrclib"],
+      })
+
+      const nativeText = `${pipeline.native.lyrics?.plainLyrics ?? ""}\n${pipeline.native.lyrics?.syncedLyrics ?? ""}`
+      const englishText = pipeline.english.lines.join("\n")
+
+      console.log(
+        JSON.stringify(
+          {
+            benchmark: "dual-track-pipeline",
+            videoId: track!.videoId,
+            timings: pipeline.timings,
+            nativeStatus: pipeline.native.status,
+            englishStatus: pipeline.english.status,
+            nativeOk: track!.mustContain.every((needle) =>
+              nativeText.toLowerCase().includes(needle.toLowerCase()),
+            ),
+            englishReady: pipeline.english.status === "ready" || pipeline.english.status === "skipped",
+          },
+          null,
+          2,
+        ),
+      )
+
+      expect(pipeline.native.status).toBe("found")
+      expect(pipeline.english.status).toMatch(/ready|skipped/)
+      expect(pipeline.timings.parallelMs).toBeLessThan(
+        pipeline.timings.nativeMs + pipeline.timings.englishMs + 500,
+      )
+      expect(
+        track!.mustContain.every((needle) => nativeText.toLowerCase().includes(needle.toLowerCase())),
+      ).toBe(true)
+      if (pipeline.english.status === "ready") {
+        expect(englishText.trim().length).toBeGreaterThan(0)
+      }
+    },
+    120_000,
   )
 })
