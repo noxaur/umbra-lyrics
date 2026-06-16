@@ -178,26 +178,30 @@ async function fetchPlaylistViaWatchUrl(
   }
 }
 
+const UNVIEWABLE_PLAYLIST_MESSAGE =
+  "This mix playlist cannot be imported. Open it on YouTube and copy a standard playlist link (list=PL…)."
+
 export async function fetchPlaylistViaInnertube(
   playlistId: string,
   limit: number,
   options: FetchPlaylistOptions = {},
 ): Promise<PlaylistImportResult> {
-  const yt = await createInnertube(ClientType.WEB)
   const normalizedId = normalizePlaylistId(playlistId)
   const sourceUrl = options.sourceUrl?.trim()
 
-  if (sourceUrl && isWatchPlaylistUrl(sourceUrl)) {
+  if (isUnviewablePlaylistId(normalizedId)) {
+    throw new Error(UNVIEWABLE_PLAYLIST_MESSAGE)
+  }
+
+  const yt = await createInnertube(ClientType.WEB)
+
+  if (sourceUrl && isWatchPlaylistUrl(sourceUrl) && !normalizedId.startsWith("PL")) {
     try {
       const fromWatch = await fetchPlaylistViaWatchUrl(yt, sourceUrl, normalizedId, limit)
       if (fromWatch && fromWatch.items.length > 0) return fromWatch
     } catch {
       // Watch-page panel unavailable; fall back to playlist browse when allowed.
     }
-  }
-
-  if (isUnviewablePlaylistId(normalizedId)) {
-    throw new Error("This mix playlist cannot be imported. Open it on YouTube and copy a standard playlist link (list=PL…).")
   }
 
   try {
