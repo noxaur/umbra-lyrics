@@ -259,7 +259,7 @@ describe("orchestrateLyricsSearch", () => {
                 artistName: "Artist",
                 duration: 200,
                 plainLyrics: "Lrc line one\nTwo\nThree\nFour",
-                syncedLyrics: "[00:00.00] Lrc line one\n[00:05.00] Two\n[00:10.00] Three\n[00:15.00] Four",
+                syncedLyrics: null,
               },
             ]),
             { status: 200 },
@@ -270,7 +270,7 @@ describe("orchestrateLyricsSearch", () => {
             JSON.stringify({
               id: 1,
               plainLyrics: "Lrc line one\nTwo\nThree\nFour",
-              syncedLyrics: "[00:00.00] Lrc line one\n[00:05.00] Two\n[00:10.00] Three\n[00:15.00] Four",
+              syncedLyrics: null,
             }),
             { status: 200 },
           )
