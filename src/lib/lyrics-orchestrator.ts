@@ -378,18 +378,6 @@ export async function orchestrateLyricsSearch(
         ? " (verified against audio)"
         : ""
 
-    report("Fetching English lyrics…", "search")
-
-    const nativeLines = (lyrics.plainLyrics ?? lyrics.syncedLyrics ?? "")
-      .replace(/\[[\d:.]+\]/g, "")
-      .split("\n")
-      .filter(Boolean)
-    const english = await resolveEnglishForNativeLines(
-      params,
-      nativeLines,
-      (phase) => report(phase, "search"),
-    )
-
     report(
       altCount > 0
         ? `Used ${providerLabel}${verifiedLabel} (${altCount} alternative${altCount === 1 ? "" : "s"} found)`
@@ -413,7 +401,6 @@ export async function orchestrateLyricsSearch(
         verificationScore: bestVerification?.score,
         contentAssessment,
         transcriptProfile: transcriptProfile ?? undefined,
-        english,
         message:
           altCount > 0
             ? `Used ${providerLabel}${verifiedLabel} (${altCount} alternative${altCount === 1 ? "" : "s"} found)`
@@ -448,19 +435,10 @@ export async function orchestrateLyricsSearch(
     report(phase, "search"),
   )
   if (metadataHit?.lyrics) {
-    const nativeLines = (metadataHit.lyrics.plainLyrics ?? metadataHit.lyrics.syncedLyrics ?? "")
-      .replace(/\[[\d:.]+\]/g, "")
-      .split("\n")
-      .filter(Boolean)
-    const english = await resolveEnglishForNativeLines(
-      params,
-      nativeLines,
-      (phase) => report(phase, "search"),
-    )
     report(metadataHit.synced ? "Found synced lyrics" : "Found plain lyrics", "ready", {
       provider: metadataHit.providerId,
     })
-    return { ...metadataHit, english, contentAssessment, transcriptProfile: transcriptProfile ?? undefined }
+    return { ...metadataHit, contentAssessment, transcriptProfile: transcriptProfile ?? undefined }
   }
 
   const anyFound = statuses.some((s) => s.outcome === "found")
