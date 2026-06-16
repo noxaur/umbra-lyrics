@@ -177,9 +177,8 @@ export function LyricsStage({
       if (!element || !container || activeIndex < 0) return
 
       if (ease && !reducedMotion) {
-        programmaticScrollRef.current = true
+        beginProgrammaticScroll(LYRICS_RESYNC_SNAP_MS)
         scrollLineToCenterEase(element, container, LYRICS_RESYNC_SNAP_MS)
-        window.setTimeout(finishProgrammaticScroll, LYRICS_RESYNC_SNAP_MS + 32)
         return
       }
 
