@@ -33,6 +33,7 @@ export function withSecurityHeaders(response: Response, includeIsolation = false
 export function httpsRedirect(request: Request): Response | null {
   const url = new URL(request.url)
   if (url.protocol !== "http:") return null
+  if (url.pathname.startsWith("/api/")) return null
   url.protocol = "https:"
   return Response.redirect(url.toString(), 301)
 }
