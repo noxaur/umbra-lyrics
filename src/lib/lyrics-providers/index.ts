@@ -7,6 +7,7 @@ import {
   RANK_WEIGHTS,
 } from "@/lib/lyrics-ranking"
 import { hasLyricsText, pickBestCandidate, scoreCandidate } from "@/lib/lyrics-providers/match-utils"
+import { musixmatchProvider } from "@/lib/lyrics-providers/musixmatch-provider"
 import { aggregatedScraperProvider } from "@/lib/lyrics-providers/aggregated-scraper-provider"
 import { animelyricsProvider } from "@/lib/lyrics-providers/animelyrics-provider"
 import { chartlyricsProvider } from "@/lib/lyrics-providers/chartlyrics-provider"
@@ -40,11 +41,11 @@ export function providerTimeoutMs(providerId: LyricsProviderId): number {
 }
 
 export const ALL_LYRICS_PROVIDERS: LyricsProvider[] = [
+  musixmatchProvider,
   lrclibProvider,
+  megalobizProvider,
   musicbrainzProvider,
   lyricsOvhProvider,
-  megalobizProvider,
-  aggregatedScraperProvider,
   chartlyricsProvider,
   geniusProvider,
   petitlyricsProvider,
@@ -54,15 +55,15 @@ export const ALL_LYRICS_PROVIDERS: LyricsProvider[] = [
   lyricswikiProvider,
   songmeaningsProvider,
   letrasProvider,
+  aggregatedScraperProvider,
 ]
 
 export const PROVIDER_FALLBACK_ORDER: LyricsProviderId[] = [
+  "musixmatch",
   "lrclib",
+  "megalobiz",
   "musicbrainz",
   "lyrics-ovh",
-  "megalobiz",
-  "aggregated-scraper",
-  "chartlyrics",
   "genius",
   "petitlyrics",
   "lyricstranslate",
@@ -71,6 +72,8 @@ export const PROVIDER_FALLBACK_ORDER: LyricsProviderId[] = [
   "lyricswiki",
   "songmeanings",
   "letras",
+  "chartlyrics",
+  "aggregated-scraper",
 ]
 
 export type ProviderSearchOutcome = "found" | "empty" | "error" | "timeout"

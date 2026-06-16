@@ -7,7 +7,7 @@ import { lyricsLanguageMatchesMetadata } from "@/lib/language-service"
 import { lyricsTextLooksLikeJunk } from "@/lib/sanitize-lyrics"
 
 const STORAGE_PREFIX = "song-kara-lyrics:"
-const CACHE_VERSION = 7
+const CACHE_VERSION = 8
 
 export type LyricsCacheEntry = {
   v: number
@@ -21,6 +21,7 @@ export type LyricsCacheEntry = {
   parsedDurationMs?: number
   englishLines: string[]
   englishSource?: EnglishSource
+  englishStatus?: "ready" | "loading" | "failed" | "skipped" | null
   translationBackend?: TranslationBackend | null
   languageCode: string
   title: string

@@ -37,17 +37,20 @@ export function TransportControls({
   const setDisplayMode = usePlayerStore((s) => s.setDisplayMode)
   const languageCode = usePlayerStore((s) => s.languageCode)
   const englishLines = usePlayerStore((s) => s.englishLines)
+  const englishStatus = usePlayerStore((s) => s.englishStatus)
   const englishSource = usePlayerStore((s) => s.englishSource)
   const lyricsFollowMode = usePlayerStore((s) => s.lyricsFollowMode)
   const requestLyricsScrollSync = usePlayerStore((s) => s.requestLyricsScrollSync)
 
   const hasEnglish = englishLines.length > 0
+  const englishLoading = englishStatus === "loading"
+  const englishFailed = englishStatus === "failed"
 
   useEffect(() => {
-    if (!hasEnglish && displayMode !== "native") {
+    if (!hasEnglish && !englishLoading && !englishFailed && displayMode !== "native") {
       setDisplayMode("native")
     }
-  }, [hasEnglish, displayMode, setDisplayMode])
+  }, [hasEnglish, englishLoading, englishFailed, displayMode, setDisplayMode])
 
   useEffect(() => {
     if (hasEnglish && englishSource === "translated" && displayMode === "native") {
@@ -57,8 +60,16 @@ export function TransportControls({
 
   const modes: { value: LyricDisplayMode; label: string; disabled?: boolean }[] = [
     { value: "native", label: "Native" },
-    { value: "english", label: "English", disabled: !hasEnglish },
-    { value: "both", label: "Both", disabled: !hasEnglish },
+    {
+      value: "english",
+      label: englishLoading ? "English…" : englishFailed ? "English (retry)" : "English",
+      disabled: false,
+    },
+    {
+      value: "both",
+      label: englishLoading ? "Both…" : "Both",
+      disabled: englishLoading,
+    },
   ]
 
   return (
@@ -197,7 +208,13 @@ export function TransportControls({
 
         {!hasEnglish && !isEnglish(languageCode) && (
           <span id="bilingual-helper" className="text-center text-xs text-muted-foreground">
-            No English lyrics found
+            {englishLoading
+              ? "Fetching English lyrics…"
+              : englishFailed
+                ? "English unavailable — switch to English to retry"
+                : englishSource === "translated"
+                  ? "English via machine translation"
+                  : "No English lyrics found"}
           </span>
         )}
       </div>

@@ -2,6 +2,9 @@ import { jsonResponse } from "../cors"
 import { checkTranscribeRateLimit, clientIp } from "../lib/transcribe-rate-limit"
 import { isAllowedStreamUrl, isValidVideoId, resolveYouTubeStream, decodeStreamReference } from "./youtube-stream"
 
+/** Max audio bytes for sample/verification mode (~90s of typical bitrate). */
+export const SAMPLE_MAX_AUDIO_BYTES = 2 * 1024 * 1024
+
 /** Max total audio bytes fetched server-side across all chunks. */
 export const MAX_AUDIO_BYTES = 10 * 1024 * 1024
 
@@ -27,6 +30,9 @@ export type TranscribeResult = {
   source: "whisper"
   partial?: boolean
   chunks?: number
+  vocalDensity?: number
+  coverageSec?: number
+  mode?: "sample" | "full"
 }
 
 type WhisperWord = {
@@ -63,6 +69,7 @@ export type TranscribeRequest = {
   track?: string
   language?: string
   durationSec?: number
+  mode?: "sample" | "full"
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -415,6 +422,15 @@ export async function transcribeChunkedStream(
   }
 }
 
+function computeVocalMetrics(
+  segments: TranscriptSegment[],
+  coverageSec: number,
+): { vocalDensity: number; coverageSec: number } {
+  const vocalDuration = segments.reduce((sum, s) => sum + Math.max(0, s.end - s.start), 0)
+  const vocalDensity = coverageSec > 0 ? Math.min(1, vocalDuration / coverageSec) : 0
+  return { vocalDensity, coverageSec }
+}
+
 export async function transcribeYouTubeAudio(
   env: TranscribeEnv,
   request: TranscribeRequest,
@@ -445,12 +461,14 @@ export async function transcribeYouTubeAudio(
     durationSec: request.durationSec,
   }
 
+  const maxBytes = request.mode === "sample" ? SAMPLE_MAX_AUDIO_BYTES : MAX_AUDIO_BYTES
+
   // Progressive MP4/M4A from YouTube cannot be split at arbitrary byte offsets —
-  // only the first range includes the moov atom. Fetch up to MAX_AUDIO_BYTES once
+  // only the first range includes the moov atom. Fetch up to maxBytes once
   // and run a single Whisper call (see transcribeChunkedStream for byte-plan helpers).
   const { bytes, partial: fetchPartial, totalBytes: fetchedTotal } = await fetchAudioBytes(
     streamUrl,
-    MAX_AUDIO_BYTES,
+    maxBytes,
   )
   if (bytes.byteLength === 0) {
     throw new Error("EMPTY_AUDIO")
@@ -472,9 +490,15 @@ export async function transcribeYouTubeAudio(
     request.durationSec > 30 &&
     lastSegmentEndSec < request.durationSec - 30
 
+  const coverageSec = Math.max(lastSegmentEndSec, request.durationSec ?? 0)
+  const metrics = computeVocalMetrics(result.segments, coverageSec)
+
   return {
     ...result,
-    partial: result.partial || coveragePartial || undefined,
+    partial: result.partial || coveragePartial || request.mode === "sample" || undefined,
+    mode: request.mode ?? "full",
+    vocalDensity: metrics.vocalDensity,
+    coverageSec: metrics.coverageSec,
   }
 }
 

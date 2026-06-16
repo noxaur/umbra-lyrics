@@ -1,6 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
 
+vi.mock("@/lib/transcription-service", () => ({
+  sampleTranscribeForVerification: vi.fn().mockResolvedValue(null),
+  transcribeFromYouTube: vi.fn(),
+  TranscriptionError: class extends Error {},
+}))
+
+vi.mock("@/lib/english-lyrics-service", () => ({
+  resolveEnglishLyrics: vi.fn().mockResolvedValue({
+    lines: [],
+    source: "translated",
+    status: "skipped",
+  }),
+}))
+
 describe("orchestrateLyricsSearch", () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -74,7 +88,7 @@ describe("orchestrateLyricsSearch", () => {
     })
 
     expect(result.status).toBe("found")
-    expect(result.strategy).toBe("parallel_ranked")
+    expect(result.strategy).toBe("parallel_ranked_verified")
     expect(result.lyrics?.plainLyrics).toContain("作詞の空白")
     expect(result.providersTried).toContain("lrclib")
   })
@@ -83,7 +97,7 @@ describe("orchestrateLyricsSearch", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url.includes("/search") || url.includes("/api/lyrics/lrclib")) {
+        if (url.includes("/api/lyrics/lrclib")) {
           return new Response(
             JSON.stringify([
               {
@@ -131,7 +145,7 @@ describe("orchestrateLyricsSearch", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url.includes("/search") || url.includes("/api/lyrics/lrclib")) {
+        if (url.includes("/api/lyrics/lrclib")) {
           return new Response(
             JSON.stringify([
               {
@@ -164,7 +178,7 @@ describe("orchestrateLyricsSearch", () => {
   it("uses oembed author in lrclib provider search", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       const decoded = decodeURIComponent(url)
-      if (decoded.includes("q=") && decoded.includes("天音かなた")) {
+      if (url.includes("/api/lyrics/lrclib") && decoded.includes("天音かなた")) {
         return new Response(
           JSON.stringify([
             {
@@ -250,7 +264,7 @@ describe("orchestrateLyricsSearch", () => {
             { status: 200 },
           )
         }
-        if (url.includes("/search") || url.includes("/api/lyrics/lrclib")) {
+        if (url.includes("/api/lyrics/lrclib")) {
           return new Response(
             JSON.stringify([
               {
@@ -284,6 +298,7 @@ describe("orchestrateLyricsSearch", () => {
       artist: "Artist",
       title: "Artist - Song",
       durationSec: 200,
+      providerIds: ["lrclib", "lyrics-ovh"],
     })
 
     expect(result.status).toBe("found")

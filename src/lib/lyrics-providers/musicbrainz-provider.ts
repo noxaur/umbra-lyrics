@@ -113,11 +113,30 @@ async function lrclibFromCanonical(
 export const musicbrainzProvider: LyricsProvider = {
   id: "musicbrainz",
   label: "MusicBrainz",
-  priority: 2,
+  priority: 4,
   supportsSync: true,
   searchPhase: "Searching MusicBrainz → LRCLIB…",
   async search(params) {
-    const track = simplifyTrackName(params.track) || params.track
+    const track = simplifyTrackName(params.canonicalTrack ?? params.track) || params.track
+    const artist = params.canonicalArtist ?? params.artist
+
+    if (params.canonicalTrack && params.canonicalArtist) {
+      const results = [
+        ...(await searchByParams(track, artist)),
+        ...(await searchByQuery(`${track} ${artist}`.trim())),
+      ]
+      const candidates = results
+        .filter((r) => hasLyricsText(r))
+        .map((r) => lrclibSearchResultToCandidate(r, params))
+      const best = pickBestCandidate(candidates, params.durationSec, artist, track)
+      if (best) {
+        const resolved = await fetchLrclibCandidate(best)
+        return resolved && hasLyricsText(resolved)
+          ? [{ ...resolved, providerId: "musicbrainz" }]
+          : []
+      }
+    }
+
     const canonicals = await searchMusicBrainz(track, params.artist)
     if (canonicals.length === 0) return []
 

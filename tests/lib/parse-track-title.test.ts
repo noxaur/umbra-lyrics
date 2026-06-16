@@ -44,6 +44,13 @@ describe("parseTrackTitle", () => {
     })
   })
 
+  it("swaps when oEmbed author matches trailing segment", () => {
+    expect(parseTrackTitle("別世界 - 天音かなた", "天音かなた Official")).toEqual({
+      artist: "天音かなた",
+      track: "別世界",
+    })
+  })
+
   it("strips feat suffix from track", () => {
     expect(parseTrackTitle("Artist - Song Name (feat. Guest)")).toEqual({
       artist: "Artist",

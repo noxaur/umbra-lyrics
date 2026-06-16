@@ -244,6 +244,7 @@ export async function searchEnglishLyrics(
 ): Promise<LyricsResult | null> {
   const strategies = [
     { track, artist },
+    { track: `${track} (English)`, artist },
     { track: `${track} english`, artist },
     { track, artist: `${artist} english` },
   ]
@@ -257,8 +258,8 @@ export async function searchEnglishLyrics(
     })
     const match = pickBestMatch(results, durationSec, artist, track)
     if (!match || !hasLyrics(match)) continue
-    if (artistMatchScore(match, artist) >= 80) continue
-    if (trackMatchScore(match, track) >= 80) continue
+    if (artistMatchScore(match, artist) >= 80 && artist.trim()) continue
+    if (trackMatchScore(match, track) >= 80 && track.trim()) continue
 
     const byMetadata = await fetchLyricsByMetadata(match)
     if (byMetadata && (byMetadata.plainLyrics || byMetadata.syncedLyrics)) {
@@ -271,6 +272,14 @@ export async function searchEnglishLyrics(
     }
 
     return searchResultToLyrics(match)
+  }
+
+  const queryResults = await searchByQuery(`${artist} ${track} english`.trim())
+  const queryMatch = pickBestMatch(queryResults, durationSec, artist, track)
+  if (queryMatch && hasLyrics(queryMatch)) {
+    const byId = await fetchLyricsById(queryMatch.id)
+    if (byId?.plainLyrics || byId?.syncedLyrics) return byId
+    return searchResultToLyrics(queryMatch)
   }
 
   return null

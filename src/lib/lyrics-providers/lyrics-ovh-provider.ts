@@ -22,7 +22,7 @@ async function fetchOvhLyrics(artist: string, track: string): Promise<string | n
 export const lyricsOvhProvider: LyricsProvider = {
   id: "lyrics-ovh",
   label: "lyrics.ovh",
-  priority: 3,
+  priority: 5,
   supportsSync: false,
   searchPhase: "Trying lyrics.ovh…",
   async search(params) {

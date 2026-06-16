@@ -26,6 +26,7 @@ export const RANK_WEIGHTS = {
   LOW_LINE_COUNT: 100,
   SHORT_TEXT: 80,
   JUNK_TEXT: 300,
+  VERIFICATION_FAIL: 400,
   MIN_LINES_FOR_FULL: 4,
   MIN_CHARS_FOR_FULL: 80,
 } as const
@@ -36,6 +37,7 @@ export type LyricsRankContext = {
   track: string
   preferredLanguage?: string
   providerPriority: (id: LyricsProviderId) => number
+  verificationScore?: (candidate: ProviderLyricsCandidate) => number | undefined
 }
 
 export type RankedLyricsCandidate = {
@@ -92,6 +94,15 @@ export function rankLyricsCandidate(
   if (lyricsTextLooksLikeJunk(text)) {
     score += RANK_WEIGHTS.JUNK_TEXT
   }
+  if (text.includes("...") && text.length < 120) {
+    score += RANK_WEIGHTS.JUNK_TEXT
+  }
+
+  const verification = context.verificationScore?.(candidate)
+  if (verification != null) {
+    if (verification < 0.35) score += RANK_WEIGHTS.VERIFICATION_FAIL
+    else score -= verification * 50
+  }
 
   score += languageMismatchPenalty(text, context.preferredLanguage)
 
@@ -119,10 +130,13 @@ export function pickBestAndAlternates(
   const withLyrics = ranked.filter(
     (r) => {
       const text = lyricsTextOf(r.candidate)
+      const verification = context.verificationScore?.(r.candidate)
+      const failedVerification = verification != null && verification < 0.35
       return (
         text.length > 0 &&
         !r.candidate.instrumental &&
-        !lyricsTextLooksLikeJunk(text)
+        !lyricsTextLooksLikeJunk(text) &&
+        !failedVerification
       )
     },
   )

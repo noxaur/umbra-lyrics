@@ -28,8 +28,9 @@ function candidate(
 }
 
 describe("lyrics-providers index", () => {
-  it("defines fallback order with lrclib first", () => {
-    expect(PROVIDER_FALLBACK_ORDER[0]).toBe("lrclib")
+  it("defines fallback order with musixmatch first", () => {
+    expect(PROVIDER_FALLBACK_ORDER[0]).toBe("musixmatch")
+    expect(PROVIDER_FALLBACK_ORDER[1]).toBe("lrclib")
     expect(PROVIDER_FALLBACK_ORDER).toContain("lyrics-ovh")
     expect(PROVIDER_FALLBACK_ORDER).toContain("musicbrainz")
     expect(PROVIDER_FALLBACK_ORDER).toContain("chartlyrics")

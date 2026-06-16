@@ -1,4 +1,5 @@
 import type { LyricsProviderId } from "@/types/lyrics"
+import type { MetadataCandidate } from "@/lib/track-metadata-resolver"
 
 export type ProviderSearchParams = {
   track: string
@@ -8,6 +9,9 @@ export type ProviderSearchParams = {
   title?: string
   oembedAuthor?: string
   preferredLanguage?: string
+  metadataAlternates?: MetadataCandidate[]
+  canonicalArtist?: string
+  canonicalTrack?: string
 }
 
 export type ProviderLyricsCandidate = {

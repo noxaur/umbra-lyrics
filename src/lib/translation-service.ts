@@ -127,6 +127,8 @@ export type TranslateLinesOptions = {
   sourceLang: string
   skipCache?: boolean
   backends?: TranslationBackend[]
+  /** When true, bypass rate-limit guard (mandatory English pipeline). */
+  mandatory?: boolean
 }
 
 export async function translateLinesWithFallback(
@@ -148,7 +150,7 @@ export async function translateLinesWithFallback(
     }
   }
 
-  if (videoId && !canRequestTranslation(videoId)) {
+  if (videoId && !options.mandatory && !canRequestTranslation(videoId)) {
     return null
   }
 

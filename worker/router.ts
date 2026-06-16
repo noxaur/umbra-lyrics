@@ -22,6 +22,10 @@ import {
   handleMyMemory,
 } from "./handlers/translate"
 import { handleTranscribe } from "./handlers/transcribe"
+import { handleSpotifySearch } from "./handlers/spotify"
+import { handleDeezerSearch } from "./handlers/deezer"
+import { handleItunesSearch } from "./handlers/itunes"
+import { handleMusixmatchSearch } from "./handlers/musixmatch"
 import {
   handleYouTubeStreamInfo,
   handleYouTubeStreamProxy,
@@ -47,6 +51,9 @@ type ApiEnv = {
   }
   LIBRETRANSLATE_URL?: string
   LIBRETRANSLATE_API_KEY?: string
+  SPOTIFY_CLIENT_ID?: string
+  SPOTIFY_CLIENT_SECRET?: string
+  MUSIXMATCH_API_KEY?: string
 }
 
 /** Shared API routing for Cloudflare Worker and Vite dev proxy. */
@@ -112,6 +119,28 @@ export async function handleApiRequest(
 
   if (pathname.startsWith("/api/lyrics/musicbrainz")) {
     return handleMusicBrainz(pathname, url.search)
+  }
+
+  if (pathname === "/api/metadata/spotify/search") {
+    const artist = url.searchParams.get("artist") ?? ""
+    const track = url.searchParams.get("track") ?? ""
+    return handleSpotifySearch(artist, track, env)
+  }
+
+  if (pathname === "/api/metadata/deezer/search") {
+    const q = url.searchParams.get("q") ?? ""
+    return handleDeezerSearch(q)
+  }
+
+  if (pathname === "/api/metadata/itunes/search") {
+    const term = url.searchParams.get("term") ?? ""
+    return handleItunesSearch(term)
+  }
+
+  if (pathname === "/api/lyrics/musixmatch/search") {
+    const artist = url.searchParams.get("artist") ?? ""
+    const track = url.searchParams.get("track") ?? ""
+    return handleMusixmatchSearch(artist, track, env)
   }
 
   if (pathname === "/api/youtube/oembed") {
