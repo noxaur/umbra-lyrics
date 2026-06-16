@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useYTEmbed } from "@bogdanrn/yt-embed/react"
 import { youtubeErrorMessage } from "@/lib/youtube-errors"
 
-export function useYouTubePlayer(videoId: string) {
+type UseYouTubePlayerOptions = {
+  onEnded?: () => void
+}
+
+export function useYouTubePlayer(videoId: string, options: UseYouTubePlayerOptions = {}) {
+  const { onEnded } = options
   const origin = typeof window !== "undefined" ? window.location.origin : ""
 
   const playerVars = useMemo(
@@ -27,6 +32,7 @@ export function useYouTubePlayer(videoId: string) {
     const onState = (event: Event) => {
       const state = (event as CustomEvent<{ state: number }>).detail.state
       if (state === 1) setAutoplayBlocked(false)
+      if (state === 0) onEnded?.()
     }
 
     player.addEventListener("autoplayblocked", onAutoplayBlocked)
@@ -35,7 +41,7 @@ export function useYouTubePlayer(videoId: string) {
       player.removeEventListener("autoplayblocked", onAutoplayBlocked)
       player.removeEventListener("statechange", onState)
     }
-  }, [player])
+  }, [player, onEnded])
 
   useEffect(() => {
     if (!player || !ready) return

@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { HelpCircle, Pause, Play, RefreshCw, RotateCcw } from "lucide-react"
+import { HelpCircle, Pause, Play, RefreshCw, RotateCcw, SkipBack, SkipForward } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { formatDuration } from "@/lib/format-time"
@@ -7,6 +7,7 @@ import { usePlayerStore } from "@/stores/player-store"
 import { ShortcutsHelp } from "@/components/shortcuts-help"
 import { MkvExportButton } from "@/components/mkv-export-button"
 import { PlayerViewMenu } from "@/components/player-view-menu"
+import { getPlaylistById } from "@/lib/playlists"
 import { isEnglish } from "@/lib/language-service"
 import type { LyricDisplayMode } from "@/types/lyrics"
 
@@ -45,6 +46,15 @@ export function TransportControls({
   const requestLyricsScrollSync = usePlayerStore((s) => s.requestLyricsScrollSync)
   const status = usePlayerStore((s) => s.status)
   const videoId = usePlayerStore((s) => s.videoId)
+  const playlistContext = usePlayerStore((s) => s.playlistContext)
+  const goToNextPlaylistTrack = usePlayerStore((s) => s.goToNextPlaylistTrack)
+  const goToPrevPlaylistTrack = usePlayerStore((s) => s.goToPrevPlaylistTrack)
+
+  const playlist = playlistContext ? getPlaylistById(playlistContext.playlistId) : undefined
+  const hasPrevTrack = playlistContext ? playlistContext.trackIndex > 0 : false
+  const hasNextTrack = playlist
+    ? playlistContext!.trackIndex < playlist.tracks.length - 1
+    : false
 
   const lyricsRefreshing = status === "loading"
 
@@ -108,6 +118,19 @@ export function TransportControls({
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="flex items-center justify-center gap-2 sm:justify-start">
+            {playlistContext ? (
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-9 rounded-full"
+                onClick={goToPrevPlaylistTrack}
+                disabled={!hasPrevTrack}
+                aria-label="Previous track in playlist"
+                title="Previous track (Shift+←)"
+              >
+                <SkipBack className="size-4" aria-hidden />
+              </Button>
+            ) : null}
             <Button
               variant="default"
               size="icon"
@@ -117,6 +140,19 @@ export function TransportControls({
             >
               <AnimatedIcon icon={isPlaying ? Pause : Play} active={isPlaying} />
             </Button>
+            {playlistContext ? (
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-9 rounded-full"
+                onClick={goToNextPlaylistTrack}
+                disabled={!hasNextTrack}
+                aria-label="Next track in playlist"
+                title="Next track (Shift+→)"
+              >
+                <SkipForward className="size-4" aria-hidden />
+              </Button>
+            ) : null}
 
             {lyricsFollowMode === "manual" ? (
               <Button
