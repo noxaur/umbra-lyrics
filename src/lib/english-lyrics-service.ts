@@ -46,6 +46,16 @@ export type ResolveEnglishLyricsParams = {
 }
 
 const MAX_NATIVE_OVERLAP = 0.45
+export const ENGLISH_CANDIDATE_TIMEOUT_MS = 3_500
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => {
+      setTimeout(() => resolve(null), timeoutMs)
+    }),
+  ])
+}
 
 function finalizeEnglishLines(
   nativeLines: string[],
@@ -140,9 +150,9 @@ export async function prefetchEnglishCandidates(
   durationSec: number,
 ): Promise<EnglishCandidate[]> {
   const settled = await Promise.allSettled([
-    searchLrclibRaw(track, artist, durationSec),
-    searchLyricsTranslateRaw(artist, track, durationSec),
-    searchMusixmatchRaw(artist, track, durationSec),
+    withTimeout(searchLrclibRaw(track, artist, durationSec), ENGLISH_CANDIDATE_TIMEOUT_MS),
+    withTimeout(searchLyricsTranslateRaw(artist, track, durationSec), ENGLISH_CANDIDATE_TIMEOUT_MS),
+    withTimeout(searchMusixmatchRaw(artist, track, durationSec), ENGLISH_CANDIDATE_TIMEOUT_MS),
   ])
 
   const out: EnglishCandidate[] = []
@@ -173,7 +183,6 @@ export async function resolveEnglishFromPrefetch(
     artist,
     nativeLines,
     language,
-    durationSec,
     videoId,
     skipCache,
     metadata,

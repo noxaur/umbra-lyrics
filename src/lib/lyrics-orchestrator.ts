@@ -1,6 +1,4 @@
 import type { EnglishLyricsResult } from "@/lib/english-lyrics-service"
-import { resolveEnglishLyrics } from "@/lib/english-lyrics-service"
-import { detectLanguage, inferPreferredLanguage } from "@/lib/language-service"
 import {
   assessContentType,
   buildTranscriptProfile,
@@ -18,7 +16,7 @@ import {
   pickBestHit,
   PROVIDER_FALLBACK_ORDER,
   rankCandidatesWithParams,
-  searchProvidersParallel,
+  searchProvidersStaged,
   type ProviderSearchStatus,
 } from "@/lib/lyrics-providers/index"
 import { pickBestAndAlternates } from "@/lib/lyrics-ranking"
@@ -80,40 +78,6 @@ export type OrchestratorParams = {
   onProgress?: (update: OrchestratorProgress) => void
 }
 
-function languageMetaFromParams(params: OrchestratorParams) {
-  return {
-    title: params.title,
-    artist: params.artist,
-    track: params.track,
-    oembedAuthor: params.oembedAuthor,
-    preferredLanguage: params.preferredLanguage ?? inferPreferredLanguage({
-      title: params.title,
-      artist: params.artist,
-      track: params.track,
-      oembedAuthor: params.oembedAuthor,
-    }),
-  }
-}
-
-function resolveEnglishForNativeLines(
-  params: OrchestratorParams,
-  nativeLines: string[],
-  onProgress?: (phase: string) => void,
-) {
-  const languageMeta = languageMetaFromParams(params)
-  const sample = nativeLines.join("\n")
-  return resolveEnglishLyrics({
-    track: params.track,
-    artist: params.artist,
-    nativeLines,
-    language: detectLanguage(sample, languageMeta),
-    durationSec: params.durationSec,
-    videoId: params.videoId,
-    skipCache: params.skipCache,
-    metadata: languageMeta,
-    onProgress,
-  })
-}
 function toProviderParams(params: OrchestratorParams): ProviderSearchParams {
   const meta = params.resolvedMetadata
   return {
@@ -221,7 +185,7 @@ export async function orchestrateLyricsSearch(
   report(`Searching ${providerIds.length} sources…`, "search")
 
   const [{ candidates, statuses }, sampleTranscript] = await Promise.all([
-    searchProvidersParallel({
+    searchProvidersStaged({
       params: providerParams,
       providerIds,
       onProviderStart: (providerId) => {
@@ -318,12 +282,6 @@ export async function orchestrateLyricsSearch(
       })
 
       const lyrics = candidateToResult(transcription.candidate)
-      const nativeLines = lyrics.plainLyrics?.split("\n").filter(Boolean) ?? []
-      const english = await resolveEnglishForNativeLines(
-        params,
-        nativeLines,
-        (phase) => report(phase, "search"),
-      )
 
       report(
         transcription.partial
@@ -345,7 +303,6 @@ export async function orchestrateLyricsSearch(
           verificationScore: 1,
           contentAssessment,
           transcriptProfile: transcriptProfile ?? undefined,
-          english,
           message: transcription.partial
             ? "Transcribed partial audio — timing may drift on long tracks"
             : "Transcribed from audio",

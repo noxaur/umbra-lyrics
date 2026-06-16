@@ -7,7 +7,7 @@ import {
   searchByQuery,
   type SearchResult,
 } from "@/lib/lyrics-service"
-import { simplifyTrackName, stripDecorativeTitle } from "@/lib/parse-track-title"
+import { simplifyTrackName, stripChannelSuffix, stripDecorativeTitle } from "@/lib/parse-track-title"
 import { hasLyricsText, pickBestCandidate, scoreCandidate } from "@/lib/lyrics-providers/match-utils"
 import type { LyricsProvider, ProviderLyricsCandidate, ProviderSearchParams } from "./types"
 
@@ -78,7 +78,7 @@ function buildStrategies(params: ProviderSearchParams): Array<() => Promise<Sear
   }
 
   if (params.oembedAuthor?.trim()) {
-    const author = params.oembedAuthor.trim()
+    const author = stripChannelSuffix(params.oembedAuthor)
     strategies.push(async () => {
       const queries = [author, `${author} ${simplifiedTrack}`, `${author} ${params.track}`].filter(
         Boolean,

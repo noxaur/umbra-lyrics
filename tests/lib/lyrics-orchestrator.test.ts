@@ -310,6 +310,49 @@ describe("orchestrateLyricsSearch", () => {
     expect(result.alternates?.length).toBeGreaterThan(0)
   })
 
+  it("does not start long-tail providers when stage-one has a definitive synced match", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("/api/lyrics/lrclib")) {
+        return new Response(
+          JSON.stringify([
+            {
+              id: 1,
+              trackName: "Song",
+              artistName: "Artist",
+              duration: 200,
+              plainLyrics: "One\nTwo\nThree\nFour",
+              syncedLyrics: "[00:00.00] One\n[00:05.00] Two\n[00:10.00] Three\n[00:15.00] Four",
+            },
+          ]),
+          { status: 200 },
+        )
+      }
+      if (url.includes("/api/lyrics/ovh/")) {
+        return new Response(
+          JSON.stringify({ lyrics: "Long tail should not be requested" }),
+          { status: 200 },
+        )
+      }
+      return new Response("[]", { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const result = await orchestrateLyricsSearch({
+      track: "Song",
+      artist: "Artist",
+      title: "Artist - Song",
+      durationSec: 200,
+      providerIds: ["lrclib", "lyrics-ovh"],
+    })
+
+    expect(result.status).toBe("found")
+    expect(result.providerId).toBe("lrclib")
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/api/lyrics/ovh/"))).toBe(
+      false,
+    )
+    expect(result.providersTried).toEqual(["lrclib"])
+  })
+
   it("promotes transcription when provider lyrics fail verification", async () => {
     const transcriptionService = await import("@/lib/transcription-service")
 

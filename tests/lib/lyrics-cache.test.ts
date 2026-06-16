@@ -18,6 +18,8 @@ const sampleEntry = {
   lines: [{ startMs: 0, endMs: 3000, text: "Line one" }],
   synced: true,
   englishLines: [] as string[],
+  romajiLines: [] as string[],
+  romajiStatus: null,
   languageCode: "jpn",
   title: "Track - Artist",
   artist: "Artist",
@@ -42,6 +44,31 @@ describe("lyrics-cache", () => {
     expect(cached?.lyricsResult.id).toBe(42)
     expect(cached?.artist).toBe("Artist")
     expect(cached?.cachedAt).toBeTypeOf("number")
+  })
+
+  it("round-trips skipped english status for English-only tracks", () => {
+    setLyricsCache({
+      ...sampleEntry,
+      englishLines: ["Hello world"],
+      englishSource: "found",
+      englishStatus: "skipped",
+      languageCode: "en",
+    })
+    const cached = getLyricsCache("abc12345678")
+    expect(cached?.englishStatus).toBe("skipped")
+    expect(cached?.englishLines).toEqual(["Hello world"])
+  })
+
+  it("round-trips romaji lines", () => {
+    setLyricsCache({
+      ...sampleEntry,
+      romajiLines: ["hikari no sekai e"],
+      romajiStatus: "ready",
+    })
+
+    const cached = getLyricsCache("abc12345678")
+    expect(cached?.romajiLines).toEqual(["hikari no sekai e"])
+    expect(cached?.romajiStatus).toBe("ready")
   })
 
   it("rejects legacy cache version", () => {

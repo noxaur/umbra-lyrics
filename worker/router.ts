@@ -15,6 +15,7 @@ import { handlePetitLyricsSearch } from "./handlers/petitlyrics"
 import { handleSongMeaningsSearch } from "./handlers/songmeanings"
 import { handleVagalumeSearch } from "./handlers/vagalume"
 import { handleYouTubeOEmbed } from "./handlers/youtube-oembed"
+import { handleYouTubePlaylist } from "./handlers/youtube-playlist"
 import { handleYouTubeSearch } from "./handlers/youtube-search"
 import {
   handleGoogleTranslate,
@@ -181,6 +182,13 @@ export async function handleApiRequest(
     const q = url.searchParams.get("q") ?? ""
     const limit = Number(url.searchParams.get("limit") ?? String(10))
     return handleYouTubeSearch(q, limit)
+  }
+
+  if (pathname === "/api/youtube/playlist") {
+    const id = url.searchParams.get("id") ?? ""
+    const limit = Number(url.searchParams.get("limit") ?? String(100))
+    const sourceUrl = url.searchParams.get("url") ?? ""
+    return handleYouTubePlaylist(id, limit, sourceUrl)
   }
 
   if (pathname === "/api/beta/youtube/stream") {

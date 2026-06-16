@@ -82,4 +82,40 @@ describe("LyricLine", () => {
     expect(screen.getByText("01:05.43")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Seek to 01:05.43, Sing this line" })).toBeInTheDocument()
   })
+
+  it("renders romaji-only lyrics", () => {
+    render(
+      <LyricLine
+        text="ひかりのセカイへ"
+        romajiText="hikari no sekai e"
+        active={false}
+        distanceFromCenter={0}
+        synced
+        progress={0}
+        displayMode="romaji"
+      />,
+    )
+
+    expect(screen.queryByText("ひかりのセカイへ")).not.toBeInTheDocument()
+    expect(screen.getByText("hikari no sekai e")).toBeInTheDocument()
+  })
+
+  it("renders native, romaji, and English together", () => {
+    render(
+      <LyricLine
+        text="ひかりのセカイへ"
+        romajiText="hikari no sekai e"
+        englishText="to the world of light"
+        active={false}
+        distanceFromCenter={0}
+        synced
+        progress={0}
+        displayMode="all"
+      />,
+    )
+
+    expect(screen.getByText("ひかりのセカイへ")).toBeInTheDocument()
+    expect(screen.getByText("hikari no sekai e")).toBeInTheDocument()
+    expect(screen.getByText("to the world of light")).toBeInTheDocument()
+  })
 })
