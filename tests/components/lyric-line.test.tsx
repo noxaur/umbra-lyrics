@@ -3,20 +3,20 @@ import { render, screen } from "@testing-library/react"
 import { LyricLine } from "@/components/lyric-line"
 
 describe("LyricLine", () => {
-  it("renders a single text node when active and synced", () => {
+  it("renders accessible karaoke progress when active and synced", () => {
     const { container } = render(
       <LyricLine
         text="Hello world"
         active
-        distanceFromActive={0}
+        distanceFromCenter={0}
         synced
         progress={0.5}
         displayMode="native"
       />,
     )
     expect(screen.getByRole("button", { name: "Hello world" })).toBeInTheDocument()
-    expect(container.querySelectorAll("span").length).toBe(2)
-    expect(screen.getAllByText("Hello world")).toHaveLength(1)
+    expect(container.querySelector(".bg-clip-text")).toBeNull()
+    expect(container.querySelector("[style*='clip-path']")).not.toBeNull()
   })
 
   it("skips word-progress wipe when unsynced", () => {
@@ -24,7 +24,7 @@ describe("LyricLine", () => {
       <LyricLine
         text="Approximate line"
         active
-        distanceFromActive={0}
+        distanceFromCenter={0}
         synced={false}
         progress={0.5}
         displayMode="native"
@@ -35,18 +35,51 @@ describe("LyricLine", () => {
     expect(screen.getAllByText("Approximate line")).toHaveLength(1)
   })
 
-  it("uses venue-scale classes on active lines", () => {
-    render(
+  it("uses one base font size for every line", () => {
+    const { rerender } = render(
       <LyricLine
         text="Big line"
         active
-        distanceFromActive={0}
+        distanceFromCenter={0}
         synced
         progress={0}
         displayMode="native"
       />,
     )
-    const outerSpan = screen.getByText("Big line").parentElement
-    expect(outerSpan?.className).toContain("lg:text-[clamp(3.5rem,4.5vw,7rem)]")
+    const activeClass = screen.getByRole("button", { name: "Big line" }).querySelector(".font-semibold")
+      ?.className
+
+    rerender(
+      <LyricLine
+        text="Small line"
+        active={false}
+        distanceFromCenter={2}
+        synced
+        progress={0}
+        displayMode="native"
+      />,
+    )
+    const inactiveClass = screen.getByRole("button", { name: "Small line" }).querySelector(".font-semibold")
+      ?.className
+
+    expect(activeClass).toBe(inactiveClass)
+    expect(activeClass).toContain("clamp")
+  })
+
+  it("shows LRC timestamp when enabled", () => {
+    render(
+      <LyricLine
+        text="Sing this line"
+        startMs={65_430}
+        showTimestamp
+        active={false}
+        distanceFromCenter={2}
+        synced
+        progress={0}
+        displayMode="native"
+      />,
+    )
+    expect(screen.getByText("01:05.43")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Seek to 01:05.43, Sing this line" })).toBeInTheDocument()
   })
 })

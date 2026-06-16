@@ -27,9 +27,9 @@ export function ThemePreviewCard({ theme, selected, onSelect, onDelete }: ThemeP
   return (
     <div
       className={cn(
-        "group relative flex flex-col gap-3 rounded-xl border p-3 transition-colors",
+        "group relative flex flex-col gap-3 rounded-lg border p-3 transition-colors",
         selected
-          ? "border-primary bg-accent/30 shadow-sm"
+          ? "border-primary bg-accent/30"
           : "border-border bg-card hover:border-primary/40 hover:bg-accent/10",
       )}
     >

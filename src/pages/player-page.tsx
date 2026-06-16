@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef } from "react"
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom"
 import { AppShell } from "@/components/app-shell"
+import { MisroutedRouteView } from "@/components/misrouted-route-view"
 import { LyricsStage } from "@/components/lyrics-stage"
 import { NowPlayingHeader } from "@/components/now-playing-header"
 import { PlayerError } from "@/components/player-error"
 import { TransportControls } from "@/components/transport-controls"
 import { YouTubePanel } from "@/components/youtube-panel"
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useYouTubePlayer } from "@/hooks/use-youtube-player"
 import { useLyricsSync } from "@/hooks/use-lyrics-sync"
@@ -14,14 +14,16 @@ import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { useTranslation } from "@/hooks/use-translation"
 import { parseLrc, parsePlainLyrics } from "@/lib/lrc-parser"
 import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
-import { getLyricsCache, setLyricsCache } from "@/lib/lyrics-cache"
+import { getLyricsCache, reparseCachedLyrics, setLyricsCache } from "@/lib/lyrics-cache"
 import { searchEnglishLyrics } from "@/lib/lyrics-service"
 import { detectLanguage, inferPreferredLanguage, isEnglish } from "@/lib/language-service"
-import { sanitizeLyricsText } from "@/lib/sanitize-lyrics"
+import { prepareLyricsText } from "@/lib/prepare-lyrics-text"
 import { translateLinesWithFallback } from "@/lib/translation-service"
 import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
+import { syncMkvExportFromUrl } from "@/lib/beta-features"
 import { parseTrackTitle } from "@/lib/parse-track-title"
 import { addRecentSong, enrichRecentSongEnglish } from "@/lib/recent-songs"
+import { analyzeRoute, isValidPlayVideoId } from "@/lib/route-suggestions"
 import { fetchYouTubeAuthor } from "@/lib/youtube-oembed"
 import { segmentsToLyricLines, transcriptToPlainLyrics } from "@/lib/transcript-to-lyrics"
 import { TranscriptionError, transcribeFromYouTube } from "@/lib/transcription-service"
@@ -33,8 +35,8 @@ import type { LyricLine, LyricsAlternate, LyricsProviderId } from "@/types/lyric
 function applyLyricsText(
   text: string,
   durationSec: number,
-): { lines: LyricLine[]; synced: boolean; autoTimed?: boolean } | null {
-  const trimmed = sanitizeLyricsText(text.trim())
+): { lines: LyricLine[]; synced: boolean; autoTimed?: boolean; suggestedOffsetMs?: number } | null {
+  const trimmed = prepareLyricsText(text.trim())
   if (!trimmed) return null
 
   const durationMs = durationSec * 1000
@@ -52,6 +54,16 @@ const HIDDEN_EMBED_CLASS = "w-[320px] h-[180px]"
 
 export function PlayerPage() {
   const { videoId = "" } = useParams()
+  const location = useLocation()
+
+  if (!isValidPlayVideoId(videoId)) {
+    return <MisroutedRouteView issue={analyzeRoute(location.pathname, location.search)} />
+  }
+
+  return <PlayerPageContent videoId={videoId} />
+}
+
+function PlayerPageContent({ videoId }: { videoId: string }) {
   const [searchParams] = useSearchParams()
   const debugPlayer = searchParams.get("debug") === "1"
   const location = useLocation()
@@ -101,6 +113,10 @@ export function PlayerPage() {
   const languageCode = usePlayerStore((s) => s.languageCode)
   const englishLines = usePlayerStore((s) => s.englishLines)
   const lyrics = usePlayerStore((s) => s.lyrics)
+  const resetSyncOffset = usePlayerStore((s) => s.resetSyncOffset)
+  const setSyncOffset = usePlayerStore((s) => s.setSyncOffset)
+  const setLyricsFollowMode = usePlayerStore((s) => s.setLyricsFollowMode)
+  const focusMode = usePlayerStore((s) => s.focusMode)
 
   const { available, translating } = useTranslation(languageCode)
 
@@ -113,7 +129,13 @@ export function PlayerPage() {
   }, [bindControls, play, pause, seekTo, isPlaying])
 
   useEffect(() => {
+    syncMkvExportFromUrl()
+  }, [])
+
+  useEffect(() => {
     if (!videoId) return
+    resetSyncOffset()
+    setLyricsFollowMode("follow")
     setVideoId(videoId)
     loadedRef.current = false
     oembedAuthorRef.current = null
@@ -155,7 +177,7 @@ export function PlayerPage() {
       setLyricsOutcome("found")
       setStatus("ready")
       setLoadedFromCache(true)
-      loadedRef.current = true
+      // Duration-aware reparse happens in loadLyrics once YouTube duration is known.
       addRecentSong({
         videoId,
         title: cached.title,
@@ -181,6 +203,8 @@ export function PlayerPage() {
     resetLyricsSearch,
     setLoadedFromCache,
     setLyricsAlternates,
+    resetSyncOffset,
+    setLyricsFollowMode,
   ])
 
   const loadEnglishTranslation = useCallback(
@@ -369,7 +393,7 @@ export function PlayerPage() {
       } catch (err) {
         if (signal?.aborted) return false
         if (err instanceof TranscriptionError) {
-          const isTransient = err.status >= 502 && err.status <= 504
+          const isTransient = err.status === 429 || (err.status >= 502 && err.status <= 504)
           setLyricsOutcome(isTransient ? "network_error" : "not_found")
           setStatus("error", err.message)
           return false
@@ -463,15 +487,22 @@ export function PlayerPage() {
       durationSec: number,
       alternates: LyricsAlternate[] = [],
     ) => {
+      const syncedRaw = lyricsResult.syncedLyrics?.trim()
+        ? prepareLyricsText(lyricsResult.syncedLyrics)
+        : null
+      const plainRaw = lyricsResult.plainLyrics?.trim()
+        ? prepareLyricsText(lyricsResult.plainLyrics)
+        : null
+
       let parsed =
-        lyricsResult.syncedLyrics?.trim()
-          ? parseLrc(lyricsResult.syncedLyrics, durationSec * 1000)
-          : lyricsResult.plainLyrics
-            ? parsePlainLyrics(lyricsResult.plainLyrics, durationSec * 1000)
+        syncedRaw
+          ? parseLrc(syncedRaw, durationSec * 1000)
+          : plainRaw
+            ? parsePlainLyrics(plainRaw, durationSec * 1000)
             : { lines: [], synced: false, autoTimed: false }
 
-      if (parsed.lines.length === 0 && lyricsResult.plainLyrics) {
-        parsed = parsePlainLyrics(lyricsResult.plainLyrics, durationSec * 1000)
+      if (parsed.lines.length === 0 && plainRaw) {
+        parsed = parsePlainLyrics(plainRaw, durationSec * 1000)
       }
 
       if (parsed.lines.length === 0) {
@@ -480,7 +511,11 @@ export function PlayerPage() {
         return false
       }
 
-      const sample = lyricsResult.plainLyrics ?? parsed.lines.map((l) => l.text).join("\n")
+      if (parsed.suggestedOffsetMs) {
+        setSyncOffset(parsed.suggestedOffsetMs)
+      }
+
+      const sample = plainRaw ?? syncedRaw ?? parsed.lines.map((l) => l.text).join("\n")
       const lang = detectLanguage(sample)
       setLyricsAlternates(alternates)
 
@@ -504,6 +539,7 @@ export function PlayerPage() {
           title: meta.title,
           artist: meta.artist,
           track: meta.track,
+          parsedDurationMs: durationSec * 1000,
         },
       )
 
@@ -523,7 +559,7 @@ export function PlayerPage() {
 
       return true
     },
-    [videoId, applyParsedLyrics, setLyricsAlternates, setLyricsOutcome, setStatus, tryAlignPlainLyrics],
+    [videoId, applyParsedLyrics, setLyricsAlternates, setLyricsOutcome, setStatus, setSyncOffset, tryAlignPlainLyrics],
   )
 
   const loadLyrics = useCallback(
@@ -558,6 +594,8 @@ export function PlayerPage() {
         if (pasted) {
           const parsed = applyLyricsText(pasted, durationSec)
           if (parsed) {
+            if (parsed.suggestedOffsetMs) setSyncOffset(parsed.suggestedOffsetMs)
+            else resetSyncOffset()
             await applyParsedLyrics(
               parsed,
               "pasted",
@@ -573,6 +611,14 @@ export function PlayerPage() {
       if (!options?.skipCache) {
         const cached = getLyricsCache(videoId)
         if (cached) {
+          const durationMs = durationSec * 1000
+          const reparsed = reparseCachedLyrics(cached, durationMs)
+          const parsed = reparsed ?? {
+            lines: cached.lines,
+            synced: cached.synced,
+            autoTimed: cached.autoTimed ?? !cached.synced,
+          }
+
           setMeta({
             title: cached.title || title,
             artist: cached.artist || artist,
@@ -581,11 +627,12 @@ export function PlayerPage() {
           setEnglishLines(cached.englishLines)
           setLanguageCode(cached.languageCode)
           setLyricsAlternates(cached.alternates ?? [])
+          if (parsed.suggestedOffsetMs) setSyncOffset(parsed.suggestedOffsetMs)
           await applyParsedLyrics(
             {
-              lines: cached.lines,
-              synced: cached.synced,
-              autoTimed: cached.autoTimed ?? !cached.synced,
+              lines: parsed.lines,
+              synced: parsed.synced,
+              autoTimed: parsed.autoTimed,
               aligned: cached.aligned ?? false,
             },
             cached.providerId ?? cached.lyricsResult.providerId,
@@ -600,9 +647,9 @@ export function PlayerPage() {
               videoId,
               lyricsResult: cached.lyricsResult,
               providerId: cached.providerId ?? cached.lyricsResult.providerId,
-              lines: cached.lines,
-              synced: cached.synced,
-              autoTimed: cached.autoTimed ?? !cached.synced,
+              lines: parsed.lines,
+              synced: parsed.synced,
+              autoTimed: parsed.autoTimed,
               aligned: cached.aligned ?? false,
               alternates: cached.alternates ?? [],
               englishLines: cached.englishLines,
@@ -610,7 +657,7 @@ export function PlayerPage() {
               title: cached.title || title,
               artist: cached.artist || artist,
               track: cached.track || track,
-              parsedDurationMs: durationSec * 1000,
+              parsedDurationMs: durationMs,
             },
             true,
           )
@@ -718,6 +765,8 @@ export function PlayerPage() {
       setLanguageCode,
       setLyricsAlternates,
       setLyricsProvidersSearched,
+      setSyncOffset,
+      resetSyncOffset,
       tryTranscribeLyrics,
     ],
   )
@@ -803,9 +852,11 @@ export function PlayerPage() {
         setStatus("error", "Could not parse pasted lyrics")
         return
       }
+      if (parsed.suggestedOffsetMs) setSyncOffset(parsed.suggestedOffsetMs)
+      else resetSyncOffset()
       void applyParsedLyrics(parsed, "pasted", { title, track, artist }, duration, text)
     },
-    [videoId, duration, applyParsedLyrics, setStatus],
+    [videoId, duration, applyParsedLyrics, setStatus, setSyncOffset, resetSyncOffset],
   )
 
   const handleTranslate = async () => {
@@ -844,37 +895,30 @@ export function PlayerPage() {
           <p className="text-sm text-muted-foreground">Opening player…</p>
         </div>
       )}
-      <div className="flex h-[calc(100dvh-3.25rem)] min-h-0 flex-col overflow-hidden">
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5 text-sm">
-          <Link to="/" className="text-muted-foreground hover:text-foreground">
-            ← Home
-          </Link>
-          {debugPlayer && (
-            <span
-              className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-600 dark:text-amber-400"
-              role="status"
-            >
-              yt:{ready ? "ready" : "loading"} · {isPlaying ? "playing" : "paused"} ·{" "}
-              {currentTime.toFixed(1)}/{duration.toFixed(1)}s · vid:
-              {videoHidden ? "hidden" : "shown"}
-              {playbackHint ? ` · ${playbackHint}` : ""}
-            </span>
-          )}
-          {!isEnglish(languageCode) && englishLines.length === 0 && (available || translating) && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => void handleTranslate()}
-              disabled={translating}
-            >
-              {translating ? "Translating…" : "Translate to English"}
-            </Button>
-          )}
-          {englishLines.length > 0 && englishLines.length !== lyrics.length && (
-            <span className="text-xs text-amber-500">Line count mismatch</span>
-          )}
-        </div>
+      <div
+        className={cn(
+          "flex min-h-0 flex-col overflow-hidden",
+          focusMode ? "h-dvh" : "h-[calc(100dvh-3.25rem)]",
+        )}
+      >
+        {focusMode && (
+          <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5 text-sm">
+            <Link to="/" className="text-muted-foreground hover:text-foreground">
+              ← Home
+            </Link>
+            {debugPlayer && (
+              <span
+                className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-600 dark:text-amber-400"
+                role="status"
+              >
+                yt:{ready ? "ready" : "loading"} · {isPlaying ? "playing" : "paused"} ·{" "}
+                {currentTime.toFixed(1)}/{duration.toFixed(1)}s · vid:
+                {videoHidden ? "hidden" : "shown"}
+                {playbackHint ? ` · ${playbackHint}` : ""}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           <div
@@ -900,7 +944,18 @@ export function PlayerPage() {
           </div>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <NowPlayingHeader onSelectAlternate={handleSelectAlternate} />
+            {!focusMode && (
+              <NowPlayingHeader
+                onSelectAlternate={handleSelectAlternate}
+                onTranslate={() => void handleTranslate()}
+                translating={translating}
+                showTranslate={
+                  !isEnglish(languageCode) &&
+                  englishLines.length === 0 &&
+                  (available || translating)
+                }
+              />
+            )}
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               {youtubeError ? (
@@ -916,6 +971,7 @@ export function PlayerPage() {
                   onTranscribe={handleTranscribe}
                   videoId={videoId}
                   videoReady={ready}
+                  durationMs={duration * 1000}
                 />
               )}
             </div>

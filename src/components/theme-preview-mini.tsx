@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { motion, MotionConfig, useReducedMotion } from "motion/react"
 import { Pause, SkipBack, SkipForward } from "lucide-react"
+import { KaraokeWordProgress } from "@/components/karaoke-word-progress"
 import { tokensToCssVars, type ThemeTokens } from "@/lib/themes"
 import { cn } from "@/lib/utils"
 
@@ -12,17 +13,7 @@ const PREVIEW_LINES = [
 ]
 
 function PreviewWordProgress({ text, progress }: { text: string; progress: number }) {
-  const pct = `${progress * 100}%`
-  return (
-    <span
-      className="bg-clip-text [-webkit-background-clip:text] text-transparent"
-      style={{
-        backgroundImage: `linear-gradient(to right, var(--karaoke-active) ${pct}, var(--karaoke-unsung) ${pct})`,
-      }}
-    >
-      {text}
-    </span>
-  )
+  return <KaraokeWordProgress text={text} progress={progress} />
 }
 
 function PreviewTransport() {
@@ -77,13 +68,13 @@ export function ThemePreviewMini({ tokens, animate = true, className }: ThemePre
                   key={i}
                   className={cn(
                     "rounded px-1.5 py-0.5 text-left transition-colors",
-                    isActive ? "text-karaoke-active" : "text-karaoke-muted",
+                    isActive ? "text-karaoke-highlight" : "text-karaoke-muted",
                   )}
                 >
                   <span
                     className={cn(
                       "block font-semibold leading-tight",
-                      isActive ? "text-[0.65rem]" : "text-[0.55rem] opacity-70",
+                      isActive ? "text-xs" : "text-[0.6875rem] opacity-70",
                     )}
                   >
                     {isActive ? (
@@ -98,7 +89,7 @@ export function ThemePreviewMini({ tokens, animate = true, className }: ThemePre
                     )}
                   </span>
                   {isActive && (
-                    <span className="mt-0.5 block text-[0.45rem] text-muted-foreground">
+                    <span className="mt-0.5 block text-[0.6875rem] text-muted-foreground">
                       {line.english}
                     </span>
                   )}

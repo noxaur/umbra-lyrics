@@ -21,7 +21,7 @@ export function UrlInput() {
     e?.preventDefault()
     const id = extractYouTubeVideoId(url)
     if (!id) {
-      setError("Enter a valid YouTube URL or video ID")
+      setError("Enter a valid YouTube URL, song link, or video ID")
       return
     }
     setError(null)
@@ -43,7 +43,7 @@ export function UrlInput() {
         <Input
           type="text"
           inputMode="url"
-          placeholder="Paste YouTube URL…"
+          placeholder="Paste YouTube or song.opsec.rent link…"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onPaste={(e) => {

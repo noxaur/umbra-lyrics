@@ -32,12 +32,6 @@ function toCandidate(
 
 async function resolveLyricsFromMatch(match: SearchResult) {
   if (hasLyrics(match)) {
-    const byMetadata = await fetchLyricsByMetadata(match)
-    if (byMetadata?.plainLyrics?.trim() || byMetadata?.syncedLyrics?.trim()) return byMetadata
-
-    const byId = await fetchLyricsById(match.id)
-    if (byId?.plainLyrics?.trim() || byId?.syncedLyrics?.trim()) return byId
-
     return {
       id: match.id,
       providerId: "lrclib" as const,
@@ -46,10 +40,13 @@ async function resolveLyricsFromMatch(match: SearchResult) {
     }
   }
 
-  const byId = await fetchLyricsById(match.id)
+  const [byIdOutcome, byMetadataOutcome] = await Promise.allSettled([
+    fetchLyricsById(match.id),
+    fetchLyricsByMetadata(match),
+  ])
+  const byId = byIdOutcome.status === "fulfilled" ? byIdOutcome.value : null
+  const byMetadata = byMetadataOutcome.status === "fulfilled" ? byMetadataOutcome.value : null
   if (byId?.plainLyrics?.trim() || byId?.syncedLyrics?.trim()) return byId
-
-  const byMetadata = await fetchLyricsByMetadata(match)
   if (byMetadata?.plainLyrics?.trim() || byMetadata?.syncedLyrics?.trim()) return byMetadata
 
   return null
@@ -87,10 +84,10 @@ function buildStrategies(params: ProviderSearchParams): Array<() => Promise<Sear
         Boolean,
       )
       const byId = new Map<number, SearchResult>()
-      for (const query of queries) {
-        for (const result of await searchByQuery(query)) {
-          byId.set(result.id, result)
-        }
+      const settled = await Promise.allSettled(queries.map((query) => searchByQuery(query)))
+      for (const outcome of settled) {
+        if (outcome.status !== "fulfilled") continue
+        for (const result of outcome.value) byId.set(result.id, result)
       }
       return [...byId.values()]
     })
@@ -102,13 +99,17 @@ function buildStrategies(params: ProviderSearchParams): Array<() => Promise<Sear
 
   if (simplifiedTitle.trim() || simplifiedTrack.trim()) {
     strategies.push(async () => {
-      const results: SearchResult[] = []
-      if (simplifiedTitle) results.push(...(await searchByQuery(simplifiedTitle)))
+      const searches: Promise<SearchResult[]>[] = []
+      if (simplifiedTitle) searches.push(searchByQuery(simplifiedTitle))
       if (simplifiedTrack && simplifiedTrack !== simplifiedTitle) {
-        results.push(...(await searchByParams(simplifiedTrack, params.artist)))
+        searches.push(searchByParams(simplifiedTrack, params.artist))
       }
       const byId = new Map<number, SearchResult>()
-      for (const result of results) byId.set(result.id, result)
+      const settled = await Promise.allSettled(searches)
+      for (const outcome of settled) {
+        if (outcome.status !== "fulfilled") continue
+        for (const result of outcome.value) byId.set(result.id, result)
+      }
       return [...byId.values()]
     })
   }
@@ -116,23 +117,35 @@ function buildStrategies(params: ProviderSearchParams): Array<() => Promise<Sear
   return strategies
 }
 
+function mergeStrategyResults(
+  byId: Map<number, ProviderLyricsCandidate>,
+  results: SearchResult[],
+  params: ProviderSearchParams,
+): void {
+  for (const result of results) {
+    if (!hasLyricsText(result) && result.instrumental) continue
+    const candidate = toCandidate(result, params)
+    const existing = byId.get(result.id)
+    if (!existing || candidate.confidence < existing.confidence) {
+      byId.set(result.id, candidate)
+    }
+  }
+}
+
 export async function searchLrclibWithStrategies(
   params: ProviderSearchParams,
   onStrategy?: (phase: string) => void,
 ): Promise<ProviderLyricsCandidate[]> {
   const byId = new Map<number, ProviderLyricsCandidate>()
+  const strategies = buildStrategies(params)
+  if (strategies.length === 0) return []
 
-  for (const run of buildStrategies(params)) {
-    onStrategy?.("Searching LRCLIB…")
-    const results = await run()
-    for (const result of results) {
-      if (!hasLyricsText(result) && result.instrumental) continue
-      const candidate = toCandidate(result, params)
-      const existing = byId.get(result.id)
-      if (!existing || candidate.confidence < existing.confidence) {
-        byId.set(result.id, candidate)
-      }
-    }
+  onStrategy?.("Searching LRCLIB…")
+
+  const settled = await Promise.allSettled(strategies.map((run) => run()))
+  for (const outcome of settled) {
+    if (outcome.status !== "fulfilled") continue
+    mergeStrategyResults(byId, outcome.value, params)
   }
 
   return [...byId.values()]
@@ -175,6 +188,11 @@ export const lrclibProvider: LyricsProvider = {
     const best = pickBestCandidate(candidates, params.durationSec, params.artist, params.track)
     if (!best) return []
 
+    if (hasLyricsText(best)) {
+      const synced = Boolean(best.syncedLyrics?.trim())
+      return [{ ...best, synced }]
+    }
+
     const ranked = [
       best,
       ...candidates
@@ -182,9 +200,10 @@ export const lrclibProvider: LyricsProvider = {
         .sort((a, b) => a.confidence - b.confidence),
     ]
 
+    const top = ranked.slice(0, 2)
+    const fetched = await Promise.all(top.map((candidate) => fetchLrclibCandidate(candidate)))
     const resolved: ProviderLyricsCandidate[] = []
-    for (const candidate of ranked.slice(0, 5)) {
-      const full = await fetchLrclibCandidate(candidate)
+    for (const full of fetched) {
       if (full && hasLyricsText(full)) resolved.push(full)
     }
     return resolved

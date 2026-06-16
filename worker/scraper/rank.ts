@@ -16,6 +16,9 @@ export function scoreHit(
 
   if (!hit.plainLyrics?.trim() && !hit.syncedLyrics?.trim()) score += 500
 
+  const plainLen = hit.plainLyrics?.trim().length ?? 0
+  if (plainLen > 0 && plainLen < 120) score += 200
+
   if (params.track.trim()) {
     if (!textOverlap(hit.trackName, params.track)) score += 80
   }

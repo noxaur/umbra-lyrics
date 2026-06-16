@@ -1,17 +1,64 @@
-import { canAutoTimePlainLyrics, estimatePlainLyricsTiming } from "@/lib/plain-lyrics-timing"
+import {
+  canAutoTimePlainLyrics,
+  estimatePlainLyricsTiming,
+  flattenParagraphs,
+  splitLyricsParagraphs,
+} from "@/lib/plain-lyrics-timing"
 import { parseLyricStructureTags } from "@/lib/lyric-structure"
+import {
+  calibrateSyncedLyrics,
+  estimateIntroSyncOffsetMs,
+  finalizeWordTimings,
+} from "@/lib/lrc-sync-calibration"
+import { parseEnhancedLrcWords } from "@/lib/word-alignment"
 import type { LyricLine, ParsedLyrics } from "@/types/lyrics"
 
-const LRC_LINE = /\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/
+const LRC_LINE_HOUR = /^\[(\d{2}):(\d{2}):(\d{2})(?:\.(\d{2,3}))?\](.*)$/
+const LRC_LINE_FRAC = /^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$/
+const LRC_LINE_NO_FRAC = /^\[(\d{2}):(\d{2})\](.*)$/
+const LRC_OFFSET = /^\[offset:\s*([+-]?\d+)\s*\]$/i
+const LRC_METADATA = /^\[(?:ar|ti|al|by|au|length|re|ve|la|tool|id|key|bpm|sign|sender|recipient|product|language):\s*/i
 
 export type LyricsParseOptions = {
-  /** Show standalone structure tags as muted section labels (default true) */
   showSectionLabels?: boolean
 }
 
+export type ParsedLyricsWithOffset = ParsedLyrics & {
+  suggestedOffsetMs?: number
+}
+
+function parseFractionalMs(frac: string): number {
+  return frac.length === 2 ? Number(frac) * 10 : Number(frac)
+}
+
 function parseTimestamp(min: string, sec: string, frac: string): number {
-  const ms = frac.length === 2 ? Number(frac) * 10 : Number(frac)
-  return Number(min) * 60_000 + Number(sec) * 1000 + ms
+  return Number(min) * 60_000 + Number(sec) * 1000 + parseFractionalMs(frac)
+}
+
+function parseLrcLine(line: string): { startMs: number; text: string } | null {
+  let match = line.match(LRC_LINE_HOUR)
+  if (match) {
+    const [, hour, min, sec, frac, text] = match
+    const ms = frac ? parseFractionalMs(frac) : 0
+    return {
+      startMs: Number(hour) * 3_600_000 + Number(min) * 60_000 + Number(sec) * 1000 + ms,
+      text,
+    }
+  }
+
+  match = line.match(LRC_LINE_FRAC)
+  if (match) {
+    const [, min, sec, frac, text] = match
+    return { startMs: parseTimestamp(min, sec, frac), text }
+  }
+
+  match = line.match(LRC_LINE_NO_FRAC)
+  if (match) {
+    const [, min, sec, text] = match
+    return { startMs: Number(min) * 60_000 + Number(sec) * 1000, text }
+  }
+
+  return null
 }
 
 function applyStructureToLrcText(
@@ -63,13 +110,24 @@ export function parseLrc(
     .map((line) => line.trim())
     .filter(Boolean)
 
+  let fileOffsetMs = 0
+  const lyricLines: string[] = []
+  for (const line of rawLines) {
+    const offsetMatch = line.match(LRC_OFFSET)
+    if (offsetMatch) {
+      fileOffsetMs = Number(offsetMatch[1])
+      continue
+    }
+    if (LRC_METADATA.test(line)) continue
+    lyricLines.push(line)
+  }
+
   const lines: LyricLine[] = []
 
-  for (const line of rawLines) {
-    const match = line.match(LRC_LINE)
-    if (!match) continue
-    const [, min, sec, frac, text] = match
-    const startMs = parseTimestamp(min, sec, frac)
+  for (const line of lyricLines) {
+    const parsedLine = parseLrcLine(line)
+    if (!parsedLine) continue
+    const { startMs, text } = parsedLine
     lines.push(
       ...applyStructureToLrcText(text, startMs, 0, showSectionLabels).map((l) => ({
         ...l,
@@ -86,10 +144,27 @@ export function parseLrc(
       lines[i].endMs = lines[i].startMs
     } else {
       lines[i].endMs = next ? next.startMs : durationMs > 0 ? durationMs : lines[i].startMs + 5000
+      const words = parseEnhancedLrcWords(lines[i].text, lines[i].startMs, lines[i].endMs)
+      if (words.length > 0) {
+        lines[i].words = words
+        lines[i].text = words.map((w) => w.text).join(" ")
+      }
     }
   }
 
-  return { lines, synced: lines.length > 0, autoTimed: false }
+  const calibrated = durationMs > 0 ? calibrateSyncedLyrics(lines, durationMs) : finalizeWordTimings(lines)
+  const introOffsetMs = durationMs > 0 ? estimateIntroSyncOffsetMs(calibrated, durationMs) : 0
+  const combinedOffsetMs = introOffsetMs + (fileOffsetMs !== 0 ? -fileOffsetMs : 0)
+
+  return {
+    lines: calibrated,
+    synced: calibrated.length > 0,
+    autoTimed: false,
+    suggestedOffsetMs:
+      combinedOffsetMs !== 0
+        ? Math.max(-5000, Math.min(5000, combinedOffsetMs))
+        : undefined,
+  }
 }
 
 export function parsePlainLyrics(
@@ -98,22 +173,15 @@ export function parsePlainLyrics(
   options: LyricsParseOptions = {},
 ): ParsedLyrics {
   const showSectionLabels = options.showSectionLabels ?? true
-  const structured = parseLyricStructureTags(text)
-
-  if (structured.every((l) => !l.text.trim() && l.isStructureOnly && !showSectionLabels)) {
-    return { lines: [], synced: false, autoTimed: false }
-  }
-
-  if (structured.every((l) => !l.text.trim() && !l.isStructureOnly)) {
-    return { lines: [], synced: false, autoTimed: false }
-  }
-
   const durationSec = durationMs / 1000
+
   if (canAutoTimePlainLyrics(durationSec)) {
+    const structured = flattenParagraphs(splitLyricsParagraphs(text)).lines
     const lines = estimatePlainLyricsTiming(structured, durationSec, { showSectionLabels })
     return { lines, synced: false, autoTimed: true }
   }
 
+  const structured = parseLyricStructureTags(text)
   const vocalOnly = structured.filter((l) => !l.isStructureOnly && l.text.trim())
   const slice = vocalOnly.length > 0 ? durationMs / vocalOnly.length : 0
   const lines: LyricLine[] = []

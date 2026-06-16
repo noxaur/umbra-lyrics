@@ -73,13 +73,22 @@ describe("estimatePlainLyricsTiming", () => {
     expect(lines[0].startMs).toBeGreaterThan(0)
   })
 
-  it("smooths chorus repeats to similar duration", () => {
+  it("adds paragraph gaps between blank-line verses", () => {
+    const text = "Verse one line\n\nVerse two starts here\nSecond line of verse two"
+    const lines = estimatePlainLyricsTiming([text], 120)
+    expect(lines.length).toBeGreaterThanOrEqual(2)
+    expect(lines[1].startMs - lines[0].endMs).toBeGreaterThanOrEqual(1000)
+  })
+
+  it("locks chorus repeats globally, not only consecutive duplicates", () => {
     const chorus = "We are the champions"
-    const texts = [chorus, chorus, "Bridge line here", chorus, chorus]
+    const texts = [chorus, "Bridge line here", chorus, "Another bridge", chorus]
     const lines = estimatePlainLyricsTiming(texts, 180)
-    const d0 = lines[0].endMs - lines[0].startMs
-    const d1 = lines[1].endMs - lines[1].startMs
-    expect(Math.abs(d0 - d1)).toBeLessThan(50)
+    const chorusDurations = lines
+      .filter((line) => line.text === chorus)
+      .map((line) => line.endMs - line.startMs)
+    expect(chorusDurations[0]).toBeCloseTo(chorusDurations[1], -2)
+    expect(chorusDurations[0]).toBeCloseTo(chorusDurations[2], -2)
   })
 
   it("handles 100 lines without overflow", () => {

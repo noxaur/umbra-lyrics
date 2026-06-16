@@ -1,4 +1,5 @@
 import { AlertTriangle } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { usePlayerStore } from "@/stores/player-store"
 import { LYRICS_PROVIDER_LABELS, type LyricsAlternate, type LyricsProviderId } from "@/types/lyrics"
 import { LyricsSourcePicker } from "@/components/lyrics-source-picker"
@@ -67,9 +68,17 @@ function getTimingNoticeText(
 
 type NowPlayingHeaderProps = {
   onSelectAlternate?: (alternate: LyricsAlternate) => void
+  onTranslate?: () => void
+  translating?: boolean
+  showTranslate?: boolean
 }
 
-export function NowPlayingHeader({ onSelectAlternate }: NowPlayingHeaderProps) {
+export function NowPlayingHeader({
+  onSelectAlternate,
+  onTranslate,
+  translating = false,
+  showTranslate = false,
+}: NowPlayingHeaderProps) {
   const track = usePlayerStore((s) => s.track)
   const artist = usePlayerStore((s) => s.artist)
   const title = usePlayerStore((s) => s.title)
@@ -81,6 +90,7 @@ export function NowPlayingHeader({ onSelectAlternate }: NowPlayingHeaderProps) {
   const lyrics = usePlayerStore((s) => s.lyrics)
   const englishSource = usePlayerStore((s) => s.englishSource)
   const translationBackend = usePlayerStore((s) => s.translationBackend)
+  const englishLines = usePlayerStore((s) => s.englishLines)
 
   const videoId = usePlayerStore((s) => s.videoId)
   const displayTrack = track || title
@@ -104,47 +114,77 @@ export function NowPlayingHeader({ onSelectAlternate }: NowPlayingHeaderProps) {
   if (!displayTrack && !artist && status === "idle" && !videoId) return null
 
   return (
-    <div className="shrink-0 border-b border-border px-4 py-2">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-        <h1 className="min-w-0 max-w-full flex-1 basis-full truncate text-base font-semibold leading-tight sm:basis-auto sm:flex-none">
-          {displayTrack || "Loading track…"}
-        </h1>
-        {artist ? (
-          <p className="min-w-0 truncate text-sm text-muted-foreground">{artist}</p>
-        ) : status === "loading" ? (
-          <p className="text-sm text-muted-foreground">Identifying artist…</p>
-        ) : null}
-        {badge ? (
-          <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${badgeStyles[badge]}`}
-            role="status"
+    <div className="shrink-0 border-b border-border px-4 py-2.5">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h1
+            className="line-clamp-2 text-base font-semibold leading-tight"
+            title={displayTrack || undefined}
           >
-            {badge}
-          </span>
-        ) : null}
-        {sourceLabel ? (
-          <span
-            className="shrink-0 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground"
-            role="status"
-            title="Lyrics source"
-          >
-            {sourceLabel}
-          </span>
-        ) : null}
-        {englishSource === "translated" ? (
-          <span
-            className="shrink-0 rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-300"
-            role="status"
-            title={
-              translationBackend
-                ? `Translated via ${TRANSLATION_BACKEND_LABELS[translationBackend] ?? translationBackend}`
-                : "Machine-translated English"
-            }
-          >
-            Translated
-          </span>
-        ) : null}
-        {onSelectAlternate ? <LyricsSourcePicker onSelectAlternate={onSelectAlternate} /> : null}
+            {displayTrack || "Loading track…"}
+          </h1>
+          {artist ? (
+            <p className="mt-0.5 truncate text-sm text-muted-foreground" title={artist}>
+              {artist}
+            </p>
+          ) : status === "loading" ? (
+            <p className="mt-0.5 text-sm text-muted-foreground">Identifying artist…</p>
+          ) : null}
+        </div>
+
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:justify-end">
+          {showTranslate && onTranslate ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={onTranslate}
+              disabled={translating}
+            >
+              {translating ? "Translating…" : "Translate"}
+            </Button>
+          ) : null}
+          {badge ? (
+            <span
+              className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${badgeStyles[badge]}`}
+              role="status"
+            >
+              {badge}
+            </span>
+          ) : null}
+          {sourceLabel ? (
+            <span
+              className="shrink-0 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground"
+              role="status"
+              title="Lyrics source"
+            >
+              {sourceLabel}
+            </span>
+          ) : null}
+          {englishSource === "translated" ? (
+            <span
+              className="shrink-0 rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-300"
+              role="status"
+              title={
+                translationBackend
+                  ? `Translated via ${TRANSLATION_BACKEND_LABELS[translationBackend] ?? translationBackend}`
+                  : "Machine-translated English"
+              }
+            >
+              Translated
+            </span>
+          ) : null}
+          {englishLines.length > 0 && englishLines.length !== lyrics.length ? (
+            <span
+              className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+              role="status"
+              title="English and native lyric line counts differ"
+            >
+              Line mismatch
+            </span>
+          ) : null}
+          {onSelectAlternate ? <LyricsSourcePicker onSelectAlternate={onSelectAlternate} /> : null}
+        </div>
       </div>
       {timingNotice ? (
         <div

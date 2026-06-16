@@ -1,3 +1,5 @@
+import { parseLrc, parsePlainLyrics } from "@/lib/lrc-parser"
+import { prepareLyricsText } from "@/lib/prepare-lyrics-text"
 import type { LyricLine, LyricsAlternate, LyricsProviderId, LyricsResult } from "@/types/lyrics"
 import type { TranslationBackend } from "@/lib/translation-service"
 import type { EnglishSource } from "@/stores/player-store"
@@ -61,6 +63,43 @@ function isTrustedCacheEntry(entry: LyricsCacheEntry): boolean {
   })
 }
 
+export function reparseCachedLyrics(
+  entry: LyricsCacheEntry,
+  durationMs: number,
+): { lines: LyricLine[]; synced: boolean; autoTimed: boolean; suggestedOffsetMs?: number } | null {
+  if (durationMs <= 0) return null
+
+  const syncedRaw = entry.lyricsResult.syncedLyrics?.trim()
+    ? prepareLyricsText(entry.lyricsResult.syncedLyrics)
+    : null
+  const plainRaw = entry.lyricsResult.plainLyrics?.trim()
+    ? prepareLyricsText(entry.lyricsResult.plainLyrics)
+    : null
+
+  if (syncedRaw) {
+    const parsed = parseLrc(syncedRaw, durationMs)
+    if (parsed.lines.length === 0) return null
+    return {
+      lines: parsed.lines,
+      synced: true,
+      autoTimed: false,
+      suggestedOffsetMs: parsed.suggestedOffsetMs,
+    }
+  }
+
+  if (plainRaw) {
+    const parsed = parsePlainLyrics(plainRaw, durationMs)
+    if (parsed.lines.length === 0) return null
+    return {
+      lines: parsed.lines,
+      synced: false,
+      autoTimed: parsed.autoTimed ?? true,
+    }
+  }
+
+  return null
+}
+
 export function getLyricsCache(videoId: string): LyricsCacheEntry | null {
   if (!videoId) return null
   try {
@@ -69,7 +108,7 @@ export function getLyricsCache(videoId: string): LyricsCacheEntry | null {
     const parsed: unknown = JSON.parse(raw)
     if (!isValidEntry(parsed) || parsed.videoId !== videoId) return null
     if (parsed.lines.length === 0) return null
-    if (parsed.v !== CACHE_VERSION || !isTrustedCacheEntry(parsed)) {
+    if (!isTrustedCacheEntry(parsed)) {
       localStorage.removeItem(storageKey(videoId))
       return null
     }
@@ -82,12 +121,14 @@ export function getLyricsCache(videoId: string): LyricsCacheEntry | null {
 export function setLyricsCache(
   entry: Omit<LyricsCacheEntry, "v" | "cachedAt" | "providerId"> & {
     providerId?: LyricsProviderId
+    parsedDurationMs?: number
   },
 ): void {
   if (!entry.videoId || entry.lines.length === 0) return
   const payload: LyricsCacheEntry = {
     ...entry,
     providerId: entry.providerId ?? entry.lyricsResult.providerId,
+    parsedDurationMs: entry.parsedDurationMs,
     v: CACHE_VERSION,
     cachedAt: Date.now(),
   }

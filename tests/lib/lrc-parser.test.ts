@@ -19,6 +19,34 @@ describe("parseLrc", () => {
     expect(result.lines[0].sectionLabel).toBe("Intro")
     expect(result.lines[1].text).toBe("First vocal")
   })
+
+  it("parses timestamps without fractional seconds", () => {
+    const result = parseLrc("[00:12] Hello world\n[00:20.50] Second line")
+    expect(result.lines).toHaveLength(2)
+    expect(result.lines[0].startMs).toBe(12_000)
+    expect(result.lines[0].text).toBe("Hello world")
+  })
+
+  it("parses hour-based timestamps", () => {
+    const result = parseLrc("[00:01:05.00] Late in the song")
+    expect(result.lines).toHaveLength(1)
+    expect(result.lines[0].startMs).toBe(65_000)
+    expect(result.lines[0].text).toBe("Late in the song")
+  })
+
+  it("skips metadata tags and applies [offset:] as sync adjustment", () => {
+    const result = parseLrc("[ar:Artist]\n[ti:Track]\n[offset:+500]\n[00:12.00] Hello world")
+    expect(result.lines).toHaveLength(1)
+    expect(result.lines[0].text).toBe("Hello world")
+    expect(result.suggestedOffsetMs).toBe(-500)
+  })
+
+  it("does not suggest auto-offset for intentional MV intros (Not Like Us ~27s)", () => {
+    const lrc = "[00:26.97] Psst, I see dead people\n[00:30.12] Musty-ass, dusty-ass nigga"
+    const result = parseLrc(lrc, 354_000)
+    expect(result.lines[0].startMs).toBe(26_970)
+    expect(result.suggestedOffsetMs).toBeUndefined()
+  })
 })
 
 describe("parsePlainLyrics", () => {

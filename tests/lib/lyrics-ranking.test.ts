@@ -163,4 +163,15 @@ describe("lyrics-ranking", () => {
     expect(RANK_WEIGHTS.PLAIN_NOT_SYNCED).toBe(500)
     expect(RANK_WEIGHTS.PROVIDER_PRIORITY_MULT).toBe(10)
   })
+
+  it("returns null best when only junk lyrics are available", () => {
+    const junk = candidate({
+      providerId: "aggregated-scraper",
+      externalId: "junk",
+      plainLyrics: "document.write('x')\n(function() {\nvar opts = {};\n})();",
+    })
+
+    const { best } = pickBestAndAlternates([junk], rankContext)
+    expect(best).toBeNull()
+  })
 })

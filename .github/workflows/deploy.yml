@@ -1,0 +1,43 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx tsc -b
+
+      - run: npx vp build
+
+      - name: Strip zone routes for CI deploy
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = 'dist/song_kara/wrangler.json';
+          const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+          delete config.routes;
+          fs.writeFileSync(path, JSON.stringify(config));
+          "
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config dist/song_kara/wrangler.json

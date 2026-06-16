@@ -10,12 +10,15 @@
     "preview": "vp preview",
     "test": "vp test",
     "test:watch": "vp test --watch",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "npm run build && wrangler deploy --config dist/song_kara/wrangler.json",
     "fix-dns": "node scripts/fix-dns.mjs",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
     "@bogdanrn/yt-embed": "^0.3.0",
+    "@ffmpeg/core": "^0.12.6",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@fontsource-variable/dm-sans": "^5.2.8",
     "@radix-ui/react-dropdown-menu": "^2.1.17",
     "@radix-ui/react-slot": "^1.2.5",
@@ -23,6 +26,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "franc-min": "^6.2.0",
+    "jszip": "^3.10.1",
     "lucide-react": "^1.18.0",
     "motion": "^12.40.0",
     "react": "^19.2.6",
@@ -46,6 +50,7 @@
     "@voidzero-dev/vite-plus-test": "^0.1.24",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
+    "playwright": "^1.61.0",
     "typescript": "~6.0.2",
     "vite-plus": "^0.1.24",
     "wrangler": "^4.100.0"

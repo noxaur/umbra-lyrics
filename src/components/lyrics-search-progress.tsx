@@ -56,7 +56,7 @@ export function LyricsSearchProgress() {
                     ? "text-primary"
                     : active
                       ? "font-medium text-foreground"
-                      : "text-muted-foreground/60"
+                      : "text-muted-foreground"
                 }
               >
                 {step.label}

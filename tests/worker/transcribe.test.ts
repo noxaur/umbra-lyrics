@@ -3,6 +3,7 @@ import {
   chunkTimeOffsetSec,
   fetchAudioBytes,
   handleTranscribe,
+  MAX_AUDIO_BYTES,
   mergeTranscriptSegmentsWithOffsets,
   planByteChunks,
   transcribeAudioBuffer,
@@ -350,6 +351,46 @@ describe("transcribe handler", () => {
     )
 
     expect(result.partial).toBe(true)
+  })
+
+  it("uses single whisper call for large streams (no byte-range chunking)", async () => {
+    mockResolve.mockResolvedValue({
+      url: "https://rr3---sn-abc.googlevideo.com/videoplayback?x=1",
+      mimeType: "audio/mp4",
+      client: "IOS",
+    })
+
+    const aiRun = vi.fn(async () => ({
+      text: "full track",
+      segments: [{ start: 0, end: 120, text: "full track" }],
+    }))
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === "HEAD") {
+          return new Response(null, {
+            status: 200,
+            headers: { "Content-Length": String(5 * 1024 * 1024) },
+          })
+        }
+        const headers = new Headers(init?.headers)
+        if (headers.get("Range") === `bytes=0-${MAX_AUDIO_BYTES - 1}`) {
+          return new Response(new Uint8Array(100), { status: 206 })
+        }
+        return new Response(new Uint8Array(100), { status: 200 })
+      }),
+    )
+
+    const result = await transcribeYouTubeAudio(
+      { AI: { run: aiRun } },
+      { videoId: "dQw4w9WgXcQ", durationSec: 300 },
+    )
+
+    expect(result.text).toBe("full track")
+    expect(result.partial).toBe(true)
+    expect(result.chunks).toBe(1)
+    expect(aiRun).toHaveBeenCalledTimes(1)
   })
 
   it("runs chunked transcription for large streams", async () => {

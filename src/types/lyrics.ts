@@ -11,7 +11,24 @@ export type LyricLine = {
   /** Per-word timestamps from enhanced LRC or forced alignment */
   words?: LyricWord[]
 }
-export type ParsedLyrics = { lines: LyricLine[]; synced: boolean; autoTimed?: boolean; aligned?: boolean }
+
+export type LyricStageMode = "idle" | "intro" | "lyric" | "gap" | "outro"
+
+export type LyricStageState = {
+  mode: LyricStageMode
+  activeIndex: number
+  gapLabel?: string
+  wordIndex: number
+  wordProgress: number
+}
+
+export type ParsedLyrics = {
+  lines: LyricLine[]
+  synced: boolean
+  autoTimed?: boolean
+  aligned?: boolean
+  suggestedOffsetMs?: number
+}
 
 export type LyricDisplayMode = "native" | "english" | "both"
 

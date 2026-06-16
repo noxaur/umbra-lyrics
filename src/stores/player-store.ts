@@ -4,6 +4,7 @@ import type { LyricsOrchestratorStatus, LyricsSearchStep } from "@/lib/lyrics-or
 import type { TranslationBackend } from "@/lib/translation-service"
 
 export type PlayerStatus = "idle" | "loading" | "ready" | "error"
+export type LyricsFollowMode = "follow" | "manual"
 export type LyricsSource = LyricsProviderId | "pasted" | "translated" | null
 export type EnglishSource = "found" | "translated" | null
 
@@ -21,6 +22,8 @@ type PlayerState = {
   lyricsSynced: boolean
   lyricsAutoTimed: boolean
   lyricsAligned: boolean
+  focusMode: boolean
+  tvMode: boolean
   lyricsSource: LyricsSource
   lyricsOutcome: LyricsOrchestratorStatus | "network_error" | null
   lyricsSearchPhase: string | null
@@ -35,9 +38,12 @@ type PlayerState = {
   currentTime: number
   syncOffsetMs: number
   videoHidden: boolean
+  showTimestamps: boolean
   activeIndex: number
   wordProgress: number
   loadedFromCache: boolean
+  lyricsFollowMode: LyricsFollowMode
+  lyricsScrollSyncRequest: number
   playRef: (() => void) | null
   pauseRef: (() => void) | null
   seekRef: ((s: number) => void) | null
@@ -62,6 +68,11 @@ type PlayerState = {
   setCurrentTime: (t: number) => void
   adjustOffset: (deltaMs: number) => void
   setVideoHidden: (hidden: boolean) => void
+  setShowTimestamps: (show: boolean) => void
+  setFocusMode: (on: boolean) => void
+  setTvMode: (on: boolean) => void
+  resetSyncOffset: () => void
+  setSyncOffset: (ms: number) => void
   setActive: (index: number, progress: number) => void
   setLyricsSearchPhase: (phase: string | null) => void
   setLyricsSearchStep: (step: LyricsSearchStep | null) => void
@@ -73,6 +84,8 @@ type PlayerState = {
   setNetworkRetryCount: (count: number) => void
   setLrclibTrackId: (id: number | null) => void
   setLoadedFromCache: (fromCache: boolean) => void
+  setLyricsFollowMode: (mode: LyricsFollowMode) => void
+  requestLyricsScrollSync: () => void
   bindControls: (controls: {
     play: () => void
     pause: () => void
@@ -85,6 +98,9 @@ type PlayerState = {
 }
 
 const VIDEO_HIDDEN_KEY = "song-kara-video-hidden"
+const SHOW_TIMESTAMPS_KEY = "song-kara-show-timestamps"
+const FOCUS_MODE_KEY = "song-kara-focus-mode"
+const TV_MODE_KEY = "song-kara-tv-mode"
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   videoId: null,
@@ -114,9 +130,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   currentTime: 0,
   syncOffsetMs: 0,
   videoHidden: localStorage.getItem(VIDEO_HIDDEN_KEY) === "true",
+  showTimestamps: localStorage.getItem(SHOW_TIMESTAMPS_KEY) === "true",
+  focusMode: localStorage.getItem(FOCUS_MODE_KEY) === "true",
+  tvMode: localStorage.getItem(TV_MODE_KEY) === "true",
   activeIndex: -1,
   wordProgress: 0,
   loadedFromCache: false,
+  lyricsFollowMode: "follow",
+  lyricsScrollSyncRequest: 0,
   playRef: null,
   pauseRef: null,
   seekRef: null,
@@ -164,11 +185,31 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setNetworkRetryCount: (count) => set({ networkRetryCount: count }),
   setLrclibTrackId: (id) => set({ lrclibTrackId: id }),
   setLoadedFromCache: (fromCache) => set({ loadedFromCache: fromCache }),
+  setLyricsFollowMode: (mode) => set({ lyricsFollowMode: mode }),
+  requestLyricsScrollSync: () =>
+    set((s) => ({
+      lyricsFollowMode: "follow",
+      lyricsScrollSyncRequest: s.lyricsScrollSyncRequest + 1,
+    })),
   adjustOffset: (deltaMs) =>
-    set((s) => ({ syncOffsetMs: s.syncOffsetMs + deltaMs })),
+    set((s) => ({ syncOffsetMs: Math.max(-5000, Math.min(5000, s.syncOffsetMs + deltaMs)) })),
+  setSyncOffset: (ms) => set({ syncOffsetMs: Math.max(-5000, Math.min(5000, ms)) }),
+  resetSyncOffset: () => set({ syncOffsetMs: 0 }),
   setVideoHidden: (hidden) => {
     localStorage.setItem(VIDEO_HIDDEN_KEY, String(hidden))
     set({ videoHidden: hidden })
+  },
+  setShowTimestamps: (show) => {
+    localStorage.setItem(SHOW_TIMESTAMPS_KEY, String(show))
+    set({ showTimestamps: show })
+  },
+  setFocusMode: (on) => {
+    localStorage.setItem(FOCUS_MODE_KEY, String(on))
+    set({ focusMode: on })
+  },
+  setTvMode: (on) => {
+    localStorage.setItem(TV_MODE_KEY, String(on))
+    set({ tvMode: on })
   },
   setActive: (index, progress) => set({ activeIndex: index, wordProgress: progress }),
   bindControls: ({ play, pause, seek, isPlaying }) =>
