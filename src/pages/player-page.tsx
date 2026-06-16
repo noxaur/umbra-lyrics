@@ -368,7 +368,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       })
       applyEnglishResult(english, nativeLines, sample)
       const cached = getLyricsCache(videoId)
-      if (cached && english.status === "ready") {
+      if (cached && (english.status === "ready" || english.status === "skipped")) {
         setLyricsCache({
           ...cached,
           englishLines: english.lines,
