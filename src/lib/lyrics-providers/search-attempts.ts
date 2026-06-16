@@ -1,24 +1,30 @@
-import { simplifyTrackName } from "@/lib/parse-track-title"
+import { simplifyTrackName, stripDecorativeTitle } from "@/lib/parse-track-title"
 import type { ProviderSearchParams } from "./types"
 
 export function buildSearchAttempts(
   params: ProviderSearchParams,
 ): Array<{ artist: string; track: string }> {
+  const canonicalTrack = params.canonicalTrack ?? params.track
+  const strippedTrack = stripDecorativeTitle(canonicalTrack)
+  const simplifiedTrack = simplifyTrackName(canonicalTrack)
+  const simplifiedStripped = simplifyTrackName(strippedTrack)
+
   const attempts: Array<{ artist: string; track: string }> = [
     {
       artist: params.canonicalArtist ?? params.artist,
-      track: params.canonicalTrack ?? params.track,
+      track: canonicalTrack,
     },
     { artist: params.artist, track: params.track },
-    {
-      artist: params.artist,
-      track: simplifyTrackName(params.canonicalTrack ?? params.track),
-    },
+    { artist: params.artist, track: strippedTrack },
+    { artist: params.artist, track: simplifiedTrack },
+    { artist: params.artist, track: simplifiedStripped },
     { artist: params.oembedAuthor ?? "", track: params.track },
+    { artist: params.oembedAuthor ?? "", track: simplifiedTrack },
   ]
 
   for (const alt of params.metadataAlternates ?? []) {
     attempts.push({ artist: alt.artist, track: alt.track })
+    attempts.push({ artist: alt.artist, track: stripDecorativeTitle(alt.track) })
     attempts.push({ artist: alt.artist, track: simplifyTrackName(alt.track) })
   }
 
