@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest"
 import {
   extractYouTubeVideoId,
+  extractYouTubePlaylistId,
   isKaraokePlayUrl,
   isKaraokeWatchUrl,
+  isYouTubePlaylistUrl,
   isYouTubeUrl,
   karaokePlayUrl,
   karaokeWatchUrl,
@@ -87,6 +89,42 @@ describe("extractYouTubeVideoId", () => {
     expect(extractYouTubeVideoId("not-a-url")).toBeNull()
     expect(extractYouTubeVideoId("")).toBeNull()
     expect(extractYouTubeVideoId("https://example.com/watch?v=short")).toBeNull()
+  })
+})
+
+describe("extractYouTubePlaylistId", () => {
+  const PL = "PLrAXtmRdnEQy6nuLMH8xZzFw5J5BtEn"
+
+  it("parses playlist URLs", () => {
+    expect(
+      extractYouTubePlaylistId(`https://www.youtube.com/playlist?list=${PL}`),
+    ).toBe(PL)
+    expect(
+      extractYouTubePlaylistId(`https://music.youtube.com/playlist?list=${PL}`),
+    ).toBe(PL)
+  })
+
+  it("parses watch URLs with a list param", () => {
+    expect(
+      extractYouTubePlaylistId(`https://www.youtube.com/watch?v=${ID}&list=${PL}`),
+    ).toBe(PL)
+  })
+
+  it("accepts bare playlist ids", () => {
+    expect(extractYouTubePlaylistId(PL)).toBe(PL)
+  })
+
+  it("returns null for invalid input", () => {
+    expect(extractYouTubePlaylistId(`https://www.youtube.com/watch?v=${ID}`)).toBeNull()
+    expect(extractYouTubePlaylistId("not-a-playlist")).toBeNull()
+  })
+})
+
+describe("isYouTubePlaylistUrl", () => {
+  const PL = "PLrAXtmRdnEQy6nuLMH8xZzFw5J5BtEn"
+
+  it("detects playlist URLs", () => {
+    expect(isYouTubePlaylistUrl(`https://www.youtube.com/playlist?list=${PL}`)).toBe(true)
   })
 })
 
