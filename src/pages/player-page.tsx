@@ -891,6 +891,45 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     [duration, loadLyrics],
   )
 
+  const handleRefreshLyrics = useCallback(async () => {
+    if (duration <= 0 || usePlayerStore.getState().status === "loading") return
+
+    transcribeAbortRef.current?.abort()
+    alignAbortRef.current?.abort()
+    setLoadedFromCache(false)
+    setContentWarning(null)
+    setVerificationScore(null)
+
+    const title = await getVideoTitle()
+    setLyricsSearchPhase("Resolving song…")
+    setLyricsSearchStep("parse")
+
+    const rough = parseTrackTitle(title, oembedAuthorRef.current ?? undefined)
+    const resolved = await resolveTrackMetadata({
+      title,
+      durationSec: duration,
+      oembedAuthor: oembedAuthorRef.current ?? undefined,
+      roughArtist: rough.artist,
+      roughTrack: rough.track,
+    })
+    resolvedMetadataRef.current = resolved
+    setMeta({ title, artist: resolved.artist, track: resolved.track })
+    await loadLyrics(resolved.artist, resolved.track, title, duration, {
+      skipPasted: true,
+      skipCache: true,
+    })
+  }, [
+    duration,
+    getVideoTitle,
+    loadLyrics,
+    setMeta,
+    setLyricsSearchPhase,
+    setLyricsSearchStep,
+    setLoadedFromCache,
+    setContentWarning,
+    setVerificationScore,
+  ])
+
   const handleTranscribe = useCallback(() => {
     const { title, artist, track } = usePlayerStore.getState()
     void loadLyrics(artist, track, title, duration, {
@@ -1005,6 +1044,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
               <NowPlayingHeader
                 onSelectAlternate={handleSelectAlternate}
                 onTranslate={() => void handleTranslate()}
+                onRefreshLyrics={() => void handleRefreshLyrics()}
                 translating={translating}
                 showTranslate={
                   !isEnglish(languageCode) &&
@@ -1043,6 +1083,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           onPlay={play}
           onPause={pause}
           onSeek={seekTo}
+          onRefreshLyrics={() => void handleRefreshLyrics()}
         />
       </div>
     </AppShell>

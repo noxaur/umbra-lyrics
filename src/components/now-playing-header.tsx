@@ -1,5 +1,6 @@
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { usePlayerStore } from "@/stores/player-store"
 import { LYRICS_PROVIDER_LABELS, type LyricsAlternate, type LyricsProviderId } from "@/types/lyrics"
 import { LyricsSourcePicker } from "@/components/lyrics-source-picker"
@@ -69,6 +70,7 @@ function getTimingNoticeText(
 type NowPlayingHeaderProps = {
   onSelectAlternate?: (alternate: LyricsAlternate) => void
   onTranslate?: () => void
+  onRefreshLyrics?: () => void
   translating?: boolean
   showTranslate?: boolean
 }
@@ -76,6 +78,7 @@ type NowPlayingHeaderProps = {
 export function NowPlayingHeader({
   onSelectAlternate,
   onTranslate,
+  onRefreshLyrics,
   translating = false,
   showTranslate = false,
 }: NowPlayingHeaderProps) {
@@ -93,6 +96,7 @@ export function NowPlayingHeader({
   const englishLines = usePlayerStore((s) => s.englishLines)
 
   const videoId = usePlayerStore((s) => s.videoId)
+  const lyricsRefreshing = status === "loading"
   const displayTrack = track || title
   const badge = getSyncBadge(
     status,
@@ -133,6 +137,20 @@ export function NowPlayingHeader({
         </div>
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:justify-end">
+          {onRefreshLyrics && videoId ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              onClick={onRefreshLyrics}
+              disabled={lyricsRefreshing}
+              aria-label="Re-search lyrics"
+              title="Re-parse title, search providers, and verify against audio"
+            >
+              <RefreshCw className={cn("size-3", lyricsRefreshing && "motion-safe:animate-spin")} aria-hidden />
+              {lyricsRefreshing ? "Searching…" : "Re-search"}
+            </Button>
+          ) : null}
           {showTranslate && onTranslate ? (
             <Button
               variant="outline"

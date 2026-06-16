@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { HelpCircle, Pause, Play, RotateCcw } from "lucide-react"
+import { HelpCircle, Pause, Play, RefreshCw, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { formatDuration } from "@/lib/format-time"
@@ -18,6 +18,7 @@ type TransportControlsProps = {
   onPlay: () => void
   onPause: () => void
   onSeek: (seconds: number) => void
+  onRefreshLyrics?: () => void
 }
 
 export function TransportControls({
@@ -28,6 +29,7 @@ export function TransportControls({
   onPlay,
   onPause,
   onSeek,
+  onRefreshLyrics,
 }: TransportControlsProps) {
   const syncOffsetMs = usePlayerStore((s) => s.syncOffsetMs)
   const adjustOffset = usePlayerStore((s) => s.adjustOffset)
@@ -41,6 +43,10 @@ export function TransportControls({
   const englishSource = usePlayerStore((s) => s.englishSource)
   const lyricsFollowMode = usePlayerStore((s) => s.lyricsFollowMode)
   const requestLyricsScrollSync = usePlayerStore((s) => s.requestLyricsScrollSync)
+  const status = usePlayerStore((s) => s.status)
+  const videoId = usePlayerStore((s) => s.videoId)
+
+  const lyricsRefreshing = status === "loading"
 
   const hasEnglish = englishLines.length > 0
   const englishLoading = englishStatus === "loading"
@@ -196,7 +202,23 @@ export function TransportControls({
           </fieldset>
 
           <div className="flex items-center justify-center gap-1.5 sm:justify-end">
-            <PlayerViewMenu />
+            {onRefreshLyrics && videoId ? (
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-9 shrink-0"
+                onClick={onRefreshLyrics}
+                disabled={lyricsRefreshing || duration <= 0}
+                aria-label={lyricsRefreshing ? "Searching for lyrics" : "Re-search lyrics"}
+                title="Re-parse title, search providers, and verify against audio"
+              >
+                <RefreshCw
+                  className={`size-4 ${lyricsRefreshing ? "motion-safe:animate-spin" : ""}`}
+                  aria-hidden
+                />
+              </Button>
+            ) : null}
+            <PlayerViewMenu onRefreshLyrics={onRefreshLyrics} lyricsRefreshing={lyricsRefreshing} />
             <ShortcutsHelp>
               <Button variant="ghost" size="icon" className="size-9" aria-label="Keyboard shortcuts">
                 <HelpCircle className="size-4" />

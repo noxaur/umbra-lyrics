@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react"
-import { describe, it, expect, beforeEach } from "vitest"
+import { describe, it, expect, beforeEach, vi } from "vitest"
 import { TransportControls } from "@/components/transport-controls"
 import { usePlayerStore } from "@/stores/player-store"
 
@@ -120,5 +120,23 @@ describe("TransportControls", () => {
     )
 
     expect(usePlayerStore.getState().displayMode).toBe("both")
+  })
+
+  it("shows re-search lyrics control when handler provided", () => {
+    const onRefreshLyrics = vi.fn()
+    usePlayerStore.setState({ videoId: "abc123", status: "ready" })
+    renderControls({ onRefreshLyrics })
+
+    const button = screen.getByRole("button", { name: "Re-search lyrics" })
+    expect(button).toBeEnabled()
+    fireEvent.click(button)
+    expect(onRefreshLyrics).toHaveBeenCalledTimes(1)
+  })
+
+  it("disables re-search while lyrics are loading", () => {
+    usePlayerStore.setState({ videoId: "abc123", status: "loading" })
+    renderControls({ onRefreshLyrics: vi.fn() })
+
+    expect(screen.getByRole("button", { name: "Searching for lyrics" })).toBeDisabled()
   })
 })
