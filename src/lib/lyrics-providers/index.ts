@@ -198,6 +198,12 @@ export async function searchProvidersParallel(
   let settled = false
 
   return new Promise((resolve) => {
+    const recordStatus = (status: ProviderSearchStatus) => {
+      if (settled) return
+      statuses.push(status)
+      onProviderComplete?.(status)
+    }
+
     const finish = (early: boolean) => {
       if (settled) return
       if (early || completed >= providers.length) {
@@ -215,13 +221,11 @@ export async function searchProvidersParallel(
         try {
           const candidates = await searchOneProvider(provider, params, providerTimeout)
           buckets[index] = candidates
-          const status: ProviderSearchStatus = {
+          recordStatus({
             providerId: provider.id,
             outcome: candidates.length > 0 ? "found" : "empty",
             candidateCount: candidates.length,
-          }
-          statuses.push(status)
-          onProviderComplete?.(status)
+          })
           if (
             earlyExit &&
             provider.id === "lrclib" &&
@@ -232,14 +236,12 @@ export async function searchProvidersParallel(
         } catch (error) {
           const outcome: ProviderSearchOutcome =
             error instanceof Error && error.message === "timeout" ? "timeout" : "error"
-          const status: ProviderSearchStatus = {
+          recordStatus({
             providerId: provider.id,
             outcome,
             candidateCount: 0,
             message: error instanceof Error ? error.message : "Unknown error",
-          }
-          statuses.push(status)
-          onProviderComplete?.(status)
+          })
         } finally {
           completed += 1
           finish(false)
