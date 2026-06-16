@@ -76,6 +76,7 @@ export type OrchestratorParams = {
   preferredLanguage?: string
   providerIds?: LyricsProviderId[]
   resolvedMetadata?: ResolvedTrackMetadata
+  skipCache?: boolean
   onProgress?: (update: OrchestratorProgress) => void
 }
 
@@ -362,6 +363,7 @@ export async function orchestrateLyricsSearch(
       language: lang,
       durationSec: params.durationSec,
       videoId: params.videoId,
+      skipCache: params.skipCache,
       onProgress: (phase) => report(phase, "search"),
     })
 
@@ -434,6 +436,7 @@ export async function orchestrateLyricsSearch(
       language: detectLanguage(nativeLines.join("\n")),
       durationSec: params.durationSec,
       videoId: params.videoId,
+      skipCache: params.skipCache,
       onProgress: (phase) => report(phase, "search"),
     })
     report(metadataHit.synced ? "Found synced lyrics" : "Found plain lyrics", "ready", {

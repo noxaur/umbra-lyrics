@@ -19,8 +19,13 @@ type MusixmatchResponse = {
   candidates?: MusixmatchHit[]
 }
 
-async function searchMusixmatch(artist: string, track: string): Promise<MusixmatchHit[]> {
+async function searchMusixmatch(
+  artist: string,
+  track: string,
+  durationSec: number,
+): Promise<MusixmatchHit[]> {
   const params = new URLSearchParams({ artist, track })
+  if (durationSec > 0) params.set("durationSec", String(Math.round(durationSec)))
   const res = await proxyFetch(`/api/lyrics/musixmatch/search?${params}`)
   if (!res.ok) return []
   const data = (await res.json()) as MusixmatchResponse
@@ -73,7 +78,7 @@ export const musixmatchProvider: LyricsProvider = {
 
     const candidates: ProviderLyricsCandidate[] = []
     const settled = await Promise.allSettled(
-      attempts.map(({ artist, track }) => searchMusixmatch(artist, track)),
+      attempts.map(({ artist, track }) => searchMusixmatch(artist, track, params.durationSec)),
     )
 
     for (const outcome of settled) {

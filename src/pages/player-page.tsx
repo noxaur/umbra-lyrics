@@ -78,6 +78,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const alignAbortRef = useRef<AbortController | null>(null)
   const alignRequestRef = useRef(0)
   const transcribeRequestRef = useRef(0)
+  const loadRequestRef = useRef(0)
   const {
     containerRef,
     ready,
@@ -124,6 +125,13 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const focusMode = usePlayerStore((s) => s.focusMode)
   const resolvedMetadataRef = useRef<Awaited<ReturnType<typeof resolveTrackMetadata>> | null>(null)
 
+  const ensureOEmbedAuthor = useCallback(async () => {
+    if (oembedAuthorRef.current != null) return oembedAuthorRef.current
+    const author = await fetchYouTubeAuthor(videoId)
+    oembedAuthorRef.current = author
+    return author
+  }, [videoId])
+
   const { available, translating } = useTranslation(languageCode)
 
   const getTime = useCallback(() => currentTime, [currentTime])
@@ -145,6 +153,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     setVideoId(videoId)
     loadedRef.current = false
     oembedAuthorRef.current = null
+    loadRequestRef.current += 1
     transcribeAbortRef.current?.abort()
     alignAbortRef.current?.abort()
     resetLyricsSearch()
@@ -607,6 +616,12 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         transcribeOnly?: boolean
       },
     ) => {
+      const requestId = ++loadRequestRef.current
+      const loadVideoId = videoId
+      const isStale = () =>
+        requestId !== loadRequestRef.current ||
+        usePlayerStore.getState().videoId !== loadVideoId
+
       resetLyricsSearch()
       setEnglishLines([])
       setStatus("loading")
@@ -627,6 +642,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         if (pasted) {
           const parsed = applyLyricsText(pasted, durationSec)
           if (parsed) {
+            if (isStale()) return
             if (parsed.suggestedOffsetMs) setSyncOffset(parsed.suggestedOffsetMs)
             else resetSyncOffset()
             await applyParsedLyrics(
@@ -644,6 +660,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       if (!options?.skipCache) {
         const cached = getLyricsCache(videoId)
         if (cached) {
+          if (isStale()) return
           const durationMs = durationSec * 1000
           const reparsed = reparseCachedLyrics(cached, durationMs)
           const parsed = reparsed ?? {
@@ -707,6 +724,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           videoId,
           oembedAuthor: oembedAuthorRef.current ?? undefined,
           resolvedMetadata: resolvedMetadataRef.current ?? undefined,
+          skipCache: options?.skipCache,
           preferredLanguage: inferPreferredLanguage({
             title,
             artist,
@@ -722,7 +740,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           },
         })
 
-        if (usePlayerStore.getState().videoId !== videoId) return
+        if (isStale()) return
 
         setLyricsProvidersSearched(result.providersTried)
         setContentWarning(result.contentAssessment?.message ?? null)
@@ -745,6 +763,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             result.alternates ?? [],
             result.english,
           )
+          if (isStale()) return
           if (applied && result.status === "instrumental") {
             setLyricsOutcome("instrumental")
             setStatus("error", "Song found — marked instrumental")
@@ -765,6 +784,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             durationSec,
             controller.signal,
           )
+          if (isStale()) return
           if (transcribed) return
         }
 
@@ -784,6 +804,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
         setStatus("error", result.message)
       } catch {
+        if (isStale()) return
         setLyricsOutcome("network_error")
         setStatus("error", "Couldn't reach the lyrics service — check your connection")
       }
@@ -856,10 +877,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
     const load = async () => {
       const title = await getVideoTitle()
-      const oembedAuthor =
-        oembedAuthorRef.current ?? (await fetchYouTubeAuthor(videoId))
-      if (oembedAuthor) oembedAuthorRef.current = oembedAuthor
-
+      const oembedAuthor = await ensureOEmbedAuthor()
       const rough = parseTrackTitle(title, oembedAuthor ?? undefined)
       setLyricsSearchPhase("Resolving song…")
       setLyricsSearchStep("parse")
@@ -877,7 +895,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     }
 
     void load()
-  }, [ready, videoId, duration, getVideoTitle, loadLyrics, setMeta])
+  }, [ready, videoId, duration, getVideoTitle, loadLyrics, setMeta, ensureOEmbedAuthor])
 
   const handleRetry = useCallback(
     (artist: string, track: string, providerIds?: LyricsProviderId[]) => {
@@ -904,11 +922,12 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     setLyricsSearchPhase("Resolving song…")
     setLyricsSearchStep("parse")
 
-    const rough = parseTrackTitle(title, oembedAuthorRef.current ?? undefined)
+    const oembedAuthor = await ensureOEmbedAuthor()
+    const rough = parseTrackTitle(title, oembedAuthor ?? undefined)
     const resolved = await resolveTrackMetadata({
       title,
       durationSec: duration,
-      oembedAuthor: oembedAuthorRef.current ?? undefined,
+      oembedAuthor: oembedAuthor ?? undefined,
       roughArtist: rough.artist,
       roughTrack: rough.track,
     })
@@ -928,6 +947,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     setLoadedFromCache,
     setContentWarning,
     setVerificationScore,
+    ensureOEmbedAuthor,
   ])
 
   const handleTranscribe = useCallback(() => {

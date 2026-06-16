@@ -35,10 +35,60 @@ function parseSubtitleToLrc(subtitleBody: string): string | null {
   return lrcLines.length > 0 ? lrcLines.join("\n") : null
 }
 
+function normalizeText(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function textOverlap(a: string, b: string): boolean {
+  const x = normalizeText(a)
+  const y = normalizeText(b)
+  if (!x || !y) return false
+  return x === y || x.includes(y) || y.includes(x)
+}
+
+function scoreApiTrack(
+  track: ApiTrack,
+  artist: string,
+  trackName: string,
+  durationSec?: number,
+): number {
+  let score = 0
+  const foundArtist = track.artist_name ?? ""
+  const foundTrack = track.track_name ?? ""
+
+  if (!textOverlap(foundArtist, artist)) score += 80
+  if (!textOverlap(foundTrack, trackName)) score += 80
+
+  if (durationSec && durationSec > 0 && track.track_length) {
+    const delta = Math.abs(track.track_length - durationSec)
+    score += delta <= 15 ? delta : delta + 100
+  }
+
+  if (track.has_lyrics !== 1) score += 200
+
+  return score
+}
+
+function pickBestApiTrack(
+  tracks: ApiTrack[],
+  artist: string,
+  trackName: string,
+  durationSec?: number,
+): ApiTrack | null {
+  if (tracks.length === 0) return null
+  return tracks.reduce((best, candidate) =>
+    scoreApiTrack(candidate, artist, trackName, durationSec) <
+    scoreApiTrack(best, artist, trackName, durationSec)
+      ? candidate
+      : best,
+  )
+}
+
 async function apiSearch(
   apiKey: string,
   artist: string,
   track: string,
+  durationSec?: number,
 ): Promise<ApiTrack | null> {
   const url = `${MXM_API}/track.search?q_track=${encodeURIComponent(track)}&q_artist=${encodeURIComponent(artist)}&page_size=3&apikey=${apiKey}&format=json`
   const res = await fetch(url, { signal: AbortSignal.timeout(12_000) })
@@ -47,8 +97,10 @@ async function apiSearch(
   const data = (await res.json()) as {
     message?: { body?: { track_list?: Array<{ track?: ApiTrack }> } }
   }
-  const tracks = data.message?.body?.track_list?.map((t) => t.track).filter(Boolean) ?? []
-  return tracks[0] ?? null
+  const tracks = (data.message?.body?.track_list?.map((t) => t.track).filter(
+    (t): t is ApiTrack => Boolean(t),
+  ) ?? [])
+  return pickBestApiTrack(tracks, artist, track, durationSec)
 }
 
 async function apiLyrics(apiKey: string, trackId: number): Promise<string | null> {
@@ -109,6 +161,7 @@ export async function handleMusixmatchSearch(
   artist: string,
   track: string,
   env: MusixmatchEnv,
+  durationSec?: number,
 ): Promise<Response> {
   if (!track.trim()) {
     return new Response(JSON.stringify({ error: "Missing track" }), {
@@ -121,7 +174,7 @@ export async function handleMusixmatchSearch(
 
   try {
     if (apiKey) {
-      const found = await apiSearch(apiKey, artist, track)
+      const found = await apiSearch(apiKey, artist, track, durationSec)
       if (found?.track_id) {
         const [plain, synced] = await Promise.all([
           apiLyrics(apiKey, found.track_id),

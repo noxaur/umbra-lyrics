@@ -140,7 +140,8 @@ export async function handleApiRequest(
   if (pathname === "/api/lyrics/musixmatch/search") {
     const artist = url.searchParams.get("artist") ?? ""
     const track = url.searchParams.get("track") ?? ""
-    return handleMusixmatchSearch(artist, track, env)
+    const durationSec = Number(url.searchParams.get("durationSec") ?? "0") || undefined
+    return handleMusixmatchSearch(artist, track, env, durationSec)
   }
 
   if (pathname === "/api/youtube/oembed") {

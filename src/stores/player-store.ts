@@ -196,6 +196,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       lyricsOutcome: null,
       lrclibTrackId: null,
       lyricsSource: null,
+      englishLines: [],
       englishSource: null,
       englishStatus: null,
       contentWarning: null,
