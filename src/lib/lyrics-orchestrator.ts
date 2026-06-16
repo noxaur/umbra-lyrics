@@ -250,12 +250,13 @@ export async function orchestrateLyricsSearch(
     ? verified.find((v) => v.candidate.externalId === best.candidate.externalId)?.verification
     : undefined
 
+  const promoteVideoId = params.videoId
   const shouldPromote = Boolean(
-    params.videoId &&
+    promoteVideoId &&
       shouldPromoteTranscription(bestVerification, transcriptProfile, contentAssessment),
   )
 
-  if (shouldPromote) {
+  if (shouldPromote && promoteVideoId) {
     report("Transcribing from audio…", "match")
     attempts.push({
       strategy: "transcription:promote",
@@ -265,7 +266,7 @@ export async function orchestrateLyricsSearch(
     })
 
     const transcription = await fullTranscribeAsProvider({
-      videoId: params.videoId,
+      videoId: promoteVideoId,
       artist: params.artist,
       track: params.track,
       language: params.preferredLanguage,
@@ -330,8 +331,7 @@ export async function orchestrateLyricsSearch(
     })
   }
 
-  const skipWeakProvider =
-    shouldPromote && bestVerification !== undefined && !isStrongVerification(bestVerification)
+  const skipWeakProvider = shouldPromote
 
   if (
     !skipWeakProvider &&
