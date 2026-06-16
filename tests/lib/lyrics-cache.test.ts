@@ -44,6 +44,19 @@ describe("lyrics-cache", () => {
     expect(cached?.cachedAt).toBeTypeOf("number")
   })
 
+  it("round-trips skipped english status for English-only tracks", () => {
+    setLyricsCache({
+      ...sampleEntry,
+      englishLines: ["Hello world"],
+      englishSource: "found",
+      englishStatus: "skipped",
+      languageCode: "en",
+    })
+    const cached = getLyricsCache("abc12345678")
+    expect(cached?.englishStatus).toBe("skipped")
+    expect(cached?.englishLines).toEqual(["Hello world"])
+  })
+
   it("rejects legacy cache version", () => {
     localStorage.setItem(
       "song-kara-lyrics:abc12345678",

@@ -256,6 +256,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         cached.englishLines,
         cached.englishSource ?? (cached.englishLines.length > 0 ? "found" : null),
         cached.translationBackend ?? null,
+        cached.englishStatus ?? (cached.englishLines.length > 0 ? "ready" : null),
       )
       setLanguageCode(cached.languageCode)
       setLyricsAlternates(cached.alternates ?? [])
@@ -803,7 +804,12 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             artist: cached.artist || artist,
             track: cached.track || track,
           })
-          setEnglishLines(cached.englishLines)
+          setEnglishLines(
+            cached.englishLines,
+            cached.englishSource ?? (cached.englishLines.length > 0 ? "found" : null),
+            cached.translationBackend ?? null,
+            cached.englishStatus ?? (cached.englishLines.length > 0 ? "ready" : null),
+          )
           setLanguageCode(cached.languageCode)
           setLyricsAlternates(cached.alternates ?? [])
           if (parsed.suggestedOffsetMs) setSyncOffset(parsed.suggestedOffsetMs)
@@ -832,6 +838,9 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
               aligned: cached.aligned ?? false,
               alternates: cached.alternates ?? [],
               englishLines: cached.englishLines,
+              englishSource: cached.englishSource ?? null,
+              translationBackend: cached.translationBackend ?? null,
+              englishStatus: cached.englishStatus ?? null,
               languageCode: cached.languageCode,
               title: cached.title || title,
               artist: cached.artist || artist,
