@@ -6,8 +6,18 @@ import {
   type ResolvedInnertubeStream,
   resolveStreamFromBasicInfo,
 } from "./innertube-resolve"
+import { mapPlaylistVideo, type PlaylistImportItem } from "./youtube-playlist-map"
 import { mapSearchVideos, searchCandidateLimit } from "./youtube-search-map"
 import { rankSongSearchHits, type SongSearchHit } from "./youtube-search-rank"
+
+export type { PlaylistImportItem }
+export type PlaylistImportResult = {
+  playlistId: string
+  title: string
+  items: PlaylistImportItem[]
+  truncated: boolean
+  totalReported: string | null
+}
 
 export type { ResolvedInnertubeStream as InnertubeResolvedStream, ResolveAttempt, SongSearchHit }
 
@@ -89,4 +99,48 @@ export async function searchViaInnertube(query: string, limit: number): Promise<
     searchCandidateLimit(limit),
   )
   return rankSongSearchHits(mapped).slice(0, limit)
+}
+
+function normalizePlaylistId(playlistId: string): string {
+  const trimmed = playlistId.trim()
+  return trimmed.startsWith("VL") ? trimmed.slice(2) : trimmed
+}
+
+export async function fetchPlaylistViaInnertube(
+  playlistId: string,
+  limit: number,
+): Promise<PlaylistImportResult> {
+  const yt = await createInnertube(ClientType.WEB)
+  let playlist = await yt.getPlaylist(normalizePlaylistId(playlistId))
+
+  const items: PlaylistImportItem[] = []
+  const seen = new Set<string>()
+
+  const collectItems = () => {
+    for (const entry of playlist.items) {
+      if (entry.type !== "PlaylistVideo") continue
+      const mapped = mapPlaylistVideo(entry as Parameters<typeof mapPlaylistVideo>[0])
+      if (!mapped || seen.has(mapped.videoId)) continue
+      seen.add(mapped.videoId)
+      items.push(mapped)
+      if (items.length >= limit) return
+    }
+  }
+
+  collectItems()
+  while (items.length < limit && playlist.has_continuation) {
+    playlist = await playlist.getContinuation()
+    collectItems()
+  }
+
+  const normalizedId = normalizePlaylistId(playlistId)
+  const title = playlist.info.title?.trim() || "Imported playlist"
+
+  return {
+    playlistId: normalizedId,
+    title,
+    items: items.slice(0, limit),
+    truncated: items.length >= limit || playlist.has_continuation,
+    totalReported: playlist.info.total_items ?? null,
+  }
 }
