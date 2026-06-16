@@ -161,6 +161,27 @@ describe("SongSearch", () => {
     expect(screen.queryByRole("dialog", { name: /queen · bohemian rhapsody/i })).not.toBeInTheDocument()
   })
 
+  it("closes the preview modal when the search query changes", async () => {
+    mockSearchSongs.mockResolvedValue([searchHit])
+
+    render(
+      <MemoryRouter>
+        <SongSearch />
+      </MemoryRouter>,
+    )
+
+    const input = screen.getByPlaceholderText(/search songs/i)
+    fireEvent.change(input, { target: { value: "queen bohemian" } })
+    fireEvent.click(screen.getByRole("button", { name: /search/i }))
+
+    fireEvent.click(await screen.findByRole("option", { name: /queen · bohemian rhapsody/i }), {
+      shiftKey: true,
+    })
+    fireEvent.change(input, { target: { value: "queen bohemian rhapsody live" } })
+
+    expect(screen.queryByRole("dialog", { name: /queen · bohemian rhapsody/i })).not.toBeInTheDocument()
+  })
+
   it("navigates with arrow keys and enter", async () => {
     mockSearchSongs.mockResolvedValue([
       {
