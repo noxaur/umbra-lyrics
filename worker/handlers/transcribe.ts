@@ -426,20 +426,16 @@ export async function transcribeYouTubeAudio(
   const videoId = request.videoId.trim()
   let streamUrl: string | null = null
 
-  if (request.streamUrl?.trim()) {
+  const workerResolved = await resolveYouTubeStream(videoId, "audio")
+  if (workerResolved && isAllowedStreamUrl(workerResolved.url)) {
+    streamUrl = workerResolved.url
+  } else if (request.streamUrl?.trim()) {
     streamUrl = decodeStreamReference(request.streamUrl)
     if (!streamUrl) {
       throw new Error("INVALID_STREAM_URL")
     }
   } else {
-    const resolved = await resolveYouTubeStream(videoId, "audio")
-    if (!resolved) {
-      throw new Error("STREAM_UNAVAILABLE")
-    }
-    if (!isAllowedStreamUrl(resolved.url)) {
-      throw new Error("STREAM_UNAVAILABLE")
-    }
-    streamUrl = resolved.url
+    throw new Error("STREAM_UNAVAILABLE")
   }
 
   const whisperOptions = {
@@ -534,6 +530,6 @@ export async function handleTranscribe(
     if (message.includes("timeout") || message.includes("Timeout")) {
       return jsonResponse({ error: "Transcription timed out — try again" }, 504)
     }
-    return jsonResponse({ error: message }, 500)
+    return jsonResponse({ error: "Transcription failed" }, 500)
   }
 }

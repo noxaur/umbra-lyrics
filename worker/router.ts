@@ -22,7 +22,11 @@ import {
   handleMyMemory,
 } from "./handlers/translate"
 import { handleTranscribe } from "./handlers/transcribe"
-import { handleYouTubeStreamInfo, handleYouTubeStreamProxy, handleYouTubeProxyUrl } from "./handlers/youtube-stream"
+import {
+  handleYouTubeStreamInfo,
+  handleYouTubeStreamProxy,
+  handleYouTubeProxyUrl,
+} from "./handlers/youtube-stream"
 
 function proxySearchRoute(
   pathname: string,
