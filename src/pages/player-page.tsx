@@ -23,6 +23,10 @@ import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
 import { parseTrackTitle } from "@/lib/parse-track-title"
 import { addRecentSong, enrichRecentSongEnglish } from "@/lib/recent-songs"
 import { fetchYouTubeAuthor } from "@/lib/youtube-oembed"
+import { segmentsToLyricLines, transcriptToPlainLyrics } from "@/lib/transcript-to-lyrics"
+import { TranscriptionError, transcribeFromYouTube } from "@/lib/transcription-service"
+import { alignLinesToWords } from "@/lib/word-alignment"
+import type { TranscriptSegment } from "@/lib/transcript-to-lyrics"
 import { usePlayerStore, type LyricsSource } from "@/stores/player-store"
 import type { LyricLine, LyricsAlternate, LyricsProviderId } from "@/types/lyrics"
 
@@ -56,6 +60,9 @@ export function PlayerPage() {
   )
   const loadedRef = useRef(false)
   const oembedAuthorRef = useRef<string | null>(null)
+  const transcribeAbortRef = useRef<AbortController | null>(null)
+  const alignAbortRef = useRef<AbortController | null>(null)
+  const alignRequestRef = useRef(0)
   const {
     containerRef,
     ready,
@@ -109,6 +116,8 @@ export function PlayerPage() {
     setVideoId(videoId)
     loadedRef.current = false
     oembedAuthorRef.current = null
+    transcribeAbortRef.current?.abort()
+    alignAbortRef.current?.abort()
     resetLyricsSearch()
     setStatus("idle")
     setLyrics([], true, null)
@@ -130,6 +139,7 @@ export function PlayerPage() {
         cached.synced,
         cached.providerId ?? cached.lyricsResult.providerId,
         cached.autoTimed ?? (!cached.synced && cached.lines.length > 0),
+        cached.aligned ?? cached.providerId === "transcription",
       )
       setEnglishLines(
         cached.englishLines,
@@ -220,7 +230,7 @@ export function PlayerPage() {
 
   const applyParsedLyrics = useCallback(
     async (
-      parsed: { lines: LyricLine[]; synced: boolean; autoTimed?: boolean },
+      parsed: { lines: LyricLine[]; synced: boolean; autoTimed?: boolean; aligned?: boolean },
       source: LyricsSource,
       meta: { title: string; track: string; artist: string },
       durationSec: number,
@@ -228,7 +238,13 @@ export function PlayerPage() {
       cachePayload?: Parameters<typeof setLyricsCache>[0],
       fromCache = false,
     ) => {
-      setLyrics(parsed.lines, parsed.synced, source, parsed.autoTimed ?? false)
+      setLyrics(
+        parsed.lines,
+        parsed.synced,
+        source,
+        parsed.autoTimed ?? false,
+        parsed.aligned ?? false,
+      )
       setLyricsOutcome("found")
       setLyricsSearchPhase(source === "pasted" ? "Using pasted lyrics" : "Ready")
       setLyricsSearchStep("ready")
@@ -260,6 +276,174 @@ export function PlayerPage() {
       setLoadedFromCache,
       loadEnglishTranslation,
     ],
+  )
+
+  const tryTranscribeLyrics = useCallback(
+    async (
+      artist: string,
+      track: string,
+      title: string,
+      durationSec: number,
+      signal?: AbortSignal,
+    ): Promise<boolean> => {
+      setLyricsSearchPhase("Transcribing from audio…")
+      setLyricsSearchStep("search")
+
+      try {
+        const transcript = await transcribeFromYouTube({
+          videoId,
+          artist,
+          track,
+          language: inferPreferredLanguage({
+            title,
+            artist,
+            track,
+            oembedAuthor: oembedAuthorRef.current ?? undefined,
+          }),
+          durationSec: Math.round(durationSec) || undefined,
+          signal,
+        })
+
+        if (signal?.aborted) return false
+
+        const durationMs = durationSec * 1000
+        const parsed = segmentsToLyricLines(transcript.segments, durationMs)
+        if (parsed.lines.length === 0 && transcript.text.trim()) {
+          const fallbackSegments: TranscriptSegment[] = [
+            { start: 0, end: durationSec, text: transcript.text.trim() },
+          ]
+          Object.assign(parsed, segmentsToLyricLines(fallbackSegments, durationMs))
+        }
+
+        if (parsed.lines.length === 0) {
+          setLyricsOutcome("not_found")
+          setStatus("error", "Transcription returned no lyric lines")
+          return false
+        }
+
+        const plainLyrics = transcriptToPlainLyrics(transcript.segments) || transcript.text
+        const lang = detectLanguage(plainLyrics)
+        const lyricsResult = {
+          id: `transcription:${videoId}`,
+          providerId: "transcription" as const,
+          plainLyrics,
+          syncedLyrics: null,
+        }
+
+        addLyricsAttempt("transcription:auto")
+
+        await applyParsedLyrics(
+          parsed,
+          "transcription",
+          { title, track, artist },
+          durationSec,
+          plainLyrics,
+          {
+            videoId,
+            lyricsResult,
+            providerId: "transcription",
+            lines: parsed.lines,
+            synced: true,
+            autoTimed: false,
+            aligned: true,
+            alternates: [],
+            englishLines: [],
+            languageCode: transcript.language ?? lang,
+            title,
+            artist,
+            track,
+            parsedDurationMs: durationMs,
+          },
+        )
+
+        if (transcript.partial) {
+          setLyricsSearchPhase("Transcribed partial audio — timing may drift on long tracks")
+        }
+
+        return true
+      } catch (err) {
+        if (signal?.aborted) return false
+        if (err instanceof TranscriptionError) {
+          const isTransient = err.status >= 502 && err.status <= 504
+          setLyricsOutcome(isTransient ? "network_error" : "not_found")
+          setStatus("error", err.message)
+          return false
+        }
+        setLyricsOutcome("network_error")
+        setStatus("error", "Couldn't transcribe audio — check your connection")
+        return false
+      }
+    },
+    [
+      videoId,
+      setLyricsSearchPhase,
+      setLyricsSearchStep,
+      addLyricsAttempt,
+      applyParsedLyrics,
+      setLyricsOutcome,
+      setStatus,
+    ],
+  )
+
+  const tryAlignPlainLyrics = useCallback(
+    async (
+      lines: LyricLine[],
+      artist: string,
+      track: string,
+      title: string,
+      durationSec: number,
+      signal?: AbortSignal,
+    ) => {
+      const requestId = ++alignRequestRef.current
+      try {
+        const transcript = await transcribeFromYouTube({
+          videoId,
+          artist,
+          track,
+          language: inferPreferredLanguage({
+            title,
+            artist,
+            track,
+            oembedAuthor: oembedAuthorRef.current ?? undefined,
+          }),
+          durationSec: Math.round(durationSec) || undefined,
+          signal,
+        })
+
+        if (signal?.aborted || transcript.segments.length === 0) return
+        if (requestId !== alignRequestRef.current) return
+
+        const words = transcript.segments.flatMap((seg) => {
+          const tokens = seg.text.split(/\s+/).filter(Boolean)
+          if (tokens.length === 0) return []
+          const startMs = Math.round(seg.start * 1000)
+          const endMs = Math.round(Math.max(seg.end, seg.start + 0.05) * 1000)
+          const step = Math.max((endMs - startMs) / tokens.length, 80)
+          return tokens.map((text, i) => ({
+            text,
+            startMs: Math.round(startMs + i * step),
+            endMs: Math.round(startMs + (i + 1) * step),
+          }))
+        })
+
+        const aligned = alignLinesToWords(lines, words)
+        const hasWordTiming = aligned.some((line) => line.words && line.words.length > 0)
+        if (!hasWordTiming) return
+
+        const state = usePlayerStore.getState()
+        if (state.videoId !== videoId || requestId !== alignRequestRef.current) return
+
+        setLyrics(aligned, true, state.lyricsSource ?? "lrclib", false, true)
+
+        const cached = getLyricsCache(videoId)
+        if (cached) {
+          setLyricsCache({ ...cached, lines: aligned, synced: true, aligned: true })
+        }
+      } catch {
+        // Background alignment is best-effort
+      }
+    },
+    [videoId, setLyrics],
   )
 
   const applyLyricsFromRaw = useCallback(
@@ -308,6 +492,7 @@ export function PlayerPage() {
           lines: parsed.lines,
           synced: parsed.synced,
           autoTimed: parsed.autoTimed ?? false,
+          aligned: parsed.aligned ?? false,
           alternates,
           englishLines: [],
           languageCode: lang,
@@ -316,9 +501,24 @@ export function PlayerPage() {
           track: meta.track,
         },
       )
+
+      if (!parsed.synced && parsed.lines.length > 0) {
+        alignAbortRef.current?.abort()
+        const controller = new AbortController()
+        alignAbortRef.current = controller
+        void tryAlignPlainLyrics(
+          parsed.lines,
+          meta.artist,
+          meta.track,
+          meta.title,
+          durationSec,
+          controller.signal,
+        )
+      }
+
       return true
     },
-    [videoId, applyParsedLyrics, setLyricsAlternates, setLyricsOutcome, setStatus],
+    [videoId, applyParsedLyrics, setLyricsAlternates, setLyricsOutcome, setStatus, tryAlignPlainLyrics],
   )
 
   const loadLyrics = useCallback(
@@ -327,13 +527,26 @@ export function PlayerPage() {
       track: string,
       title: string,
       durationSec: number,
-      options?: { skipPasted?: boolean; skipCache?: boolean; providerIds?: LyricsProviderId[] },
+      options?: {
+        skipPasted?: boolean
+        skipCache?: boolean
+        providerIds?: LyricsProviderId[]
+        transcribeOnly?: boolean
+      },
     ) => {
       resetLyricsSearch()
       setStatus("loading")
       setLyricsSearchPhase("Parsing title…")
       setLyricsSearchStep("parse")
       setMeta({ title, artist, track })
+
+      if (options?.transcribeOnly) {
+        transcribeAbortRef.current?.abort()
+        const controller = new AbortController()
+        transcribeAbortRef.current = controller
+        await tryTranscribeLyrics(artist, track, title, durationSec, controller.signal)
+        return
+      }
 
       if (!options?.skipPasted) {
         const pasted = getPastedLyrics(videoId)
@@ -364,7 +577,12 @@ export function PlayerPage() {
           setLanguageCode(cached.languageCode)
           setLyricsAlternates(cached.alternates ?? [])
           await applyParsedLyrics(
-            { lines: cached.lines, synced: cached.synced },
+            {
+              lines: cached.lines,
+              synced: cached.synced,
+              autoTimed: cached.autoTimed ?? !cached.synced,
+              aligned: cached.aligned ?? false,
+            },
             cached.providerId ?? cached.lyricsResult.providerId,
             {
               title: cached.title || title,
@@ -373,7 +591,22 @@ export function PlayerPage() {
             },
             durationSec,
             cached.lyricsResult.plainLyrics ?? cached.lines.map((l) => l.text).join("\n"),
-            undefined,
+            {
+              videoId,
+              lyricsResult: cached.lyricsResult,
+              providerId: cached.providerId ?? cached.lyricsResult.providerId,
+              lines: cached.lines,
+              synced: cached.synced,
+              autoTimed: cached.autoTimed ?? !cached.synced,
+              aligned: cached.aligned ?? false,
+              alternates: cached.alternates ?? [],
+              englishLines: cached.englishLines,
+              languageCode: cached.languageCode,
+              title: cached.title || title,
+              artist: cached.artist || artist,
+              track: cached.track || track,
+              parsedDurationMs: durationSec * 1000,
+            },
             true,
           )
           return
@@ -429,6 +662,20 @@ export function PlayerPage() {
 
         setLyricsAlternates([])
 
+        if (result.status === "not_found" || result.status === "partial") {
+          transcribeAbortRef.current?.abort()
+          const controller = new AbortController()
+          transcribeAbortRef.current = controller
+          const transcribed = await tryTranscribeLyrics(
+            artist,
+            track,
+            title,
+            durationSec,
+            controller.signal,
+          )
+          if (transcribed) return
+        }
+
         setLyricsOutcome(result.status)
         setLyricsSearchPhase(result.message)
         setLyricsSearchStep("ready")
@@ -466,6 +713,7 @@ export function PlayerPage() {
       setLanguageCode,
       setLyricsAlternates,
       setLyricsProvidersSearched,
+      tryTranscribeLyrics,
     ],
   )
 
@@ -531,6 +779,15 @@ export function PlayerPage() {
     },
     [duration, loadLyrics],
   )
+
+  const handleTranscribe = useCallback(() => {
+    const { title, artist, track } = usePlayerStore.getState()
+    void loadLyrics(artist, track, title, duration, {
+      skipPasted: true,
+      skipCache: true,
+      transcribeOnly: true,
+    })
+  }, [duration, loadLyrics])
 
   const handlePaste = useCallback(
     (text: string) => {
@@ -651,6 +908,7 @@ export function PlayerPage() {
                 <LyricsStage
                   onRetry={handleRetry}
                   onPaste={handlePaste}
+                  onTranscribe={handleTranscribe}
                   videoId={videoId}
                   videoReady={ready}
                 />

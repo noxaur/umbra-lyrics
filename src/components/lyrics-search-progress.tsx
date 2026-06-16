@@ -20,6 +20,7 @@ export function LyricsSearchProgress() {
   const networkRetryCount = usePlayerStore((s) => s.networkRetryCount)
   const providersSearched = usePlayerStore((s) => s.lyricsProvidersSearched)
   const activeIdx = stepIndex(currentStep)
+  const isTranscribing = phase?.toLowerCase().includes("transcrib")
 
   return (
     <div className="flex flex-col gap-3">
@@ -27,7 +28,7 @@ export function LyricsSearchProgress() {
         {phase ?? "Searching lyrics…"}
         {networkRetryCount > 0 ? ` (retry ${networkRetryCount})` : ""}
       </p>
-      {providersSearched.length > 0 && currentStep === "search" ? (
+      {providersSearched.length > 0 && currentStep === "search" && !isTranscribing ? (
         <ul
           className="mx-auto w-full max-w-xs space-y-1 text-xs text-muted-foreground"
           aria-label="Lyrics sources searched"

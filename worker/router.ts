@@ -20,6 +20,12 @@ import {
   handleLibreTranslate,
   handleMyMemory,
 } from "./handlers/translate"
+import { handleTranscribe } from "./handlers/transcribe"
+import {
+  handleYouTubeStreamInfo,
+  handleYouTubeStreamProxy,
+  handleYouTubeProxyUrl,
+} from "./handlers/youtube-stream"
 
 function proxySearchRoute(
   pathname: string,
@@ -35,6 +41,9 @@ function proxySearchRoute(
 }
 
 type ApiEnv = {
+  AI?: {
+    run: (model: string, inputs: Record<string, unknown>) => Promise<unknown>
+  }
   LIBRETRANSLATE_URL?: string
   LIBRETRANSLATE_API_KEY?: string
 }
@@ -107,6 +116,29 @@ export async function handleApiRequest(
   if (pathname === "/api/youtube/oembed") {
     const videoId = url.searchParams.get("videoId") ?? ""
     return handleYouTubeOEmbed(videoId)
+  }
+
+  if (pathname === "/api/beta/youtube/stream") {
+    const videoId = url.searchParams.get("videoId") ?? ""
+    const formatParam = url.searchParams.get("format") ?? "audio"
+    const format = formatParam === "video" ? "video" : "audio"
+    return handleYouTubeStreamInfo(videoId, format, url)
+  }
+
+  if (pathname === "/api/beta/youtube/proxy") {
+    const videoId = url.searchParams.get("videoId") ?? ""
+    const formatParam = url.searchParams.get("format") ?? "audio"
+    const format = formatParam === "video" ? "video" : "audio"
+    return handleYouTubeStreamProxy(videoId, format, request)
+  }
+
+  if (pathname === "/api/beta/youtube/proxy-url") {
+    const encoded = url.searchParams.get("u") ?? ""
+    return handleYouTubeProxyUrl(encoded, request)
+  }
+
+  if (pathname === "/api/lyrics/transcribe" && request.method === "POST") {
+    return handleTranscribe(request, env)
   }
 
   if (pathname === "/api/translate/libretranslate" && request.method === "POST") {

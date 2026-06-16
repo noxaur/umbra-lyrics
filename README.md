@@ -6,6 +6,7 @@ A client-side karaoke player: paste a YouTube URL, sing along with synced lyrics
 
 - YouTube playback via `@bogdanrn/yt-embed`
 - Synced LRC lyrics with word-level highlight; plain-lyrics fallback
+- **Auto-transcription** when no lyrics are found — speech-to-text from YouTube audio via Cloudflare Workers AI (Whisper)
 - Bilingual mode (native / English / both) with Chrome Translator API fallback
 - Dark-first theme with light/system modes
 - Hide video (lyrics-only mode)
@@ -37,6 +38,8 @@ npm run deploy
 ```
 
 The app deploys as a Cloudflare Worker with static assets (`@cloudflare/vite-plugin`) and lyrics API routes on `/api/*`.
+
+Auto-transcription requires the Workers AI binding (`ai` in `wrangler.jsonc`) on a Cloudflare account with Workers AI enabled. Longer tracks may return partial transcripts due to Worker memory limits.
 
 **Live URLs**
 

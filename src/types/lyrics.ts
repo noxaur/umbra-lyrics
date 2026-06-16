@@ -1,3 +1,5 @@
+export type LyricWord = { text: string; startMs: number; endMs: number }
+
 export type LyricLine = {
   startMs: number
   endMs: number
@@ -6,6 +8,8 @@ export type LyricLine = {
   sectionLabel?: string
   /** `section` = standalone structure tag row, not highlighted as sung content */
   kind?: "lyric" | "section"
+  /** Per-word timestamps from enhanced LRC or forced alignment */
+  words?: LyricWord[]
 }
 export type ParsedLyrics = { lines: LyricLine[]; synced: boolean; autoTimed?: boolean }
 
@@ -26,6 +30,7 @@ export type LyricsProviderId =
   | "lyricswiki"
   | "songmeanings"
   | "letras"
+  | "transcription"
 
 export const LYRICS_PROVIDER_LABELS: Record<LyricsProviderId, string> = {
   lrclib: "LRCLIB",
@@ -42,6 +47,7 @@ export const LYRICS_PROVIDER_LABELS: Record<LyricsProviderId, string> = {
   lyricswiki: "Lyrics Wiki",
   songmeanings: "SongMeanings",
   letras: "Letras.mus.br",
+  transcription: "Transcribed",
 }
 
 export type LyricsResult = {

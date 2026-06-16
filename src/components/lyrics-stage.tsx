@@ -10,6 +10,7 @@ import { getActiveLineIndex, getWordProgress } from "@/lib/sync-engine"
 type LyricsStageProps = {
   onRetry?: (artist: string, track: string) => void
   onPaste?: (text: string) => void
+  onTranscribe?: () => void
   videoId?: string
   videoReady?: boolean
 }
@@ -22,7 +23,7 @@ function idleMessage(videoId: string | undefined, videoReady: boolean | undefine
   return "Paste a link to start"
 }
 
-export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsStageProps) {
+export function LyricsStage({ onRetry, onPaste, onTranscribe, videoId, videoReady }: LyricsStageProps) {
   const status = usePlayerStore((s) => s.status)
   const lyricsOutcome = usePlayerStore((s) => s.lyricsOutcome)
   const lyrics = usePlayerStore((s) => s.lyrics)
@@ -99,7 +100,7 @@ export function LyricsStage({ onRetry, onPaste, videoId, videoReady }: LyricsSta
           : lyricsOutcome === "partial"
             ? "partial"
             : "not_found"
-    return <LyricsRetry onRetry={onRetry} onPaste={onPaste} variant={variant} />
+    return <LyricsRetry onRetry={onRetry} onPaste={onPaste} onTranscribe={onTranscribe} variant={variant} />
   }
 
   if (status === "error" && onRetry) {

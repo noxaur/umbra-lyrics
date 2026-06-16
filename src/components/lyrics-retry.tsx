@@ -10,10 +10,11 @@ import { LYRICS_PROVIDER_LABELS, type LyricsProviderId } from "@/types/lyrics"
 type LyricsRetryProps = {
   onRetry: (artist: string, track: string, providerIds?: LyricsProviderId[]) => void
   onPaste: (text: string) => void
+  onTranscribe?: () => void
   variant?: "not_found" | "partial" | "instrumental" | "network_error"
 }
 
-export function LyricsRetry({ onRetry, onPaste, variant = "not_found" }: LyricsRetryProps) {
+export function LyricsRetry({ onRetry, onPaste, onTranscribe, variant = "not_found" }: LyricsRetryProps) {
   const artist = usePlayerStore((s) => s.artist)
   const track = usePlayerStore((s) => s.track)
   const error = usePlayerStore((s) => s.error)
@@ -131,6 +132,11 @@ export function LyricsRetry({ onRetry, onPaste, variant = "not_found" }: LyricsR
           >
             Retry all sources
           </Button>
+          {onTranscribe ? (
+            <Button className="w-full" variant="secondary" onClick={onTranscribe}>
+              Transcribe from audio
+            </Button>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             {PROVIDER_FALLBACK_ORDER.map((providerId) => (
               <Button
