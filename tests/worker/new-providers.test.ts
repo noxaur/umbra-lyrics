@@ -95,6 +95,22 @@ describe("new lyrics provider parsers", () => {
     expect(parsed.trackName).toBe("Yellow")
   })
 
+  it("extracts English stanzas from bilingual LyricsTranslate pages", () => {
+    const html = `
+      <h2 class="title">別世界 - 天音かなた</h2>
+      <div id="song-body">
+        <div class="par">別の世界へ</div>
+        <div class="par">To another world</div>
+        <div class="par">遠い空の彼方</div>
+        <div class="par">Beyond the distant sky</div>
+      </div>
+    `
+    const parsed = parseLyricsTranslatePage(html)
+    expect(parsed.plainLyrics).toContain("To another world")
+    expect(parsed.plainLyrics).toContain("Beyond the distant sky")
+    expect(parsed.plainLyrics).not.toContain("別の世界へ")
+  })
+
   it("parses AnimeLyrics search and page", () => {
     const searchHtml = `<a href="/anime/naruto/peace.htm">Peace</a>`
     expect(parseAnimeLyricsSearch(searchHtml)[0]?.title).toBe("Peace")

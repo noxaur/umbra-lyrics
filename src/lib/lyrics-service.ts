@@ -1,4 +1,5 @@
 import type { LyricsResult } from "@/types/lyrics"
+import { looksLikeEnglishLyrics } from "@/lib/language-service"
 import { proxyFetch } from "@/lib/lyrics-providers/api-base"
 import { simplifyTrackName } from "@/lib/parse-track-title"
 
@@ -237,6 +238,26 @@ export async function fetchLyrics(params: FetchLyricsParams): Promise<LyricsResu
   return fetchLyricsForMatch(match)
 }
 
+function preferEnglishTitledMatch(
+  results: SearchResult[],
+  durationSec: number,
+  artist: string,
+  track: string,
+): SearchResult | null {
+  const match = pickBestMatch(results, durationSec, artist, track)
+  if (!match) return null
+
+  const englishTitled = results.filter(
+    (result) =>
+      hasLyrics(result) &&
+      /\benglish\b/i.test(result.trackName) &&
+      artistMatchScore(result, artist) < 80,
+  )
+  if (englishTitled.length === 0) return match
+
+  return pickBestMatch(englishTitled, durationSec, artist, track) ?? match
+}
+
 export async function searchEnglishLyrics(
   track: string,
   artist: string,
@@ -256,30 +277,28 @@ export async function searchEnglishLyrics(
       album: "",
       durationSec,
     })
-    const match = pickBestMatch(results, durationSec, artist, track)
+    const match = preferEnglishTitledMatch(results, durationSec, artist, track)
     if (!match || !hasLyrics(match)) continue
     if (artistMatchScore(match, artist) >= 80 && artist.trim()) continue
     if (trackMatchScore(match, track) >= 80 && track.trim()) continue
 
     const byMetadata = await fetchLyricsByMetadata(match)
-    if (byMetadata && (byMetadata.plainLyrics || byMetadata.syncedLyrics)) {
-      return byMetadata
-    }
+    const candidate =
+      byMetadata && (byMetadata.plainLyrics || byMetadata.syncedLyrics)
+        ? byMetadata
+        : (await fetchLyricsById(match.id)) ?? searchResultToLyrics(match)
 
-    const byId = await fetchLyricsById(match.id)
-    if (byId && (byId.plainLyrics || byId.syncedLyrics)) {
-      return byId
-    }
-
-    return searchResultToLyrics(match)
+    const plain = candidate.plainLyrics?.trim() ?? ""
+    if (plain && looksLikeEnglishLyrics(plain)) return candidate
   }
 
   const queryResults = await searchByQuery(`${artist} ${track} english`.trim())
-  const queryMatch = pickBestMatch(queryResults, durationSec, artist, track)
+  const queryMatch = preferEnglishTitledMatch(queryResults, durationSec, artist, track)
   if (queryMatch && hasLyrics(queryMatch)) {
     const byId = await fetchLyricsById(queryMatch.id)
-    if (byId?.plainLyrics || byId?.syncedLyrics) return byId
-    return searchResultToLyrics(queryMatch)
+    const candidate = byId?.plainLyrics || byId?.syncedLyrics ? byId : searchResultToLyrics(queryMatch)
+    const plain = candidate.plainLyrics?.trim() ?? ""
+    if (plain && looksLikeEnglishLyrics(plain)) return candidate
   }
 
   return null

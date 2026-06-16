@@ -60,7 +60,7 @@ describe("resolveEnglishLyrics", () => {
     const result = await resolveEnglishLyrics({
       track: "別世界",
       artist: "天音かなた",
-      nativeLines: ["別の世界へ"],
+      nativeLines: ["別の世界へ", "遠い空"],
       language: "ja",
       durationSec: 200,
       metadata: jpMeta,
@@ -143,5 +143,26 @@ describe("resolveEnglishLyrics", () => {
     expect(result.status).toBe("ready")
     expect(result.source).toBe("translated")
     expect(result.translationBackend).toBe("google")
+  })
+
+  it("aligns English lines to native row count", async () => {
+    mockSearch.mockResolvedValue({
+      id: 1,
+      providerId: "lrclib",
+      plainLyrics: "Line one\nLine two",
+      syncedLyrics: null,
+    })
+
+    const result = await resolveEnglishLyrics({
+      track: "別世界",
+      artist: "天音かなた",
+      nativeLines: ["別の世界へ", "", "遠い空"],
+      language: "ja",
+      durationSec: 200,
+      metadata: jpMeta,
+    })
+
+    expect(result.lines).toHaveLength(3)
+    expect(result.lines[1]).toBe("")
   })
 })
