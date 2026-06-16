@@ -6,6 +6,7 @@ import {
 } from "@/lib/playlists"
 import { normalizeTrackMetadata } from "@/lib/track-label"
 import { extractYouTubePlaylistId } from "@/lib/youtube-url"
+import { fetchPlaylistInBrowser } from "@/lib/youtube-playlist-browser"
 
 export type PlaylistImportItem = {
   videoId: string
@@ -45,18 +46,64 @@ export async function fetchYouTubePlaylist(
     throw new Error("invalid_playlist_url")
   }
 
-  const params = new URLSearchParams({ id: playlistId })
   const limit = options?.limit ?? MAX_TRACKS_PER_PLAYLIST
+
+  const params = new URLSearchParams({ id: playlistId, url: input.trim() })
   params.set("limit", String(limit))
 
-  const res = await proxyFetch(`/api/youtube/playlist?${params}`, {
-    signal: options?.signal,
-  })
+  let useBrowserFallback = false
+  let emptyWorkerResult: PlaylistImportResponse | null = null
 
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: string } | null
-    throw new Error(body?.error ?? "playlist_fetch_failed")
+  try {
+    const res = await proxyFetch(`/api/youtube/playlist?${params}`, {
+      signal: options?.signal,
+    })
+
+    const body = (await res.json().catch(() => null)) as
+      | (PlaylistImportResponse & { error?: string })
+      | null
+
+    if (res.ok) {
+      if (body && body.items.length > 0) return body
+      emptyWorkerResult = body
+      useBrowserFallback = true
+    } else if (res.status < 500) {
+      throw new Error(body?.error ?? "playlist_fetch_failed")
+    } else {
+      useBrowserFallback = true
+    }
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err
+    if (options?.signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError")
+    }
+
+    const message = err instanceof Error ? err.message : String(err)
+    const isNetworkError = /failed to fetch|networkerror/i.test(message)
+    if (!isNetworkError && !useBrowserFallback) {
+      throw err instanceof Error ? err : new Error(message)
+    }
+
+    useBrowserFallback = true
   }
 
-  return (await res.json()) as PlaylistImportResponse
+  if (!useBrowserFallback) {
+    throw new Error("playlist_fetch_failed")
+  }
+
+  const fromBrowser = await fetchPlaylistInBrowser(playlistId, limit, {
+    ...options,
+    sourceUrl: input.trim(),
+  })
+  if (fromBrowser.items.length > 0) return fromBrowser
+
+  if (emptyWorkerResult) {
+    throw new Error(
+      emptyWorkerResult.totalReported && emptyWorkerResult.totalReported !== "N/A"
+        ? "This playlist returned no importable videos. It may be private or require YouTube sign-in."
+        : "This playlist has no importable videos",
+    )
+  }
+
+  return fromBrowser
 }

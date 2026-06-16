@@ -187,7 +187,8 @@ export async function handleApiRequest(
   if (pathname === "/api/youtube/playlist") {
     const id = url.searchParams.get("id") ?? ""
     const limit = Number(url.searchParams.get("limit") ?? String(100))
-    return handleYouTubePlaylist(id, limit)
+    const sourceUrl = url.searchParams.get("url") ?? ""
+    return handleYouTubePlaylist(id, limit, sourceUrl)
   }
 
   if (pathname === "/api/beta/youtube/stream") {
