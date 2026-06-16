@@ -1,5 +1,5 @@
 import { proxyFetch } from "@/lib/lyrics-providers/api-base"
-import { francToBcp47, toLangPair, toTranslationSourceCode } from "@/lib/language-service"
+import { toLangPair, toTranslationSourceCode } from "@/lib/language-service"
 import {
   canRequestTranslation,
   getTranslationCache,

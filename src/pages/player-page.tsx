@@ -414,7 +414,19 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         }
 
         const plainLyrics = transcriptToPlainLyrics(transcript.segments) || transcript.text
-        const lang = detectLanguage(plainLyrics)
+        const languageMeta: LyricsLanguageMeta = {
+          title,
+          artist,
+          track,
+          oembedAuthor: oembedAuthorRef.current ?? undefined,
+          preferredLanguage: inferPreferredLanguage({
+            title,
+            artist,
+            track,
+            oembedAuthor: oembedAuthorRef.current ?? undefined,
+          }),
+        }
+        const lang = detectLanguage(plainLyrics, languageMeta)
         const lyricsResult = {
           id: `transcription:${videoId}`,
           providerId: "transcription" as const,
@@ -582,7 +594,19 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       }
 
       const sample = plainRaw ?? syncedRaw ?? parsed.lines.map((l) => l.text).join("\n")
-      const lang = detectLanguage(sample)
+      const languageMeta: LyricsLanguageMeta = {
+        title: meta.title,
+        artist: meta.artist,
+        track: meta.track,
+        oembedAuthor: oembedAuthorRef.current ?? undefined,
+        preferredLanguage: inferPreferredLanguage({
+          title: meta.title,
+          artist: meta.artist,
+          track: meta.track,
+          oembedAuthor: oembedAuthorRef.current ?? undefined,
+        }),
+      }
+      const lang = detectLanguage(sample, languageMeta)
       setLyricsAlternates(alternates)
 
       await applyParsedLyrics(
