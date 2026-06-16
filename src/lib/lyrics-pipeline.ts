@@ -3,7 +3,13 @@ import {
   resolveEnglishFromPrefetch,
   type EnglishLyricsResult,
 } from "@/lib/english-lyrics-service"
-import { detectLanguage, inferPreferredLanguage } from "@/lib/language-service"
+import {
+  detectLanguage,
+  inferPreferredLanguage,
+  isEnglish,
+  looksLikeEnglishLyrics,
+  needsEnglishLyrics,
+} from "@/lib/language-service"
 import {
   orchestrateLyricsSearch,
   type LyricsOrchestratorResult,
@@ -11,10 +17,12 @@ import {
   type OrchestratorProgress,
 } from "@/lib/lyrics-orchestrator"
 import { lrcToPlain } from "@/lib/lyrics-providers/normalize"
+import { buildRomajiLines, type RomajiLyricsResult } from "@/lib/romaji-service"
 import type { LyricsResult } from "@/types/lyrics"
 
 export type LyricsPipelineTimings = {
   nativeMs: number
+  romajiMs: number
   englishMs: number
   parallelMs: number
 }
@@ -26,6 +34,7 @@ export type LyricsPipelineParams = OrchestratorParams & {
 
 export type LyricsPipelineResult = {
   native: LyricsOrchestratorResult
+  romaji: RomajiLyricsResult
   english: EnglishLyricsResult
   timings: LyricsPipelineTimings
 }
@@ -41,9 +50,9 @@ export function lyricsResultSampleText(lyrics: LyricsResult): string {
 }
 
 /**
- * Dual-track pipeline: English provider searches start immediately alongside native
- * orchestration. Native lyrics surface as soon as the orchestrator returns; English
- * is validated against prefetched candidates (or translated) before the pipeline resolves.
+ * Dual-track pipeline: native lyrics surface as soon as the orchestrator returns.
+ * English lookup is speculative only when metadata predicts non-English lyrics;
+ * otherwise native text decides whether English can be skipped.
  */
 export async function runLyricsPipeline(
   params: LyricsPipelineParams,
@@ -64,12 +73,12 @@ export async function runLyricsPipeline(
         oembedAuthor: params.oembedAuthor,
       }),
   }
-
-  const prefetchPromise = prefetchEnglishCandidates(
-    params.track,
-    params.artist,
-    params.durationSec,
+  const metadataPredictsNonEnglish = Boolean(
+    languageMeta.preferredLanguage && !isEnglish(languageMeta.preferredLanguage),
   )
+  const speculativeEnglishPrefetch = metadataPredictsNonEnglish
+    ? prefetchEnglishCandidates(params.track, params.artist, params.durationSec)
+    : null
 
   const nativeT0 = performance.now()
   const native = await orchestrateLyricsSearch({
@@ -85,17 +94,53 @@ export async function runLyricsPipeline(
     source: "translated",
     status: "failed",
   }
+  let romaji: RomajiLyricsResult = {
+    lines: [],
+    status: "skipped",
+  }
+  let romajiMs = 0
   let englishMs = 0
 
   if (native.lyrics && (native.status === "found" || native.status === "instrumental")) {
     const nativeLines = lyricsResultToNativeLines(native.lyrics)
     const sample = lyricsResultSampleText(native.lyrics)
+    const language = detectLanguage(sample, languageMeta)
+    const romajiT0 = performance.now()
+    romaji = buildRomajiLines(nativeLines, { language })
+    romajiMs = Math.round(performance.now() - romajiT0)
+
+    if (
+      !metadataPredictsNonEnglish &&
+      (!needsEnglishLyrics(sample, languageMeta) ||
+        isEnglish(language) ||
+        looksLikeEnglishLyrics(sample))
+    ) {
+      return {
+        native,
+        romaji,
+        english: {
+          lines: nativeLines,
+          source: "found",
+          status: "skipped",
+        },
+        timings: {
+          nativeMs,
+          romajiMs,
+          englishMs: 0,
+          parallelMs: Math.round(performance.now() - wallT0),
+        },
+      }
+    }
+
+    const prefetchPromise =
+      speculativeEnglishPrefetch ??
+      prefetchEnglishCandidates(params.track, params.artist, params.durationSec)
     const englishT0 = performance.now()
     english = await resolveEnglishFromPrefetch(prefetchPromise, {
       track: params.track,
       artist: params.artist,
       nativeLines,
-      language: detectLanguage(sample, languageMeta),
+      language,
       durationSec: params.durationSec,
       videoId: params.videoId,
       skipCache: params.skipCache,
@@ -107,9 +152,11 @@ export async function runLyricsPipeline(
 
   return {
     native,
+    romaji,
     english,
     timings: {
       nativeMs,
+      romajiMs,
       englishMs,
       parallelMs: Math.round(performance.now() - wallT0),
     },
