@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest"
-import { mapSearchVideo, parseViewCount } from "../../worker/lib/youtube-search-map"
+import { mapSearchVideo, parseViewCount, searchCandidateLimit } from "../../worker/lib/youtube-search-map"
 
 describe("youtube-search-map", () => {
+  it("expands candidate pool for ranking", () => {
+    expect(searchCandidateLimit(5)).toBe(30)
+    expect(searchCandidateLimit(10)).toBe(30)
+    expect(searchCandidateLimit(20)).toBe(50)
+  })
+
   it("parses compact view counts", () => {
     expect(parseViewCount("1.2M views")).toBe(1_200_000)
     expect(parseViewCount("845K views")).toBe(845_000)

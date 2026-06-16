@@ -1,5 +1,11 @@
 import type { SongSearchHit } from "./youtube-search-rank"
 
+export function searchCandidateLimit(limit: number): number {
+  // Map more than the response limit so ranking can surface karaoke-friendly hits
+  // that YouTube's default order buries deeper in the result set.
+  return Math.min(Math.max(limit * 3, 30), 50)
+}
+
 type SearchableVideo = {
   video_id?: string
   title?: { toString(): string }

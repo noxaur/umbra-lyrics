@@ -1,4 +1,5 @@
 import { proxyFetch } from "@/lib/lyrics-providers/api-base"
+import { searchSongsInBrowser } from "@/lib/youtube-search-browser"
 
 export type SongSearchHit = {
   videoId: string
@@ -28,6 +29,22 @@ export function formatViewCount(count?: number): string | null {
   return `${count} views`
 }
 
+async function searchSongsViaWorker(
+  query: string,
+  options?: { limit?: number; signal?: AbortSignal },
+): Promise<SongSearchHit[]> {
+  const params = new URLSearchParams({ q: query })
+  if (options?.limit) params.set("limit", String(options.limit))
+
+  const res = await proxyFetch(`/api/youtube/search?${params}`, { signal: options?.signal })
+  if (!res.ok) {
+    throw new Error("worker_search_failed")
+  }
+
+  const body = (await res.json()) as SongSearchResponse
+  return body.results ?? []
+}
+
 export async function searchSongs(
   query: string,
   options?: { limit?: number; signal?: AbortSignal },
@@ -35,14 +52,13 @@ export async function searchSongs(
   const trimmed = query.trim()
   if (trimmed.length < 2) return []
 
-  const params = new URLSearchParams({ q: trimmed })
-  if (options?.limit) params.set("limit", String(options.limit))
-
-  const res = await proxyFetch(`/api/youtube/search?${params}`, { signal: options?.signal })
-  if (!res.ok) {
-    throw new Error("search_failed")
+  try {
+    return await searchSongsViaWorker(trimmed, options)
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err
+    if (options?.signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError")
+    }
+    return searchSongsInBrowser(trimmed, options)
   }
-
-  const body = (await res.json()) as SongSearchResponse
-  return body.results ?? []
 }
