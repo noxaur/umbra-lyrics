@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react"
-import { Link, useLocation, useParams, useSearchParams } from "react-router-dom"
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { AppShell } from "@/components/app-shell"
 import { MisroutedRouteView } from "@/components/misrouted-route-view"
 import { LyricsStage } from "@/components/lyrics-stage"
@@ -25,7 +25,12 @@ import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
 import { syncMkvExportFromUrl } from "@/lib/beta-features"
 import { parseTrackTitle } from "@/lib/parse-track-title"
 import { addRecentSong, enrichRecentSongEnglish } from "@/lib/recent-songs"
+import {
+  getPlaylistById,
+  type PlaylistPlaybackContext,
+} from "@/lib/playlists"
 import { analyzeRoute, isValidPlayVideoId } from "@/lib/route-suggestions"
+import type { PlayerNavigationState } from "@/lib/player-navigation"
 import { fetchYouTubeAuthor } from "@/lib/youtube-oembed"
 import { segmentsToLyricLines, transcriptToPlainLyrics } from "@/lib/transcript-to-lyrics"
 import { TranscriptionError, transcribeFromYouTube } from "@/lib/transcription-service"
@@ -69,9 +74,13 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const [searchParams] = useSearchParams()
   const debugPlayer = searchParams.get("debug") === "1"
   const location = useLocation()
+  const navigate = useNavigate()
   const fromHome = Boolean(
-    (location.state as { fromHome?: boolean } | null)?.fromHome,
+    (location.state as PlayerNavigationState | null)?.fromHome,
   )
+  const seedMetadata = (location.state as PlayerNavigationState | null)?.seedMetadata
+  const onEndedRef = useRef<() => void>(() => {})
+  const playlistAutoPlayPending = useRef(false)
   const loadedRef = useRef(false)
   const oembedAuthorRef = useRef<string | null>(null)
   const transcribeAbortRef = useRef<AbortController | null>(null)
@@ -91,7 +100,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     pause,
     seekTo,
     getVideoTitle,
-  } = useYouTubePlayer(videoId)
+  } = useYouTubePlayer(videoId, { onEnded: () => onEndedRef.current() })
 
   const videoHidden = usePlayerStore((s) => s.videoHidden)
   const status = usePlayerStore((s) => s.status)
@@ -113,6 +122,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const addLyricsAttempt = usePlayerStore((s) => s.addLyricsAttempt)
   const setNetworkRetryCount = usePlayerStore((s) => s.setNetworkRetryCount)
   const bindControls = usePlayerStore((s) => s.bindControls)
+  const setPlaylistContext = usePlayerStore((s) => s.setPlaylistContext)
+  const bindPlaylistNavigation = usePlayerStore((s) => s.bindPlaylistNavigation)
   const languageCode = usePlayerStore((s) => s.languageCode)
   const englishLines = usePlayerStore((s) => s.englishLines)
   const englishStatus = usePlayerStore((s) => s.englishStatus)
@@ -125,6 +136,63 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const setVerificationScore = usePlayerStore((s) => s.setVerificationScore)
   const focusMode = usePlayerStore((s) => s.focusMode)
   const resolvedMetadataRef = useRef<Awaited<ReturnType<typeof resolveTrackMetadata>> | null>(null)
+
+  const navigateToPlaylistTrack = useCallback(
+    (trackIndex: number) => {
+      const ctx = usePlayerStore.getState().playlistContext
+      if (!ctx) return
+      const playlist = getPlaylistById(ctx.playlistId)
+      if (!playlist) return
+      const track = playlist.tracks[trackIndex]
+      if (!track) return
+      navigate(`/play/${track.videoId}`, {
+        state: {
+          playlistContext: {
+            playlistId: ctx.playlistId,
+            trackIndex,
+          } satisfies PlaylistPlaybackContext,
+          playlistAutoPlay: true,
+        },
+      })
+    },
+    [navigate],
+  )
+
+  const handleVideoEnded = useCallback(() => {
+    const ctx = usePlayerStore.getState().playlistContext
+    if (!ctx) return
+    const playlist = getPlaylistById(ctx.playlistId)
+    if (!playlist) return
+    const nextIndex = ctx.trackIndex + 1
+    if (nextIndex >= playlist.tracks.length) return
+    navigateToPlaylistTrack(nextIndex)
+  }, [navigateToPlaylistTrack])
+
+  onEndedRef.current = handleVideoEnded
+
+  useEffect(() => {
+    const state = location.state as {
+      playlistContext?: PlaylistPlaybackContext
+      playlistAutoPlay?: boolean
+    } | null
+    setPlaylistContext(state?.playlistContext ?? null)
+    playlistAutoPlayPending.current = Boolean(state?.playlistAutoPlay)
+  }, [location.state, setPlaylistContext])
+
+  useEffect(() => {
+    if (!ready || !playlistAutoPlayPending.current) return
+    playlistAutoPlayPending.current = false
+    play()
+  }, [ready, videoId, play])
+
+  useEffect(() => {
+    return () => setPlaylistContext(null)
+  }, [setPlaylistContext])
+
+  useEffect(() => {
+    bindPlaylistNavigation(navigateToPlaylistTrack)
+    return () => bindPlaylistNavigation(null)
+  }, [bindPlaylistNavigation, navigateToPlaylistTrack])
 
   const ensureOEmbedAuthor = useCallback(async () => {
     if (oembedAuthorRef.current != null) return oembedAuthorRef.current
@@ -414,7 +482,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         }
 
         const plainLyrics = transcriptToPlainLyrics(transcript.segments) || transcript.text
-        const lang = detectLanguage(plainLyrics, {
+        const languageMeta: LyricsLanguageMeta = {
           title,
           artist,
           track,
@@ -425,7 +493,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             track,
             oembedAuthor: oembedAuthorRef.current ?? undefined,
           }),
-        })
+        }
+        const lang = detectLanguage(plainLyrics, languageMeta)
         const lyricsResult = {
           id: `transcription:${videoId}`,
           providerId: "transcription" as const,
@@ -593,14 +662,19 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       }
 
       const sample = plainRaw ?? syncedRaw ?? parsed.lines.map((l) => l.text).join("\n")
-      const lang = detectLanguage(sample, {
-        ...meta,
+      const languageMeta: LyricsLanguageMeta = {
+        title: meta.title,
+        artist: meta.artist,
+        track: meta.track,
         oembedAuthor: oembedAuthorRef.current ?? undefined,
         preferredLanguage: inferPreferredLanguage({
-          ...meta,
+          title: meta.title,
+          artist: meta.artist,
+          track: meta.track,
           oembedAuthor: oembedAuthorRef.current ?? undefined,
         }),
-      })
+      }
+      const lang = detectLanguage(sample, languageMeta)
       setLyricsAlternates(alternates)
 
       await applyParsedLyrics(
@@ -934,8 +1008,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         title,
         durationSec: duration,
         oembedAuthor: oembedAuthor ?? undefined,
-        roughArtist: rough.artist,
-        roughTrack: rough.track,
+        roughArtist: seedMetadata?.artist ?? rough.artist,
+        roughTrack: seedMetadata?.track ?? rough.track,
       })
       resolvedMetadataRef.current = resolved
       setMeta({ title, artist: resolved.artist, track: resolved.track })
@@ -943,7 +1017,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     }
 
     void load()
-  }, [ready, videoId, duration, getVideoTitle, loadLyrics, setMeta, ensureOEmbedAuthor])
+  }, [ready, videoId, duration, getVideoTitle, loadLyrics, setMeta, ensureOEmbedAuthor, seedMetadata])
 
   const handleRetry = useCallback(
     (artist: string, track: string, providerIds?: LyricsProviderId[]) => {
@@ -976,8 +1050,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       title,
       durationSec: duration,
       oembedAuthor: oembedAuthor ?? undefined,
-      roughArtist: rough.artist,
-      roughTrack: rough.track,
+      roughArtist: seedMetadata?.artist ?? rough.artist,
+      roughTrack: seedMetadata?.track ?? rough.track,
     })
     resolvedMetadataRef.current = resolved
     setMeta({ title, artist: resolved.artist, track: resolved.track })

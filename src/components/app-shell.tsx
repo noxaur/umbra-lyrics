@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { ModeToggle } from "@/components/mode-toggle"
+import { SpotifyLoginButton } from "@/components/spotify-login-button"
 import { cn } from "@/lib/utils"
 import { usePlayerStore } from "@/stores/player-store"
 
@@ -20,13 +21,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </a>
       {!focusMode && (
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
-          <Link
-            to="/"
-            className="text-lg font-semibold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-          >
-            song-kara
-          </Link>
-          <ModeToggle />
+          <div className="flex items-center gap-4">
+            <Link
+              to="/"
+              className="text-lg font-semibold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+            >
+              song-kara
+            </Link>
+            <Link
+              to="/playlists"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+            >
+              Playlists
+            </Link>
+          </div>
+          <div className="flex items-center gap-2">
+            <SpotifyLoginButton />
+            <ModeToggle />
+          </div>
         </header>
       )}
       <main id="main-content" className="flex min-h-0 flex-1 flex-col">

@@ -106,7 +106,7 @@
       "kind": "input",
       "refersTo": "input-field",
       "description": "YouTube URL paste, theme name, artist/track retry fields.",
-      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Paste YouTube URL…\" />",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Paste YouTube, Spotify, or song link…\" />",
       "css": ".ds-input { display: flex; width: 100%; height: 2.75rem; min-height: 44px; padding: 0 0.75rem; border: 1px solid var(--input, oklch(0.28 0.03 280)); border-radius: 0.5rem; background: var(--background, oklch(0.12 0.02 280)); color: var(--foreground, oklch(0.95 0.01 280)); font-family: \"DM Sans Variable\", system-ui, sans-serif; font-size: 1rem; } .ds-input::placeholder { color: var(--muted-foreground, oklch(0.65 0.03 280)); } .ds-input:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--ring, oklch(0.72 0.28 320)); }"
     },
     {

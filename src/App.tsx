@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { HomePage } from "@/pages/home-page"
 import { NotFoundPage } from "@/pages/not-found-page"
 import { WatchRedirectPage } from "@/pages/watch-redirect-page"
+import { SpotifyCallbackPage } from "@/pages/spotify-callback-page"
 import { PLAY_ROUTE_ALIASES } from "@/lib/route-suggestions"
 
 const PlayerPage = lazy(() =>
@@ -16,6 +17,12 @@ const ThemesPage = lazy(() =>
 )
 const ThemeBuilderPage = lazy(() =>
   import("@/pages/theme-builder-page").then((module) => ({ default: module.ThemeBuilderPage })),
+)
+const PlaylistsPage = lazy(() =>
+  import("@/pages/playlists-page").then((module) => ({ default: module.PlaylistsPage })),
+)
+const PlaylistDetailPage = lazy(() =>
+  import("@/pages/playlist-detail-page").then((module) => ({ default: module.PlaylistDetailPage })),
 )
 
 const MISROUTED_PLAY_ALIASES = PLAY_ROUTE_ALIASES.filter((segment) => segment !== "play")
@@ -42,7 +49,10 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/themes" element={<ThemesPage />} />
             <Route path="/themes/build" element={<ThemeBuilderPage />} />
+            <Route path="/playlists" element={<PlaylistsPage />} />
+            <Route path="/playlists/:playlistId" element={<PlaylistDetailPage />} />
             <Route path="/watch" element={<WatchRedirectPage />} />
+            <Route path="/auth/spotify/callback" element={<SpotifyCallbackPage />} />
             {MISROUTED_PLAY_ALIASES.map((segment) => (
               <Route
                 key={segment}

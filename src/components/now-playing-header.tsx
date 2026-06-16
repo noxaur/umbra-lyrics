@@ -1,9 +1,12 @@
 import { AlertTriangle, RefreshCw } from "lucide-react"
+import { useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { usePlayerStore } from "@/stores/player-store"
 import { LYRICS_PROVIDER_LABELS, type LyricsAlternate, type LyricsProviderId } from "@/types/lyrics"
 import { LyricsSourcePicker } from "@/components/lyrics-source-picker"
+import { AddToPlaylistMenu } from "@/components/add-to-playlist-menu"
+import { getRecentSongs } from "@/lib/recent-songs"
 
 const TRANSLATION_BACKEND_LABELS: Record<string, string> = {
   browser: "Browser",
@@ -115,6 +118,11 @@ export function NowPlayingHeader({
     ? getTimingNoticeText(lyricsAutoTimed, lyricsSource, lyricsAligned)
     : null
 
+  const recentEnglish = useMemo(
+    () => (videoId ? getRecentSongs().find((song) => song.videoId === videoId) : undefined),
+    [videoId],
+  )
+
   if (!displayTrack && !artist && status === "idle" && !videoId) return null
 
   return (
@@ -137,6 +145,21 @@ export function NowPlayingHeader({
         </div>
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:justify-end">
+          {videoId ? (
+            <AddToPlaylistMenu
+              track={{
+                videoId,
+                title,
+                artist,
+                track,
+                englishArtist: recentEnglish?.englishArtist,
+                englishTrack: recentEnglish?.englishTrack,
+              }}
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+            />
+          ) : null}
           {onRefreshLyrics && videoId ? (
             <Button
               variant="outline"
