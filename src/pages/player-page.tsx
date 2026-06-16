@@ -722,6 +722,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           },
         })
 
+        if (usePlayerStore.getState().videoId !== videoId) return
+
         setLyricsProvidersSearched(result.providersTried)
         setContentWarning(result.contentAssessment?.message ?? null)
         setVerificationScore(result.verificationScore ?? null)
