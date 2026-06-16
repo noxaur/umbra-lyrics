@@ -15,18 +15,10 @@ export function UrlInput() {
   const [resolving, setResolving] = useState(false)
   const navigate = useNavigate()
 
-  const goToPlayer = (videoId: string, track?: { artist: string; name: string; durationSec: number; isrc?: string }) => {
+  const goToPlayer = (videoId: string, track?: SpotifyTrackHit) => {
     setOpening(true)
     navigate(`/play/${videoId}`, {
-      state: buildPlayerNavigationState(true, track
-        ? {
-            id: "",
-            name: track.name,
-            artist: track.artist,
-            durationSec: track.durationSec,
-            isrc: track.isrc,
-          }
-        : undefined),
+      state: buildPlayerNavigationState(true, track),
     })
   }
 

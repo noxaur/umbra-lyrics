@@ -6,6 +6,7 @@ A client-side karaoke player: paste a YouTube or Spotify track link, sing along 
 
 - YouTube playback via `@bogdanrn/yt-embed`
 - Paste Spotify track links — resolves to a matching YouTube video automatically
+- Optional **Log in with Spotify** in the header (OAuth; uses your account for track lookups)
 - Synced LRC lyrics with word-level highlight; plain-lyrics fallback
 - **Auto-transcription** when no lyrics are found — speech-to-text from YouTube audio via Cloudflare Workers AI (Whisper)
 - Bilingual mode (native / English / both) with Chrome Translator API fallback

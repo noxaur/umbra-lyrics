@@ -105,8 +105,9 @@ function mapSpotifyTrackItem(item: {
 export async function fetchSpotifyTrack(
   trackId: string,
   env: SpotifyEnv,
+  userToken?: string | null,
 ): Promise<SpotifyTrackHit | null> {
-  const token = await getAccessToken(env)
+  const token = userToken?.trim() || (await getAccessToken(env))
   if (!token) return null
 
   const id = trackId.trim()
@@ -134,6 +135,7 @@ export async function fetchSpotifyTrack(
 export async function handleSpotifyTrack(
   trackId: string,
   env: SpotifyEnv,
+  userToken?: string | null,
 ): Promise<Response> {
   if (!trackId.trim()) {
     return new Response(JSON.stringify({ error: "Missing track id", track: null }), {
@@ -143,7 +145,7 @@ export async function handleSpotifyTrack(
   }
 
   try {
-    const track = await fetchSpotifyTrack(trackId, env)
+    const track = await fetchSpotifyTrack(trackId, env, userToken)
     if (!track) {
       return new Response(JSON.stringify({ error: "Track not found", track: null }), {
         status: 404,

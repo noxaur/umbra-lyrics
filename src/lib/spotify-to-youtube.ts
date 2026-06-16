@@ -1,5 +1,6 @@
 import { proxyFetch } from "@/lib/lyrics-providers/api-base"
 import { artistMatchScore, trackMatchScore } from "@/lib/lyrics-providers/match-utils"
+import { ensureSpotifyAccessToken, spotifyAuthHeaders } from "@/lib/spotify-auth"
 import { extractSpotifyTrackId } from "@/lib/spotify-url"
 import { searchSongs, type SongSearchHit } from "@/lib/youtube-search"
 
@@ -51,7 +52,11 @@ async function fetchSpotifyTrackById(
   signal?: AbortSignal,
 ): Promise<SpotifyTrackHit | null> {
   const params = new URLSearchParams({ id: trackId })
-  const res = await proxyFetch(`/api/metadata/spotify/track?${params}`, { signal })
+  const accessToken = await ensureSpotifyAccessToken()
+  const res = await proxyFetch(`/api/metadata/spotify/track?${params}`, {
+    signal,
+    headers: spotifyAuthHeaders(accessToken),
+  })
   if (!res.ok) return null
 
   const data = (await res.json()) as { track?: SpotifyTrackHit }

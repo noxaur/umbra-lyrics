@@ -23,6 +23,12 @@ import {
 } from "./handlers/translate"
 import { handleTranscribe } from "./handlers/transcribe"
 import { handleSpotifySearch, handleSpotifyTrack } from "./handlers/spotify"
+import {
+  handleSpotifyAuthConfig,
+  handleSpotifyAuthMe,
+  handleSpotifyAuthRefresh,
+  handleSpotifyAuthToken,
+} from "./handlers/spotify-auth"
 import { handleDeezerSearch } from "./handlers/deezer"
 import { handleItunesSearch } from "./handlers/itunes"
 import { handleMusixmatchSearch } from "./handlers/musixmatch"
@@ -129,7 +135,24 @@ export async function handleApiRequest(
 
   if (pathname === "/api/metadata/spotify/track") {
     const id = url.searchParams.get("id") ?? ""
-    return handleSpotifyTrack(id, env)
+    const userToken = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? null
+    return handleSpotifyTrack(id, env, userToken)
+  }
+
+  if (pathname === "/api/auth/spotify/config") {
+    return handleSpotifyAuthConfig(env)
+  }
+
+  if (pathname === "/api/auth/spotify/token" && request.method === "POST") {
+    return handleSpotifyAuthToken(request, env)
+  }
+
+  if (pathname === "/api/auth/spotify/refresh" && request.method === "POST") {
+    return handleSpotifyAuthRefresh(request, env)
+  }
+
+  if (pathname === "/api/auth/spotify/me") {
+    return handleSpotifyAuthMe(request)
   }
 
   if (pathname === "/api/metadata/deezer/search") {
