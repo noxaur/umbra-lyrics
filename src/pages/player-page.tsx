@@ -23,6 +23,13 @@ import {
   lyricsResultToNativeLines,
 } from "@/lib/lyrics-pipeline"
 import { getLyricsCache, reparseCachedLyrics, setLyricsCache } from "@/lib/lyrics-cache"
+import {
+  bumpLyricsLoadGeneration,
+  getActiveLyricsLoad,
+  getLyricsLoadGeneration,
+  isLyricsLoadStale,
+  trackLyricsLoad,
+} from "@/lib/lyrics-load-coordinator"
 import { detectLanguage, inferPreferredLanguage, isEnglish, resolveTranslationSourceLang, type LyricsLanguageMeta } from "@/lib/language-service"
 import { buildRomajiLines, type RomajiLyricsResult } from "@/lib/romaji-service"
 import { prepareLyricsText } from "@/lib/prepare-lyrics-text"
@@ -102,9 +109,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const oembedAuthorRef = useRef<string | null>(null)
   const transcribeAbortRef = useRef<AbortController | null>(null)
   const alignAbortRef = useRef<AbortController | null>(null)
-  const alignRequestRef = useRef(0)
-  const transcribeRequestRef = useRef(0)
-  const loadRequestRef = useRef(0)
+  const prevVideoIdRef = useRef<string | null>(null)
   const {
     containerRef,
     ready,
@@ -235,14 +240,51 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
   useEffect(() => {
     if (!videoId) return
+
+    const isNewVideo = prevVideoIdRef.current !== videoId
+    prevVideoIdRef.current = videoId
+    const activeLoad = getActiveLyricsLoad(videoId)
+    const playerState = usePlayerStore.getState()
+    const rejoinInFlight = Boolean(activeLoad)
+    const alreadyReady =
+      playerState.videoId === videoId &&
+      playerState.status === "ready" &&
+      playerState.lyrics.length > 0
+    const alreadyLoading = playerState.videoId === videoId && playerState.status === "loading"
+    const keepPlayerState =
+      !isNewVideo &&
+      (rejoinInFlight || alreadyReady || alreadyLoading || playerState.status === "error")
+
+    if (isNewVideo && rejoinInFlight) {
+      setVideoId(videoId)
+      loadedRef.current = true
+      void fetchYouTubeAuthor(videoId).then((author) => {
+        oembedAuthorRef.current = author
+      })
+      return
+    }
+
+    if (keepPlayerState) {
+      setVideoId(videoId)
+      loadedRef.current = rejoinInFlight || alreadyReady || alreadyLoading
+      if (oembedAuthorRef.current == null) {
+        void fetchYouTubeAuthor(videoId).then((author) => {
+          oembedAuthorRef.current = author
+        })
+      }
+      return
+    }
+
     resetSyncOffset()
     setLyricsFollowMode("follow")
     setVideoId(videoId)
     loadedRef.current = false
     oembedAuthorRef.current = null
-    loadRequestRef.current += 1
-    transcribeAbortRef.current?.abort()
-    alignAbortRef.current?.abort()
+    if (isNewVideo) {
+      bumpLyricsLoadGeneration(videoId)
+      transcribeAbortRef.current?.abort()
+      alignAbortRef.current?.abort()
+    }
     resetLyricsSearch()
     setStatus("idle")
     setLyrics([], true, null)
@@ -283,6 +325,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       setLyricsOutcome("found")
       setStatus("ready")
       setLoadedFromCache(true)
+      loadedRef.current = true
       // Duration-aware reparse happens in loadLyrics once YouTube duration is known.
       addRecentSong({
         videoId,
@@ -413,7 +456,18 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       preResolvedEnglish?: EnglishLyricsResult,
       pipelineHandlesEnglish = false,
       preResolvedRomaji?: RomajiLyricsResult,
+      loadGeneration?: number,
     ) => {
+      const uiStale =
+        loadGeneration != null &&
+        (isLyricsLoadStale(videoId, loadGeneration) ||
+          usePlayerStore.getState().videoId !== videoId)
+
+      if (uiStale) {
+        if (cachePayload) setLyricsCache(cachePayload)
+        return
+      }
+
       setLyrics(
         parsed.lines,
         parsed.synced,
@@ -489,9 +543,9 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       track: string,
       title: string,
       durationSec: number,
+      loadGeneration: number,
       signal?: AbortSignal,
     ): Promise<boolean> => {
-      const requestId = ++transcribeRequestRef.current
       setLyricsSearchPhase("Transcribing from audio…")
       setLyricsSearchStep("search")
 
@@ -510,10 +564,10 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           signal,
         })
 
-        if (signal?.aborted || requestId !== transcribeRequestRef.current) return false
+        if (signal?.aborted || isLyricsLoadStale(videoId, loadGeneration)) return false
 
         const state = usePlayerStore.getState()
-        if (state.videoId !== videoId || requestId !== transcribeRequestRef.current) return false
+        if (state.videoId !== videoId || isLyricsLoadStale(videoId, loadGeneration)) return false
 
         const durationMs = durationSec * 1000
         const parsed = segmentsToLyricLines(transcript.segments, durationMs)
@@ -575,6 +629,11 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             track,
             parsedDurationMs: durationMs,
           },
+          false,
+          undefined,
+          false,
+          undefined,
+          loadGeneration,
         )
 
         if (transcript.partial) {
@@ -583,7 +642,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
         return true
       } catch (err) {
-        if (signal?.aborted || requestId !== transcribeRequestRef.current) return false
+        if (signal?.aborted || isLyricsLoadStale(videoId, loadGeneration)) return false
         const state = usePlayerStore.getState()
         if (state.videoId !== videoId) return false
         if (err instanceof TranscriptionError) {
@@ -615,9 +674,9 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       track: string,
       title: string,
       durationSec: number,
+      loadGeneration: number,
       signal?: AbortSignal,
     ) => {
-      const requestId = ++alignRequestRef.current
       try {
         const transcript = await transcribeFromYouTube({
           videoId,
@@ -634,7 +693,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         })
 
         if (signal?.aborted || transcript.segments.length === 0) return
-        if (requestId !== alignRequestRef.current) return
+        if (isLyricsLoadStale(videoId, loadGeneration)) return
 
         const words = transcript.segments.flatMap((seg) => {
           const tokens = seg.text.split(/\s+/).filter(Boolean)
@@ -654,7 +713,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         if (!hasWordTiming) return
 
         const state = usePlayerStore.getState()
-        if (state.videoId !== videoId || requestId !== alignRequestRef.current) return
+        if (state.videoId !== videoId || isLyricsLoadStale(videoId, loadGeneration)) return
 
         setLyrics(aligned, true, state.lyricsSource ?? "lrclib", false, true)
 
@@ -682,6 +741,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       alternates: LyricsAlternate[] = [],
       preResolvedEnglish?: EnglishLyricsResult,
       pipelineHandlesEnglish = false,
+      loadGeneration?: number,
     ) => {
       const syncedRaw = lyricsResult.syncedLyrics?.trim()
         ? prepareLyricsText(lyricsResult.syncedLyrics)
@@ -725,7 +785,13 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         }),
       }
       const lang = detectLanguage(sample, languageMeta)
-      setLyricsAlternates(alternates)
+      const uiStale =
+        loadGeneration != null &&
+        (isLyricsLoadStale(videoId, loadGeneration) ||
+          usePlayerStore.getState().videoId !== videoId)
+      if (!uiStale) {
+        setLyricsAlternates(alternates)
+      }
 
       await applyParsedLyrics(
         parsed,
@@ -756,9 +822,10 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         preResolvedEnglish,
         pipelineHandlesEnglish,
         undefined,
+        loadGeneration,
       )
 
-      if (!parsed.synced && parsed.lines.length > 0) {
+      if (!parsed.synced && parsed.lines.length > 0 && !uiStale) {
         alignAbortRef.current?.abort()
         const controller = new AbortController()
         alignAbortRef.current = controller
@@ -768,6 +835,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           meta.track,
           meta.title,
           durationSec,
+          loadGeneration ?? getLyricsLoadGeneration(videoId),
           controller.signal,
         )
       }
@@ -790,114 +858,137 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         transcribeOnly?: boolean
       },
     ) => {
-      const requestId = ++loadRequestRef.current
       const loadVideoId = videoId
-      const isStale = () =>
-        requestId !== loadRequestRef.current ||
+      const generation = getLyricsLoadGeneration(loadVideoId)
+      let resolveDone!: () => void
+      const done = new Promise<void>((resolve) => {
+        resolveDone = resolve
+      })
+      trackLyricsLoad(loadVideoId, generation, done)
+
+      const isUiStale = () =>
+        isLyricsLoadStale(loadVideoId, generation) ||
         usePlayerStore.getState().videoId !== loadVideoId
 
-      resetLyricsSearch()
-      setEnglishLines([])
-      setStatus("loading")
-      setLyricsSearchPhase("Parsing title…")
-      setLyricsSearchStep("parse")
-      setMeta({ title, artist, track })
+      try {
+        resetLyricsSearch()
+        setEnglishLines([])
+        setStatus("loading")
+        setLyricsSearchPhase("Parsing title…")
+        setLyricsSearchStep("parse")
+        setMeta({ title, artist, track })
 
-      if (options?.transcribeOnly) {
-        transcribeAbortRef.current?.abort()
-        const controller = new AbortController()
-        transcribeAbortRef.current = controller
-        await tryTranscribeLyrics(artist, track, title, durationSec, controller.signal)
-        return
-      }
+        if (options?.transcribeOnly) {
+          transcribeAbortRef.current?.abort()
+          const controller = new AbortController()
+          transcribeAbortRef.current = controller
+          await tryTranscribeLyrics(
+            artist,
+            track,
+            title,
+            durationSec,
+            generation,
+            controller.signal,
+          )
+          return
+        }
 
-      if (!options?.skipPasted) {
-        const pasted = getPastedLyrics(videoId)
-        if (pasted) {
-          const parsed = applyLyricsText(pasted, durationSec)
-          if (parsed) {
-            if (isStale()) return
+        if (!options?.skipPasted) {
+          const pasted = getPastedLyrics(videoId)
+          if (pasted) {
+            const parsed = applyLyricsText(pasted, durationSec)
+            if (parsed) {
+              if (isUiStale()) return
+              if (parsed.suggestedOffsetMs) setSyncOffset(parsed.suggestedOffsetMs)
+              else resetSyncOffset()
+              await applyParsedLyrics(
+                parsed,
+                "pasted",
+                { title, track, artist },
+                durationSec,
+                pasted,
+                undefined,
+                false,
+                undefined,
+                false,
+                undefined,
+                generation,
+              )
+              return
+            }
+          }
+        }
+
+        if (!options?.skipCache) {
+          const cached = getLyricsCache(videoId)
+          if (cached) {
+            if (isUiStale()) return
+            const durationMs = durationSec * 1000
+            const reparsed = reparseCachedLyrics(cached, durationMs)
+            const parsed = reparsed ?? {
+              lines: cached.lines,
+              synced: cached.synced,
+              autoTimed: cached.autoTimed ?? !cached.synced,
+            }
+
+            setMeta({
+              title: cached.title || title,
+              artist: cached.artist || artist,
+              track: cached.track || track,
+            })
+            setEnglishLines(
+              cached.englishLines,
+              cached.englishSource ?? (cached.englishLines.length > 0 ? "found" : null),
+              cached.translationBackend ?? null,
+              cached.englishStatus ?? (cached.englishLines.length > 0 ? "ready" : null),
+            )
+            setLanguageCode(cached.languageCode)
+            setLyricsAlternates(cached.alternates ?? [])
             if (parsed.suggestedOffsetMs) setSyncOffset(parsed.suggestedOffsetMs)
-            else resetSyncOffset()
             await applyParsedLyrics(
-              parsed,
-              "pasted",
-              { title, track, artist },
+              {
+                lines: parsed.lines,
+                synced: parsed.synced,
+                autoTimed: parsed.autoTimed,
+                aligned: cached.aligned ?? false,
+              },
+              cached.providerId ?? cached.lyricsResult.providerId,
+              {
+                title: cached.title || title,
+                track: cached.track || track,
+                artist: cached.artist || artist,
+              },
               durationSec,
-              pasted,
+              cached.lyricsResult.plainLyrics ?? cached.lines.map((l) => l.text).join("\n"),
+              {
+                videoId,
+                lyricsResult: cached.lyricsResult,
+                providerId: cached.providerId ?? cached.lyricsResult.providerId,
+                lines: parsed.lines,
+                synced: parsed.synced,
+                autoTimed: parsed.autoTimed,
+                aligned: cached.aligned ?? false,
+                alternates: cached.alternates ?? [],
+                englishLines: cached.englishLines,
+                englishSource: cached.englishSource ?? null,
+                translationBackend: cached.translationBackend ?? null,
+                englishStatus: cached.englishStatus ?? null,
+                languageCode: cached.languageCode,
+                title: cached.title || title,
+                artist: cached.artist || artist,
+                track: cached.track || track,
+                parsedDurationMs: durationMs,
+              },
+              true,
+              undefined,
+              false,
+              undefined,
+              generation,
             )
             return
           }
         }
-      }
 
-      if (!options?.skipCache) {
-        const cached = getLyricsCache(videoId)
-        if (cached) {
-          if (isStale()) return
-          const durationMs = durationSec * 1000
-          const reparsed = reparseCachedLyrics(cached, durationMs)
-          const parsed = reparsed ?? {
-            lines: cached.lines,
-            synced: cached.synced,
-            autoTimed: cached.autoTimed ?? !cached.synced,
-          }
-
-          setMeta({
-            title: cached.title || title,
-            artist: cached.artist || artist,
-            track: cached.track || track,
-          })
-          setEnglishLines(
-            cached.englishLines,
-            cached.englishSource ?? (cached.englishLines.length > 0 ? "found" : null),
-            cached.translationBackend ?? null,
-            cached.englishStatus ?? (cached.englishLines.length > 0 ? "ready" : null),
-          )
-          setLanguageCode(cached.languageCode)
-          setLyricsAlternates(cached.alternates ?? [])
-          if (parsed.suggestedOffsetMs) setSyncOffset(parsed.suggestedOffsetMs)
-          await applyParsedLyrics(
-            {
-              lines: parsed.lines,
-              synced: parsed.synced,
-              autoTimed: parsed.autoTimed,
-              aligned: cached.aligned ?? false,
-            },
-            cached.providerId ?? cached.lyricsResult.providerId,
-            {
-              title: cached.title || title,
-              track: cached.track || track,
-              artist: cached.artist || artist,
-            },
-            durationSec,
-            cached.lyricsResult.plainLyrics ?? cached.lines.map((l) => l.text).join("\n"),
-            {
-              videoId,
-              lyricsResult: cached.lyricsResult,
-              providerId: cached.providerId ?? cached.lyricsResult.providerId,
-              lines: parsed.lines,
-              synced: parsed.synced,
-              autoTimed: parsed.autoTimed,
-              aligned: cached.aligned ?? false,
-              alternates: cached.alternates ?? [],
-              englishLines: cached.englishLines,
-              englishSource: cached.englishSource ?? null,
-              translationBackend: cached.translationBackend ?? null,
-              englishStatus: cached.englishStatus ?? null,
-              languageCode: cached.languageCode,
-              title: cached.title || title,
-              artist: cached.artist || artist,
-              track: cached.track || track,
-              parsedDurationMs: durationMs,
-            },
-            true,
-          )
-          return
-        }
-      }
-
-      try {
         let pipelineEnglishSample = ""
         const pipeline = await runLyricsPipeline({
           track,
@@ -916,6 +1007,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           }),
           providerIds: options?.providerIds,
           onProgress: ({ phase, step, retryRound, providersTried }) => {
+            if (isUiStale()) return
             setLyricsSearchPhase(phase)
             setLyricsSearchStep(step)
             if (providersTried) setLyricsProvidersSearched(providersTried)
@@ -923,7 +1015,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           },
           onEnglishProgress: (phase) => setLyricsSearchPhase(phase),
           onNativeReady: (nativeResult) => {
-            if (isStale()) return
+            if (isUiStale()) return
             if (!nativeResult.lyrics) return
             pipelineEnglishSample = lyricsResultSampleText(nativeResult.lyrics)
             void applyLyricsFromRaw(
@@ -933,6 +1025,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
               nativeResult.alternates ?? [],
               undefined,
               true,
+              generation,
             )
           },
         })
@@ -948,7 +1041,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           })
         }
 
-        if (isStale()) return
+        if (isUiStale()) return
 
         setLyricsProvidersSearched(result.providersTried)
         setContentWarning(result.contentAssessment?.message ?? null)
@@ -964,6 +1057,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         else setLrclibTrackId(null)
 
         if ((result.status === "found" || result.status === "instrumental") && result.lyrics) {
+          if (isUiStale()) return
           const sample =
             pipelineEnglishSample || lyricsResultSampleText(result.lyrics)
           const nativeLines = lyricsResultToNativeLines(result.lyrics)
@@ -980,7 +1074,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             })
           }
 
-          if (isStale()) return
+          if (isUiStale()) return
           if (result.status === "instrumental") {
             setLyricsOutcome("instrumental")
             setStatus("error", "Song found — marked instrumental")
@@ -999,9 +1093,10 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             track,
             title,
             durationSec,
+            generation,
             controller.signal,
           )
-          if (isStale()) return
+          if (isUiStale()) return
           if (transcribed) return
         }
 
@@ -1021,9 +1116,11 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
         setStatus("error", result.message)
       } catch {
-        if (isStale()) return
+        if (isUiStale()) return
         setLyricsOutcome("network_error")
         setStatus("error", "Couldn't reach the lyrics service — check your connection")
+      } finally {
+        resolveDone()
       }
     },
     [
@@ -1090,11 +1187,27 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
   useEffect(() => {
     if (!ready || loadedRef.current || !videoId || duration <= 0) return
+
+    const activeLoad = getActiveLyricsLoad(videoId)
+    if (activeLoad) {
+      loadedRef.current = true
+      return
+    }
+
+    const playerState = usePlayerStore.getState()
+    if (
+      playerState.videoId === videoId &&
+      (playerState.status === "ready" || playerState.status === "loading") &&
+      (playerState.lyrics.length > 0 || playerState.status === "loading")
+    ) {
+      loadedRef.current = true
+      return
+    }
+
     loadedRef.current = true
 
     const load = async () => {
-      const title = await getVideoTitle()
-      const oembedAuthor = await ensureOEmbedAuthor()
+      const [title, oembedAuthor] = await Promise.all([getVideoTitle(), ensureOEmbedAuthor()])
       const rough = parseTrackTitle(title, oembedAuthor ?? undefined)
       setLyricsSearchPhase("Resolving song…")
       setLyricsSearchStep("parse")
@@ -1134,13 +1247,14 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const handleRetry = useCallback(
     (artist: string, track: string, providerIds?: LyricsProviderId[]) => {
       const title = usePlayerStore.getState().title
+      bumpLyricsLoadGeneration(videoId)
       void loadLyrics(artist, track, title, duration, {
         skipPasted: true,
         skipCache: true,
         providerIds,
       })
     },
-    [duration, loadLyrics],
+    [videoId, duration, loadLyrics],
   )
 
   const handleConfirmMetadata = useCallback(
@@ -1148,6 +1262,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       if (!pendingMetadata) return
       const { title, options } = pendingMetadata
       setPendingMetadata(null)
+      bumpLyricsLoadGeneration(videoId)
       resolvedMetadataRef.current = {
         ...(resolvedMetadataRef.current ?? {
           source: "parse" as const,
@@ -1160,12 +1275,13 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       setMeta({ title, artist, track })
       void loadLyrics(artist, track, title, duration, options)
     },
-    [duration, loadLyrics, pendingMetadata],
+    [duration, loadLyrics, pendingMetadata, videoId],
   )
 
   const handleRefreshLyrics = useCallback(async () => {
     if (duration <= 0 || usePlayerStore.getState().status === "loading") return
 
+    bumpLyricsLoadGeneration(videoId)
     transcribeAbortRef.current?.abort()
     alignAbortRef.current?.abort()
     setLoadedFromCache(false)
@@ -1209,16 +1325,18 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     ensureOEmbedAuthor,
     resetLyricsSearch,
     seedMetadata,
+    videoId,
   ])
 
   const handleTranscribe = useCallback(() => {
     const { title, artist, track } = usePlayerStore.getState()
+    bumpLyricsLoadGeneration(videoId)
     void loadLyrics(artist, track, title, duration, {
       skipPasted: true,
       skipCache: true,
       transcribeOnly: true,
     })
-  }, [duration, loadLyrics])
+  }, [videoId, duration, loadLyrics])
 
   const handlePaste = useCallback(
     (text: string) => {
