@@ -33,9 +33,26 @@ describe("buildSearchAttempts", () => {
       expect.arrayContaining([
         { artist: "Alt Artist", track: "Song (Live)" },
         { artist: "Alt Artist", track: "Song" },
-        { artist: "Alt Artist", track: "Song" },
       ]),
     )
+    // simplifyTrackName does not strip "(Live)" — only stripDecorativeTitle does.
+    expect(attempts.filter((a) => a.artist === "Alt Artist" && a.track === "Song (Live)").length).toBe(
+      2,
+    )
+  })
+
+  it("keeps stripped and simplified distinct for decorative-only suffixes", () => {
+    const attempts = buildSearchAttempts({
+      track: "別世界【MV】",
+      artist: "天音かなた",
+      durationSec: 246,
+    })
+
+    expect(attempts.map((a) => a.track)).toEqual(
+      expect.arrayContaining(["別世界【MV】", "別世界"]),
+    )
+    expect(attempts.some((a) => a.track === "別世界【MV】")).toBe(true)
+    expect(attempts.some((a) => a.track === "別世界")).toBe(true)
   })
 
   it("filters empty track attempts", () => {
