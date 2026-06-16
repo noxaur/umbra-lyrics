@@ -34,7 +34,7 @@ type LyricLineProps = {
 }
 
 const LINE_SIZE =
-  "max-w-full text-[clamp(1.15rem,3.2vw,2.25rem)] leading-snug lg:text-[clamp(1.35rem,3.5vw,2.5rem)] lg:leading-tight"
+  "w-full max-w-xl text-[clamp(1.15rem,3.2vw,2.25rem)] leading-snug"
 const TV_LINE_SIZE =
   "max-w-full text-[clamp(1.75rem,4.5vw,3.25rem)] leading-snug lg:text-[clamp(2.5rem,6vw,5rem)] lg:leading-tight"
 const LINE_TEXT =
@@ -175,11 +175,11 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
       type="button"
       onClick={onSeek}
       className={cn(
-        "mx-auto w-full max-w-full origin-center scroll-my-6 rounded-lg py-2.5 will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none sm:py-3",
+        "mx-auto w-full origin-center py-[0.55rem] will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none",
         showTimestamp
-          ? "grid grid-cols-[minmax(3.75rem,4.25rem)_1fr] items-baseline gap-x-2 px-2 sm:gap-x-3 sm:px-3"
-          : "px-3 text-center sm:px-4",
-        active ? "text-karaoke-highlight" : "text-karaoke-muted hover:text-foreground",
+          ? "grid max-w-xl grid-cols-[minmax(3.75rem,4.25rem)_1fr] items-baseline gap-x-2 px-2 sm:gap-x-3 sm:px-3"
+          : "max-w-xl px-3 text-center",
+        active ? "text-karaoke-active-line" : "text-karaoke-ink",
       )}
       aria-label={seekLabel}
       aria-current={active ? "true" : undefined}
@@ -192,7 +192,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
           : `translateZ(${visual.z}px) scale(${visual.scale})`,
         filter: !reducedMotion && visual.blur > 0 ? `blur(${visual.blur}px)` : undefined,
         textShadow: active
-          ? "0 0 28px color-mix(in oklch, var(--karaoke-highlight) 42%, transparent), 0 0 56px color-mix(in oklch, var(--karaoke-highlight) 18%, transparent)"
+          ? "0 0 24px color-mix(in oklch, var(--karaoke-active-line) 40%, transparent)"
           : "none",
       }}
     >

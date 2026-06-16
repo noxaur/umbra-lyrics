@@ -177,9 +177,8 @@ export function LyricsStage({
       if (!element || !container || activeIndex < 0) return
 
       if (ease && !reducedMotion) {
-        programmaticScrollRef.current = true
+        beginProgrammaticScroll(LYRICS_RESYNC_SNAP_MS)
         scrollLineToCenterEase(element, container, LYRICS_RESYNC_SNAP_MS)
-        window.setTimeout(finishProgrammaticScroll, LYRICS_RESYNC_SNAP_MS + 32)
         return
       }
 
@@ -475,11 +474,11 @@ export function LyricsStage({
       ) : (
         <MotionConfig reducedMotion="user">
           <div
-            className="mx-auto w-full max-w-3xl overflow-x-clip overflow-y-visible"
+            className="mx-auto w-full max-w-xl overflow-x-clip overflow-y-visible"
             style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
           >
             <div
-              className="flex flex-col gap-2 sm:gap-3"
+              className="flex flex-col gap-[0.65rem]"
               style={{ transformStyle: "preserve-3d" }}
             >
               <div aria-hidden className="shrink-0" style={{ height: edgeSpacerPx }} />
@@ -517,7 +516,8 @@ export function LyricsStage({
 
 function cnStage(tvMode: boolean) {
   return [
-    "relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain scroll-py-[max(2.5rem,12vh)] bg-karaoke-stage-bg px-3 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-8",
+    "relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain scroll-py-10",
+    "rounded-2xl border border-[#1f2937] bg-karaoke-stage-bg px-4 py-8 pb-[max(1.5rem,env(safe-area-inset-bottom))]",
     "max-h-[min(100%,calc(5*4.25rem+4rem))]",
     tvMode ? "tv-mode" : "",
   ].join(" ")
