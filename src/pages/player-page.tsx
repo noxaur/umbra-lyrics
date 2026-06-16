@@ -16,7 +16,7 @@ import { parseLrc, parsePlainLyrics } from "@/lib/lrc-parser"
 import { resolveTrackMetadata } from "@/lib/track-metadata-resolver"
 import { resolveEnglishLyrics } from "@/lib/english-lyrics-service"
 import type { EnglishLyricsResult } from "@/lib/english-lyrics-service"
-import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
+import { runLyricsPipeline, lyricsResultSampleText } from "@/lib/lyrics-pipeline"
 import { getLyricsCache, reparseCachedLyrics, setLyricsCache } from "@/lib/lyrics-cache"
 import { detectLanguage, inferPreferredLanguage, isEnglish, resolveTranslationSourceLang, type LyricsLanguageMeta } from "@/lib/language-service"
 import { prepareLyricsText } from "@/lib/prepare-lyrics-text"
@@ -388,6 +388,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       cachePayload?: Parameters<typeof setLyricsCache>[0],
       fromCache = false,
       preResolvedEnglish?: EnglishLyricsResult,
+      pipelineHandlesEnglish = false,
     ) => {
       setLyrics(
         parsed.lines,
@@ -411,8 +412,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       if (cachePayload) setLyricsCache(cachePayload)
       if (preResolvedEnglish) {
         applyEnglishResult(preResolvedEnglish, parsed.lines.map((l) => l.text), sample)
-      } else if (!cachePayload?.englishLines?.length) {
-        await ensureEnglishLyrics(
+      } else if (!pipelineHandlesEnglish && !cachePayload?.englishLines?.length) {
+        void ensureEnglishLyrics(
           meta.track,
           meta.artist,
           durationSec,
@@ -632,6 +633,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       durationSec: number,
       alternates: LyricsAlternate[] = [],
       preResolvedEnglish?: EnglishLyricsResult,
+      pipelineHandlesEnglish = false,
     ) => {
       const syncedRaw = lyricsResult.syncedLyrics?.trim()
         ? prepareLyricsText(lyricsResult.syncedLyrics)
@@ -704,6 +706,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         },
         false,
         preResolvedEnglish,
+        pipelineHandlesEnglish,
       )
 
       if (!parsed.synced && parsed.lines.length > 0) {
@@ -838,7 +841,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       }
 
       try {
-        const result = await orchestrateLyricsSearch({
+        let pipelineEnglishSample = ""
+        const pipeline = await runLyricsPipeline({
           track,
           artist,
           title,
@@ -860,7 +864,32 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             if (providersTried) setLyricsProvidersSearched(providersTried)
             if (retryRound) setNetworkRetryCount(retryRound)
           },
+          onEnglishProgress: (phase) => setLyricsSearchPhase(phase),
+          onNativeReady: (nativeResult) => {
+            if (isStale()) return
+            if (!nativeResult.lyrics) return
+            pipelineEnglishSample = lyricsResultSampleText(nativeResult.lyrics)
+            void applyLyricsFromRaw(
+              nativeResult.lyrics,
+              { title, track, artist },
+              durationSec,
+              nativeResult.alternates ?? [],
+              undefined,
+              true,
+            )
+          },
         })
+
+        const result = pipeline.native
+        const english = pipeline.english
+
+        if (import.meta.env.DEV) {
+          console.info("[lyrics-pipeline]", {
+            videoId,
+            timings: pipeline.timings,
+            englishStatus: english.status,
+          })
+        }
 
         if (isStale()) return
 
@@ -878,15 +907,30 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         else setLrclibTrackId(null)
 
         if ((result.status === "found" || result.status === "instrumental") && result.lyrics) {
-          const applied = await applyLyricsFromRaw(
-            result.lyrics,
-            { title, track, artist },
-            durationSec,
-            result.alternates ?? [],
-            result.english,
-          )
+          const sample =
+            pipelineEnglishSample ||
+            result.lyrics.plainLyrics ||
+            result.lyrics.syncedLyrics ||
+            ""
+          const nativeLines = sample
+            .replace(/\[[\d:.]+\]/g, "")
+            .split("\n")
+            .filter(Boolean)
+          applyEnglishResult(english, nativeLines, sample)
+
+          const cached = getLyricsCache(videoId)
+          if (cached && english.status === "ready") {
+            setLyricsCache({
+              ...cached,
+              englishLines: english.lines,
+              englishSource: english.source,
+              translationBackend: english.translationBackend ?? null,
+              englishStatus: english.status,
+            })
+          }
+
           if (isStale()) return
-          if (applied && result.status === "instrumental") {
+          if (result.status === "instrumental") {
             setLyricsOutcome("instrumental")
             setStatus("error", "Song found — marked instrumental")
           }
