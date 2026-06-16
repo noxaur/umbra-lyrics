@@ -82,14 +82,83 @@ export async function searchSpotifyTracks(
   }
 
   return (data.tracks?.items ?? [])
-    .map((item) => ({
-      id: item.id ?? "",
-      name: item.name?.trim() ?? "",
-      artist: item.artists?.[0]?.name?.trim() ?? "",
-      durationSec: item.duration_ms ? Math.round(item.duration_ms / 1000) : 0,
-      isrc: item.external_ids?.isrc,
-    }))
+    .map((item) => mapSpotifyTrackItem(item))
     .filter((hit) => hit.id && hit.name)
+}
+
+function mapSpotifyTrackItem(item: {
+  id?: string
+  name?: string
+  duration_ms?: number
+  external_ids?: { isrc?: string }
+  artists?: Array<{ name?: string }>
+}): SpotifyTrackHit {
+  return {
+    id: item.id ?? "",
+    name: item.name?.trim() ?? "",
+    artist: item.artists?.[0]?.name?.trim() ?? "",
+    durationSec: item.duration_ms ? Math.round(item.duration_ms / 1000) : 0,
+    isrc: item.external_ids?.isrc,
+  }
+}
+
+export async function fetchSpotifyTrack(
+  trackId: string,
+  env: SpotifyEnv,
+): Promise<SpotifyTrackHit | null> {
+  const token = await getAccessToken(env)
+  if (!token) return null
+
+  const id = trackId.trim()
+  if (!id) return null
+
+  const res = await fetch(`${SPOTIFY_API}/tracks/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(10_000),
+  })
+
+  if (!res.ok) return null
+
+  const data = (await res.json()) as {
+    id?: string
+    name?: string
+    duration_ms?: number
+    external_ids?: { isrc?: string }
+    artists?: Array<{ name?: string }>
+  }
+
+  const hit = mapSpotifyTrackItem(data)
+  return hit.id && hit.name ? hit : null
+}
+
+export async function handleSpotifyTrack(
+  trackId: string,
+  env: SpotifyEnv,
+): Promise<Response> {
+  if (!trackId.trim()) {
+    return new Response(JSON.stringify({ error: "Missing track id", track: null }), {
+      status: 400,
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+    })
+  }
+
+  try {
+    const track = await fetchSpotifyTrack(trackId, env)
+    if (!track) {
+      return new Response(JSON.stringify({ error: "Track not found", track: null }), {
+        status: 404,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      })
+    }
+    return new Response(JSON.stringify({ track }), {
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+    })
+  } catch {
+    return new Response(JSON.stringify({ error: "Spotify unavailable", track: null }), {
+      status: 502,
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+    })
+  }
 }
 
 export async function handleSpotifySearch(

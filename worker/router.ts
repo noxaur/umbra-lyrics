@@ -22,7 +22,7 @@ import {
   handleMyMemory,
 } from "./handlers/translate"
 import { handleTranscribe } from "./handlers/transcribe"
-import { handleSpotifySearch } from "./handlers/spotify"
+import { handleSpotifySearch, handleSpotifyTrack } from "./handlers/spotify"
 import { handleDeezerSearch } from "./handlers/deezer"
 import { handleItunesSearch } from "./handlers/itunes"
 import { handleMusixmatchSearch } from "./handlers/musixmatch"
@@ -125,6 +125,11 @@ export async function handleApiRequest(
     const artist = url.searchParams.get("artist") ?? ""
     const track = url.searchParams.get("track") ?? ""
     return handleSpotifySearch(artist, track, env)
+  }
+
+  if (pathname === "/api/metadata/spotify/track") {
+    const id = url.searchParams.get("id") ?? ""
+    return handleSpotifyTrack(id, env)
   }
 
   if (pathname === "/api/metadata/deezer/search") {
