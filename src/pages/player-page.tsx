@@ -631,6 +631,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           },
           false,
           undefined,
+          false,
           undefined,
           loadGeneration,
         )
