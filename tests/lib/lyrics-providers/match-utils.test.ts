@@ -65,6 +65,47 @@ describe("match-utils", () => {
     expect(synced).toBeLessThan(plain)
   })
 
+  it("prefers synced when metadata and duration match", () => {
+    const results = [
+      {
+        trackName: "Song",
+        artistName: "Artist",
+        duration: 181,
+        plainLyrics: "line one",
+        syncedLyrics: null,
+      },
+      {
+        trackName: "Song",
+        artistName: "Artist",
+        duration: 181,
+        plainLyrics: "line one",
+        syncedLyrics: "[00:00.00] line one",
+      },
+    ]
+    const best = pickBestCandidate(results, 181, "Artist", "Song")
+    expect(best?.syncedLyrics?.trim()).toBeTruthy()
+  })
+
+  it("matches feat suffix after normalization", () => {
+    const results = [
+      {
+        trackName: "Despacito (feat. Daddy Yankee)",
+        artistName: "Luis Fonsi",
+        duration: 229,
+        plainLyrics: "correct",
+      },
+      {
+        trackName: "Despacito Remix",
+        artistName: "Luis Fonsi",
+        duration: 229,
+        plainLyrics: "wrong",
+      },
+    ]
+    const best = pickBestCandidate(results, 229, "Luis Fonsi", "Despacito")
+    expect(best?.trackName).toContain("Despacito")
+    expect(best?.plainLyrics).toBe("correct")
+  })
+
   it("detects lyrics text presence", () => {
     expect(hasLyricsText({ trackName: "a", artistName: "b", plainLyrics: "x" })).toBe(true)
     expect(hasLyricsText({ trackName: "a", artistName: "b", syncedLyrics: "[00:00.00] x" })).toBe(

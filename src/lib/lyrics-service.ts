@@ -1,9 +1,13 @@
 import type { LyricsResult } from "@/types/lyrics"
 import { looksLikeEnglishLyrics } from "@/lib/language-service"
 import { proxyFetch } from "@/lib/lyrics-providers/api-base"
-import { simplifyTrackName } from "@/lib/parse-track-title"
-
-const DURATION_TOLERANCE_SEC = 15
+import {
+  artistMatchScore,
+  hasLyricsText,
+  pickBestCandidate,
+  trackMatchScore,
+} from "@/lib/lyrics-providers/match-utils"
+import { simplifyTrackName, stripDecorativeTitle } from "@/lib/parse-track-title"
 
 export type SearchResult = {
   id: number
@@ -28,7 +32,7 @@ export function lrclibFetch(path: string): Promise<Response> {
 }
 
 export function hasLyrics(result: SearchResult): boolean {
-  return Boolean(result.plainLyrics?.trim() || result.syncedLyrics?.trim())
+  return hasLyricsText(result)
 }
 
 function searchResultToLyrics(result: SearchResult): LyricsResult {
@@ -64,10 +68,24 @@ function buildSearchStrategies(params: FetchLyricsParams): Array<{ track: string
     strategies.push({ track: track.trim(), artist: artist.trim() })
   }
 
+  const strippedTrack = stripDecorativeTitle(params.track)
   const simplifiedTrack = simplifyTrackName(params.track)
+  const simplifiedStripped = simplifyTrackName(strippedTrack)
+  const artistFirst = params.artist.split(/\s+/)[0] ?? params.artist
+
   add(params.track, params.artist)
+  add(strippedTrack, params.artist)
   add(simplifiedTrack, params.artist)
-  add(simplifiedTrack, params.artist.split(/\s+/)[0] ?? params.artist)
+  add(simplifiedStripped, params.artist)
+  add(simplifiedTrack, artistFirst)
+
+  if (
+    params.track.trim() &&
+    params.artist.trim() &&
+    params.track.toLowerCase() !== params.artist.toLowerCase()
+  ) {
+    add(params.artist, params.track)
+  }
 
   return strategies
 }
@@ -78,21 +96,54 @@ function mergeSearchResults(byId: Map<number, SearchResult>, results: SearchResu
   }
 }
 
-async function collectSearchResults(params: FetchLyricsParams): Promise<SearchResult[]> {
-  const byId = new Map<number, SearchResult>()
+function isStrongSearchMatch(
+  match: SearchResult | null,
+  params: FetchLyricsParams,
+): boolean {
+  if (!match || !hasLyrics(match) || match.instrumental) return false
+  return (
+    artistMatchScore(match, params.artist) < 80 &&
+    trackMatchScore(match, params.track) < 80 &&
+    Boolean(match.syncedLyrics?.trim())
+  )
+}
 
-  const query = [params.track, params.artist].filter(Boolean).join(" ")
-  const simplifiedQuery = [simplifyTrackName(params.track), params.artist].filter(Boolean).join(" ")
-
-  const searches: Promise<SearchResult[]>[] = [
-    ...buildSearchStrategies(params).map(({ track, artist }) => searchByParams(track, artist)),
-  ]
-  if (query) searches.push(searchByQuery(query))
-  if (simplifiedQuery && simplifiedQuery !== query) searches.push(searchByQuery(simplifiedQuery))
-
+async function runSearches(
+  byId: Map<number, SearchResult>,
+  searches: Promise<SearchResult[]>[],
+): Promise<void> {
   const settled = await Promise.allSettled(searches)
   for (const outcome of settled) {
     if (outcome.status === "fulfilled") mergeSearchResults(byId, outcome.value)
+  }
+}
+
+async function collectSearchResults(params: FetchLyricsParams): Promise<SearchResult[]> {
+  const byId = new Map<number, SearchResult>()
+
+  await runSearches(
+    byId,
+    buildSearchStrategies(params).map(({ track, artist }) => searchByParams(track, artist)),
+  )
+
+  let match = pickBestMatch([...byId.values()], params.durationSec, params.artist, params.track)
+  if (isStrongSearchMatch(match, params)) {
+    return [...byId.values()]
+  }
+
+  const strippedTrack = stripDecorativeTitle(params.track)
+  const queryVariants = [
+    [params.track, params.artist].filter(Boolean).join(" "),
+    [strippedTrack, params.artist].filter(Boolean).join(" "),
+    [simplifyTrackName(params.track), params.artist].filter(Boolean).join(" "),
+    [params.artist, params.track].filter(Boolean).join(" "),
+  ].filter((value, index, all) => value.trim() && all.indexOf(value) === index)
+
+  await runSearches(byId, queryVariants.map((query) => searchByQuery(query)))
+
+  match = pickBestMatch([...byId.values()], params.durationSec, params.artist, params.track)
+  if (match && hasLyrics(match)) {
+    return [...byId.values()]
   }
 
   if (byId.size === 0 && params.track.trim()) {
@@ -106,80 +157,13 @@ async function collectSearchResults(params: FetchLyricsParams): Promise<SearchRe
   return [...byId.values()]
 }
 
-function artistMatchScore(result: SearchResult, artist: string): number {
-  if (!artist.trim()) return 0
-
-  const wanted = artist.trim().toLowerCase()
-  const found = result.artistName.trim().toLowerCase()
-  if (found === wanted) return 0
-  if (found.includes(wanted) || wanted.includes(found)) return 4
-
-  const wantedParts = wanted.split(/\s+/).filter(Boolean)
-  if (wantedParts.some((part) => part.length > 1 && found.includes(part))) return 12
-
-  return 80
-}
-
-function trackMatchScore(result: SearchResult, track: string): number {
-  if (!track.trim()) return 0
-
-  const wanted = track.trim().toLowerCase()
-  const found = result.trackName.trim().toLowerCase()
-  if (found === wanted) return 0
-  if (found.includes(wanted) || wanted.includes(found)) return 4
-
-  const wantedParts = wanted.split(/\s+/).filter(Boolean)
-  if (wantedParts.some((part) => part.length > 1 && found.includes(part))) return 12
-
-  return 80
-}
-
-function durationScore(result: SearchResult, durationSec: number): number {
-  if (durationSec <= 0) return 0
-  const delta = Math.abs(result.duration - durationSec)
-  return delta <= DURATION_TOLERANCE_SEC ? delta : delta + 100
-}
-
 export function pickBestMatch(
   results: SearchResult[],
   durationSec: number,
   artist: string,
   track = "",
 ): SearchResult | null {
-  if (results.length === 0) return null
-
-  const scored = results
-    .map((result) => {
-      let score = durationScore(result, durationSec)
-      score += artistMatchScore(result, artist)
-      score += trackMatchScore(result, track)
-      if (result.instrumental) score += 50
-      if (!hasLyrics(result)) score += 200
-      return { result, score }
-    })
-    .sort((a, b) => a.score - b.score)
-
-  const strongMatch = (result: SearchResult) =>
-    artistMatchScore(result, artist) < 80 && trackMatchScore(result, track) < 80
-
-  const matchedLyrics = scored.find(
-    ({ result }) => hasLyrics(result) && !result.instrumental && strongMatch(result),
-  )
-  if (matchedLyrics) return matchedLyrics.result
-
-  const artistMatched = scored.find(
-    ({ result }) =>
-      hasLyrics(result) && !result.instrumental && artistMatchScore(result, artist) < 80,
-  )
-  if (artistMatched) return artistMatched.result
-
-  const vocalLyrics = scored.find(({ result }) => hasLyrics(result) && !result.instrumental)
-  if (vocalLyrics) return vocalLyrics.result
-
-  const anyLyrics = scored.find(({ result }) => hasLyrics(result))
-  if (anyLyrics) return anyLyrics.result
-
-  return scored[0]?.result ?? null
+  return pickBestCandidate(results, durationSec, artist, track)
 }
 
 async function fetchLyricsForMatch(match: SearchResult): Promise<LyricsResult | null> {
