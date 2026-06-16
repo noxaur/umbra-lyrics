@@ -30,6 +30,7 @@ import {
   type PlaylistPlaybackContext,
 } from "@/lib/playlists"
 import { analyzeRoute, isValidPlayVideoId } from "@/lib/route-suggestions"
+import type { PlayerNavigationState } from "@/lib/player-navigation"
 import { fetchYouTubeAuthor } from "@/lib/youtube-oembed"
 import { segmentsToLyricLines, transcriptToPlainLyrics } from "@/lib/transcript-to-lyrics"
 import { TranscriptionError, transcribeFromYouTube } from "@/lib/transcription-service"
@@ -75,8 +76,9 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const location = useLocation()
   const navigate = useNavigate()
   const fromHome = Boolean(
-    (location.state as { fromHome?: boolean } | null)?.fromHome,
+    (location.state as PlayerNavigationState | null)?.fromHome,
   )
+  const seedMetadata = (location.state as PlayerNavigationState | null)?.seedMetadata
   const onEndedRef = useRef<() => void>(() => {})
   const loadedRef = useRef(false)
   const oembedAuthorRef = useRef<string | null>(null)
@@ -994,8 +996,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         title,
         durationSec: duration,
         oembedAuthor: oembedAuthor ?? undefined,
-        roughArtist: rough.artist,
-        roughTrack: rough.track,
+        roughArtist: seedMetadata?.artist ?? rough.artist,
+        roughTrack: seedMetadata?.track ?? rough.track,
       })
       resolvedMetadataRef.current = resolved
       setMeta({ title, artist: resolved.artist, track: resolved.track })
@@ -1003,7 +1005,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     }
 
     void load()
-  }, [ready, videoId, duration, getVideoTitle, loadLyrics, setMeta, ensureOEmbedAuthor])
+  }, [ready, videoId, duration, getVideoTitle, loadLyrics, setMeta, ensureOEmbedAuthor, seedMetadata])
 
   const handleRetry = useCallback(
     (artist: string, track: string, providerIds?: LyricsProviderId[]) => {
@@ -1036,8 +1038,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       title,
       durationSec: duration,
       oembedAuthor: oembedAuthor ?? undefined,
-      roughArtist: rough.artist,
-      roughTrack: rough.track,
+      roughArtist: seedMetadata?.artist ?? rough.artist,
+      roughTrack: seedMetadata?.track ?? rough.track,
     })
     resolvedMetadataRef.current = resolved
     setMeta({ title, artist: resolved.artist, track: resolved.track })

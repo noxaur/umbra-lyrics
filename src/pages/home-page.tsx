@@ -57,7 +57,8 @@ export function HomePage() {
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-balance">Sing along</h1>
           <p className="mt-2 text-muted-foreground text-pretty">
-            Search for a song or paste a YouTube link to open synced lyrics and sing with the video.
+            Search for a song or paste a YouTube or Spotify track link to open synced lyrics and sing
+            with the video.
           </p>
           <p className="mt-3 max-w-md text-center text-xs text-muted-foreground text-pretty">
             In the player, press Space to play or pause, use arrow keys to seek, and +/− to nudge

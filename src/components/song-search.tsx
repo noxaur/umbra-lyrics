@@ -11,7 +11,8 @@ import {
   searchSongs,
   type SongSearchHit,
 } from "@/lib/youtube-search"
-import { extractYouTubeVideoId } from "@/lib/youtube-url"
+import { mediaResolveErrorMessage, resolveMediaInput } from "@/lib/media-url"
+import { buildPlayerNavigationState } from "@/lib/player-navigation"
 import { youtubeThumbnailUrl } from "@/lib/youtube-thumbnail"
 
 const DEBOUNCE_MS = 300
@@ -38,6 +39,7 @@ export function SongSearch() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
+  const [resolving, setResolving] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const navigate = useNavigate()
   const listId = useId()
@@ -46,21 +48,59 @@ export function SongSearch() {
 
   const optionId = (index: number) => `${optionIdPrefix}-option-${index}`
 
-  const goToPlayer = (videoId: string) => {
+  const goToPlayer = (
+    videoId: string,
+    seedTrack?: { artist: string; name: string; durationSec: number; isrc?: string },
+  ) => {
     setOpening(true)
-    navigate(`/play/${videoId}`, { state: { fromHome: true } })
+    navigate(`/play/${videoId}`, {
+      state: buildPlayerNavigationState(
+        true,
+        seedTrack
+          ? {
+              id: "",
+              name: seedTrack.name,
+              artist: seedTrack.artist,
+              durationSec: seedTrack.durationSec,
+              isrc: seedTrack.isrc,
+            }
+          : undefined,
+      ),
+    })
+  }
+
+  const resolveMediaLink = async (value: string): Promise<boolean> => {
+    const trimmed = value.trim()
+    if (!trimmed) return false
+
+    setResolving(true)
+    setError(null)
+    setResults([])
+    setActiveIndex(-1)
+
+    try {
+      const resolved = await resolveMediaInput(trimmed)
+      if (resolved === null) return false
+      if (!resolved.ok) {
+        setError(mediaResolveErrorMessage(resolved.error))
+        return true
+      }
+
+      if (resolved.result.kind === "youtube") {
+        goToPlayer(resolved.result.videoId)
+        return true
+      }
+
+      goToPlayer(resolved.result.videoId, resolved.result.track)
+      return true
+    } finally {
+      setResolving(false)
+    }
   }
 
   const runSearch = async (value: string, signal?: AbortSignal) => {
     const trimmed = value.trim()
-    const videoId = extractYouTubeVideoId(trimmed)
-    if (videoId) {
-      setError(null)
-      setResults([])
-      setActiveIndex(-1)
-      goToPlayer(videoId)
-      return
-    }
+    if (await resolveMediaLink(trimmed)) return
 
     if (trimmed.length < MIN_QUERY_LEN) {
       setResults([])
@@ -80,14 +120,14 @@ export function SongSearch() {
       setResults(hits)
       setActiveIndex(hits.length > 0 ? 0 : -1)
       if (hits.length === 0) {
-        setError("No songs found. Try different keywords or paste a YouTube link below.")
+        setError("No songs found. Try different keywords or paste a YouTube or Spotify link below.")
       }
     } catch (err) {
       if (currentRequest !== requestId.current) return
       if (err instanceof DOMException && err.name === "AbortError") return
       setResults([])
       setActiveIndex(-1)
-      setError("Search unavailable right now. Paste a YouTube link below instead.")
+      setError("Search unavailable right now. Paste a YouTube or Spotify link below instead.")
     } finally {
       if (currentRequest === requestId.current) {
         setLoading(false)
@@ -155,18 +195,16 @@ export function SongSearch() {
   }
 
   const onPaste = (value: string) => {
-    const videoId = extractYouTubeVideoId(value)
-    if (videoId) {
-      setError(null)
-      setResults([])
-      setActiveIndex(-1)
-      goToPlayer(videoId)
-    }
+    setQuery(value)
+    void resolveMediaLink(value)
   }
 
+  const busy = opening || resolving
   const statusMessage = opening
     ? "Opening player…"
-    : loading
+    : resolving
+      ? "Finding YouTube match…"
+      : loading
       ? "Searching…"
       : error
         ? error
@@ -188,7 +226,7 @@ export function SongSearch() {
               const text = e.clipboardData.getData("text")
               setTimeout(() => onPaste(text), 0)
             }}
-            disabled={opening}
+            disabled={busy}
             aria-invalid={!!error && results.length === 0}
             aria-describedby={statusMessage ? "song-search-status" : undefined}
             aria-controls={results.length > 0 ? listId : undefined}
@@ -200,9 +238,9 @@ export function SongSearch() {
             }
             role="combobox"
           />
-          <Button type="submit" className="shrink-0" disabled={opening || loading}>
+          <Button type="submit" className="shrink-0" disabled={busy || loading}>
             <AnimatedIcon icon={Search} />
-            {opening ? "Opening…" : loading ? "Searching…" : "Search"}
+            {opening ? "Opening…" : resolving ? "Finding…" : loading ? "Searching…" : "Search"}
           </Button>
         </div>
       </form>

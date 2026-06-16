@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { ModeToggle } from "@/components/mode-toggle"
+import { SpotifyLoginButton } from "@/components/spotify-login-button"
 import { cn } from "@/lib/utils"
 import { usePlayerStore } from "@/stores/player-store"
 
@@ -34,7 +35,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               Playlists
             </Link>
           </div>
-          <ModeToggle />
+          <div className="flex items-center gap-2">
+            <SpotifyLoginButton />
+            <ModeToggle />
+          </div>
         </header>
       )}
       <main id="main-content" className="flex min-h-0 flex-1 flex-col">

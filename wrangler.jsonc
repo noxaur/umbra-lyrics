@@ -26,4 +26,5 @@
   }
   // Optional secrets (set via `wrangler secret put`):
   // SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, MUSIXMATCH_API_KEY, LIBRETRANSLATE_API_KEY
+  // Spotify login redirect URI: https://song.opsec.rent/auth/spotify/callback (and localhost in dev)
 }
