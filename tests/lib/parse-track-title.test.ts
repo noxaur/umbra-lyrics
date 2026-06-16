@@ -57,6 +57,30 @@ describe("parseTrackTitle", () => {
       track: "Song Name",
     })
   })
+
+  it("parses pipe title with quoted song by artist", () => {
+    expect(
+      parseTrackTitle(
+        'Cyberpunk: Edgerunners | "I Really Want to Stay At Your House" by Rosa Walton | Music Video',
+        "Netflix",
+      ),
+    ).toEqual({
+      artist: "Rosa Walton",
+      track: "I Really Want to Stay At Your House",
+    })
+  })
+
+  it("parses anime AMV title with artist and quoted track", () => {
+    expect(
+      parseTrackTitle(
+        '[SPOILER] [AMV/MAD] Orb : On the Movements of the Earth - Sakanaction "Kaiju" [JP/EN lyrics]',
+        "SBG",
+      ),
+    ).toEqual({
+      artist: "Sakanaction",
+      track: "Kaiju",
+    })
+  })
 })
 
 describe("stripDecorativeTitle", () => {

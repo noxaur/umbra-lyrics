@@ -453,4 +453,72 @@ describe("orchestrateLyricsSearch", () => {
     expect(result.providerId).not.toBe("lrclib")
     expect(result.lyrics).toBeUndefined()
   })
+
+  it.each([
+    {
+      title:
+        'Cyberpunk: Edgerunners | "I Really Want to Stay At Your House" by Rosa Walton | Music Video',
+      author: "Netflix",
+      expectedArtist: "Rosa Walton",
+      expectedTrack: "I Really Want to Stay At Your House",
+      lrclibPlain: "I couldn't wait for you to come and clear the cupboards\n'Cause I really wanna stay at your house",
+      mustContain: "stay at your house",
+    },
+    {
+      title:
+        '[SPOILER] [AMV/MAD] Orb : On the Movements of the Earth - Sakanaction "Kaiju" [JP/EN lyrics]',
+      author: "SBG",
+      expectedArtist: "Sakanaction",
+      expectedTrack: "Kaiju",
+      lrclibPlain: "何度でも\nこの暗い夜の怪獣になっても",
+      mustContain: "怪獣",
+    },
+  ])(
+    "finds LRCLIB lyrics for parsed title: $expectedArtist - $expectedTrack",
+    async ({ title, author, expectedArtist, expectedTrack, lrclibPlain, mustContain }) => {
+      const { parseTrackTitle } = await import("@/lib/parse-track-title")
+      const parsed = parseTrackTitle(title, author)
+      expect(parsed).toEqual({ artist: expectedArtist, track: expectedTrack })
+
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) => {
+          if (url.includes("/api/lyrics/lrclib")) {
+            return new Response(
+              JSON.stringify([
+                {
+                  id: 99,
+                  trackName: expectedTrack,
+                  artistName: expectedArtist,
+                  duration: 250,
+                  plainLyrics: lrclibPlain,
+                },
+              ]),
+              { status: 200 },
+            )
+          }
+          if (url.includes("/get/99")) {
+            return new Response(
+              JSON.stringify({ id: 99, plainLyrics: lrclibPlain, syncedLyrics: null }),
+              { status: 200 },
+            )
+          }
+          return new Response("[]", { status: 200 })
+        }),
+      )
+
+      const result = await orchestrateLyricsSearch({
+        track: parsed.track,
+        artist: parsed.artist,
+        title,
+        durationSec: 250,
+        oembedAuthor: author,
+        providerIds: ["lrclib"],
+      })
+
+      expect(result.status).toBe("found")
+      expect(result.providerId).toBe("lrclib")
+      expect(result.lyrics?.plainLyrics?.toLowerCase()).toContain(mustContain)
+    },
+  )
 })

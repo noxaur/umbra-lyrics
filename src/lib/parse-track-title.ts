@@ -75,11 +75,58 @@ export function shouldSwapForOEmbedAuthor(
   return rightNorm.includes(hint) || hint.includes(rightNorm) || leftNorm.includes(hint)
 }
 
-export function parseTrackTitle(
-  title: string,
+const TRAILING_PROMO_RE =
+  /\s+(?:music\s+video|official\s+video|lyrics?\s+video|mv|amv|mad)\s*$/i
+
+/** `"Song Title" by Artist` — common in Netflix / promo pipe titles. */
+function extractQuotedByArtist(title: string): { artist: string; track: string } | null {
+  const match = title.match(/"([^"]+)"\s+by\s+(.+)/i)
+  if (!match) return null
+
+  const track = simplifyTrackName(match[1].trim())
+  let artist = match[2].trim().replace(TRAILING_PROMO_RE, "").trim()
+  artist = simplifyTrackName(artist)
+  if (!track || !artist) return null
+  return { artist, track }
+}
+
+/** `Artist "Song Title"` — common in anime AMV titles after a promo prefix. */
+function extractArtistQuotedTrack(title: string): { artist: string; track: string } | null {
+  const match = title.match(/-\s*([^-]+?)\s+"([^"]+)"\s*$/i)
+  if (!match) return null
+
+  const artist = simplifyTrackName(match[1].trim())
+  const track = simplifyTrackName(match[2].trim())
+  if (!track || !artist) return null
+  return { artist, track }
+}
+
+function tryPipeSegments(title: string): { artist: string; track: string } | null {
+  if (!title.includes("|")) return null
+
+  for (const segment of title.split("|")) {
+    const trimmed = segment.trim()
+    if (!trimmed) continue
+
+    const quoted =
+      extractQuotedByArtist(trimmed) ??
+      extractQuotedByArtist(stripDecorativeTitle(trimmed))
+    if (quoted) return quoted
+
+    const artistQuoted =
+      extractArtistQuotedTrack(trimmed) ??
+      extractArtistQuotedTrack(stripDecorativeTitle(trimmed))
+    if (artistQuoted) return artistQuoted
+  }
+
+  return null
+}
+
+function parseSeparatedTitle(
+  cleaned: string,
+  originalTitle: string,
   oembedAuthor?: string,
-): { artist: string; track: string } {
-  const cleaned = stripDecorativeTitle(title)
+): { artist: string; track: string } | null {
   const separators = [" - ", " – ", " — ", ": "]
 
   for (const sep of separators) {
@@ -91,7 +138,7 @@ export function parseTrackTitle(
       artist = simplifyTrackName(artist)
 
       if (
-        shouldSwapTrackArtist(artist, title, sep) ||
+        shouldSwapTrackArtist(artist, originalTitle, sep) ||
         shouldSwapForJapanese(artist, track) ||
         shouldSwapForOEmbedAuthor(artist, track, oembedAuthor)
       ) {
@@ -101,6 +148,31 @@ export function parseTrackTitle(
       return { artist, track }
     }
   }
+
+  return null
+}
+
+export function parseTrackTitle(
+  title: string,
+  oembedAuthor?: string,
+): { artist: string; track: string } {
+  const fromPipe = tryPipeSegments(title)
+  if (fromPipe) return fromPipe
+
+  const cleaned = stripDecorativeTitle(title)
+
+  const fromQuoted =
+    extractQuotedByArtist(title) ??
+    extractQuotedByArtist(cleaned)
+  if (fromQuoted) return fromQuoted
+
+  const fromArtistQuoted =
+    extractArtistQuotedTrack(title) ??
+    extractArtistQuotedTrack(cleaned)
+  if (fromArtistQuoted) return fromArtistQuoted
+
+  const separated = parseSeparatedTitle(cleaned, title, oembedAuthor)
+  if (separated) return separated
 
   return { artist: "", track: simplifyTrackName(cleaned) }
 }
