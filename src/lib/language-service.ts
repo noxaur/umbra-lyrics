@@ -3,6 +3,7 @@ import { franc } from "franc-min"
 const CJK_RE = /[\u3040-\u30ff\u4e00-\u9fff]/
 const HANGUL_RE = /[\uac00-\ud7af]/
 const CYRILLIC_RE = /[\u0400-\u04ff]/
+const LATIN_EXTENDED_RE = /[àáâãäåæçèéêëìíîïñòóôõöùúûüýÿ]/i
 
 /** ISO 639-3 (franc) → BCP-47 for Translator API and translation backends. */
 const ISO639_3_TO_BCP47: Record<string, string> = {
@@ -57,6 +58,161 @@ export type LyricsLanguageMeta = {
 }
 
 const NON_ENGLISH_FRANC = new Set(["jpn", "kor", "cmn", "zho", "rus", "ukr", "ara", "hin", "tha", "vie"])
+const EUROPEAN_FRANC = new Set([
+  "fra",
+  "deu",
+  "spa",
+  "por",
+  "ita",
+  "nld",
+  "swe",
+  "nor",
+  "dan",
+  "fin",
+  "ces",
+  "pol",
+  "ron",
+  "hun",
+  "cat",
+  "glg",
+  "eus",
+  "slk",
+  "slv",
+  "hrv",
+  "srp",
+  "bul",
+  "ell",
+  "lit",
+  "lav",
+  "est",
+])
+
+const ENGLISH_LYRIC_WORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "but",
+  "in",
+  "on",
+  "at",
+  "to",
+  "for",
+  "of",
+  "with",
+  "by",
+  "from",
+  "i",
+  "you",
+  "me",
+  "my",
+  "your",
+  "we",
+  "they",
+  "he",
+  "she",
+  "it",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "have",
+  "has",
+  "had",
+  "do",
+  "does",
+  "did",
+  "will",
+  "would",
+  "can",
+  "could",
+  "not",
+  "no",
+  "yes",
+  "all",
+  "this",
+  "that",
+  "what",
+  "when",
+  "where",
+  "how",
+  "why",
+  "who",
+  "love",
+  "heart",
+  "world",
+  "time",
+  "night",
+  "day",
+  "life",
+  "away",
+  "never",
+  "always",
+  "oh",
+  "yeah",
+  "baby",
+  "feel",
+  "know",
+  "want",
+  "need",
+  "like",
+  "just",
+  "so",
+  "don't",
+  "can't",
+  "won't",
+])
+
+function hasFrenchMarkers(text: string): boolean {
+  return /\b(je|tu|nous|vous|les|des|une|dans|pour|avec|sur|pas|mais|mon|ton|son|ce|cette|et|est|suis)\b/i.test(
+    text,
+  )
+}
+
+function countLatinWords(text: string): number {
+  return (text.toLowerCase().match(/[a-z']+/g) ?? []).length
+}
+
+/** Share of recognizable English lyric vocabulary in Latin-script text. */
+export function englishWordRatio(text: string): number {
+  const words = text.toLowerCase().match(/[a-z']+/g) ?? []
+  if (words.length === 0) return 0
+  const hits = words.filter((word) => ENGLISH_LYRIC_WORDS.has(word)).length
+  return hits / words.length
+}
+
+/** Fraction of lines that substantially overlap between two lyric bodies. */
+export function lyricsOverlapRatio(nativeText: string, candidateText: string): number {
+  const nativeLines = nativeText
+    .split("\n")
+    .map((line) => line.trim().toLowerCase())
+    .filter(Boolean)
+  const candidateLines = candidateText
+    .split("\n")
+    .map((line) => line.trim().toLowerCase())
+    .filter(Boolean)
+
+  if (nativeLines.length === 0 || candidateLines.length === 0) return 0
+
+  let matches = 0
+  for (const nativeLine of nativeLines) {
+    if (
+      candidateLines.some(
+        (candidateLine) =>
+          nativeLine === candidateLine ||
+          nativeLine.includes(candidateLine) ||
+          candidateLine.includes(nativeLine),
+      )
+    ) {
+      matches++
+    }
+  }
+
+  return matches / Math.max(nativeLines.length, candidateLines.length)
+}
 
 export function detectLanguage(text: string, meta?: LyricsLanguageMeta): string {
   const sample = text.slice(0, 800).trim()
@@ -109,8 +265,26 @@ export function looksLikeEnglishLyrics(text: string): boolean {
   if (!isLatinScriptLyrics(sample)) return false
 
   const code = franc(sample.slice(0, 500))
-  if (NON_ENGLISH_FRANC.has(code)) return false
-  return true
+  const words = countLatinWords(sample)
+  const ratio = englishWordRatio(sample)
+
+  if (words < 6) {
+    if (LATIN_EXTENDED_RE.test(sample) || hasFrenchMarkers(sample)) return false
+    if (code === "eng") return true
+    if (/^[\x20-\x7E\n\r]+$/.test(sample) && words >= 2 && !NON_ENGLISH_FRANC.has(code)) {
+      return true
+    }
+    if (EUROPEAN_FRANC.has(code) || NON_ENGLISH_FRANC.has(code)) return ratio >= 0.14
+    return false
+  }
+
+  if (NON_ENGLISH_FRANC.has(code) || EUROPEAN_FRANC.has(code)) {
+    if (ratio >= 0.14) return true
+    return false
+  }
+  if (code === "eng") return true
+
+  return ratio >= 0.1
 }
 
 /** Source language for machine translation (prefers metadata over noisy franc on romaji). */
@@ -203,7 +377,8 @@ export function lyricsLanguageMatchesMetadata(
 
 /** BCP-47 source → MyMemory langpair prefix (e.g. `ja|en`). */
 export function toLangPair(source: string, target = "en"): string {
-  const src = francToBcp47(source)
+  const src = toTranslationSourceCode(source)
   const tgt = francToBcp47(target)
+  if (src === "auto") return `autodetect|${tgt}`
   return `${src}|${tgt}`
 }

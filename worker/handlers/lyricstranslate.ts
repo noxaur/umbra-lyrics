@@ -47,13 +47,53 @@ export function parseLyricsTranslatePage(html: string): {
   const langMatch = /lang(?:uage)?[^>]*>([A-Za-z]+)</i.exec(html)
   const languageHint = langMatch?.[1]?.toLowerCase()
 
-  const lyricsMatch =
-    /<div[^>]+id="song-body"[^>]*>([\s\S]*?)<\/div>/i.exec(html) ??
-    /<div[^>]+class="[^"]*par[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(html)
-
-  const plainLyrics = lyricsMatch?.[1] ? decodeHtml(lyricsMatch[1]) : null
+  const plainLyrics = extractLyricsTranslateEnglish(html)
 
   return { plainLyrics, trackName, artistName, languageHint }
+}
+
+const CJK_IN_TEXT_RE = /[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]/
+
+function htmlBlockToText(raw: string): string {
+  return decodeHtml(
+    raw
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/\n{3,}/g, "\n\n"),
+  ).trim()
+}
+
+/** Pull English stanzas from bilingual LyricsTranslate pages (alternating par blocks). */
+export function extractLyricsTranslateEnglish(html: string): string | null {
+  if (!/id=["']song-body["']/i.test(html)) {
+    const fallbackMatch = /<div[^>]+class="[^"]*par[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(html)
+    return fallbackMatch?.[1] ? htmlBlockToText(fallbackMatch[1]) : null
+  }
+
+  const blocks: string[] = []
+  const blockRe = /<div[^>]+class="[^"]*par[^"]*"[^>]*>([\s\S]*?)<\/div>/gi
+  for (const match of html.matchAll(blockRe)) {
+    const text = htmlBlockToText(match[1] ?? "")
+    if (text) blocks.push(text)
+  }
+
+  if (blocks.length === 0) {
+    const bodyMatch = /<div[^>]+id="song-body"[^>]*>([\s\S]*)$/i.exec(html)
+    const fallback = bodyMatch?.[1] ? htmlBlockToText(bodyMatch[1]) : null
+    return fallback || null
+  }
+
+  const latinBlocks = blocks.filter((block) => !CJK_IN_TEXT_RE.test(block))
+  const cjkBlocks = blocks.filter((block) => CJK_IN_TEXT_RE.test(block))
+
+  if (latinBlocks.length > 0 && cjkBlocks.length > 0) {
+    return latinBlocks.join("\n")
+  }
+
+  if (latinBlocks.length > 0) return latinBlocks.join("\n")
+
+  return blocks.join("\n")
 }
 
 async function fetchPage(path: string): Promise<string | null> {

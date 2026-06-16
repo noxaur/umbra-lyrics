@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest"
 import {
   detectLanguage,
+  englishWordRatio,
   inferPreferredLanguage,
   looksLikeEnglishLyrics,
   lyricsLanguageMatchesMetadata,
+  lyricsOverlapRatio,
   needsEnglishLyrics,
   resolveTranslationSourceLang,
 } from "@/lib/language-service"
@@ -63,6 +65,30 @@ describe("looksLikeEnglishLyrics", () => {
 
   it("accepts Latin English text", () => {
     expect(looksLikeEnglishLyrics("Swim, swim\nWater falling off your skin")).toBe(true)
+  })
+
+  it("rejects French lyrics", () => {
+    expect(
+      looksLikeEnglishLyrics(
+        "Dans la nuit je marche seul\nVers un monde inconnu et froid",
+      ),
+    ).toBe(false)
+  })
+})
+
+describe("lyricsOverlapRatio", () => {
+  it("detects near-duplicate bilingual candidates", () => {
+    const native = "Line one\nLine two"
+    const candidate = "Line one\nLine two extra"
+    expect(lyricsOverlapRatio(native, candidate)).toBeGreaterThan(0.45)
+  })
+})
+
+describe("englishWordRatio", () => {
+  it("scores English higher than unrelated Latin text", () => {
+    const english = englishWordRatio("I want to love you all night")
+    const french = englishWordRatio("Dans la nuit je marche seul")
+    expect(english).toBeGreaterThan(french)
   })
 })
 

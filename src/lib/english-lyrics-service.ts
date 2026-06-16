@@ -1,6 +1,8 @@
+import { alignEnglishLines } from "@/lib/align-english-lines"
 import {
   isEnglish,
   looksLikeEnglishLyrics,
+  lyricsOverlapRatio,
   needsEnglishLyrics,
   resolveTranslationSourceLang,
   type LyricsLanguageMeta,
@@ -37,14 +39,32 @@ export type ResolveEnglishLyricsParams = {
   onProgress?: (phase: string) => void
 }
 
+const MAX_NATIVE_OVERLAP = 0.45
+
+function finalizeEnglishLines(
+  nativeLines: string[],
+  englishLines: string[],
+  result: Omit<EnglishLyricsResult, "lines">,
+): EnglishLyricsResult {
+  return {
+    ...result,
+    lines: alignEnglishLines(nativeLines, englishLines),
+  }
+}
+
 function linesAreUsableEnglish(lines: string[], nativeLines: string[]): boolean {
   if (lines.length === 0) return false
   const text = lines.join("\n").trim()
   if (!looksLikeEnglishLyrics(text)) return false
 
-  const native = nativeLines.join("\n").trim().toLowerCase()
-  const candidate = text.toLowerCase()
-  if (native && candidate === native) return false
+  const native = nativeLines.join("\n").trim()
+  if (!native) return true
+
+  if (lyricsOverlapRatio(native, text) > MAX_NATIVE_OVERLAP) return false
+
+  const nativeNorm = native.toLowerCase()
+  const candidateNorm = text.toLowerCase()
+  if (nativeNorm && candidateNorm === nativeNorm) return false
 
   return true
 }
@@ -123,35 +143,32 @@ export async function resolveEnglishLyrics(
   if (lrclib?.plainLyrics?.trim()) {
     const lines = lrclib.plainLyrics.split("\n").filter(Boolean)
     if (linesAreUsableEnglish(lines, nativeLines)) {
-      return {
-        lines,
+      return finalizeEnglishLines(nativeLines, lines, {
         source: "found",
         providerId: "lrclib",
         status: "ready",
-      }
+      })
     }
   }
 
   onProgress?.("Searching LyricsTranslate…")
   const ltLines = await searchLyricsTranslateEnglish(artist, track, durationSec, nativeLines)
   if (ltLines && ltLines.length > 0) {
-    return {
-      lines: ltLines,
+    return finalizeEnglishLines(nativeLines, ltLines, {
       source: "found",
       providerId: "lyricstranslate",
       status: "ready",
-    }
+    })
   }
 
   onProgress?.("Searching Musixmatch…")
   const mmLines = await searchMusixmatchEnglish(artist, track, durationSec, nativeLines)
   if (mmLines && mmLines.length > 0) {
-    return {
-      lines: mmLines,
+    return finalizeEnglishLines(nativeLines, mmLines, {
       source: "found",
       providerId: "musixmatch",
       status: "ready",
-    }
+    })
   }
 
   onProgress?.("Translating…")
@@ -164,12 +181,11 @@ export async function resolveEnglishLyrics(
   })
 
   if (translated) {
-    return {
-      lines: translated.lines,
+    return finalizeEnglishLines(nativeLines, translated.lines, {
       source: "translated",
       translationBackend: translated.backend,
       status: "ready",
-    }
+    })
   }
 
   return { lines: [], source: "translated", status: "failed" }
