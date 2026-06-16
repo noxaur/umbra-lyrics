@@ -22,6 +22,13 @@ vi.mock("@/lib/youtube-search", () => ({
 import { searchSongs } from "@/lib/youtube-search"
 
 const mockSearchSongs = vi.mocked(searchSongs)
+const searchHit = {
+  videoId: "dQw4w9WgXcQ",
+  title: "Queen - Bohemian Rhapsody",
+  channel: "Queen Official",
+  durationSec: 240,
+  viewCount: 1_000_000,
+}
 
 describe("SongSearch", () => {
   beforeEach(() => {
@@ -30,15 +37,7 @@ describe("SongSearch", () => {
   })
 
   it("searches on submit and navigates on result click", async () => {
-    mockSearchSongs.mockResolvedValue([
-      {
-        videoId: "dQw4w9WgXcQ",
-        title: "Queen - Bohemian Rhapsody",
-        channel: "Queen Official",
-        durationSec: 240,
-        viewCount: 1_000_000,
-      },
-    ])
+    mockSearchSongs.mockResolvedValue([searchHit])
 
     render(
       <MemoryRouter>
@@ -64,6 +63,102 @@ describe("SongSearch", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/play/dQw4w9WgXcQ", {
       state: { fromHome: true },
     })
+  })
+
+  it.each([
+    ["Shift", { shiftKey: true }],
+    ["Control", { ctrlKey: true }],
+    ["Alt", { altKey: true }],
+    ["Meta", { metaKey: true }],
+  ])("opens a preview modal instead of navigating on %s click", async (_name, modifier) => {
+    mockSearchSongs.mockResolvedValue([searchHit])
+
+    render(
+      <MemoryRouter>
+        <SongSearch />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText(/search songs/i), {
+      target: { value: "queen bohemian" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /search/i }))
+
+    const result = await screen.findByRole("option", { name: /queen · bohemian rhapsody/i })
+    fireEvent.click(result, modifier)
+
+    expect(mockNavigate).not.toHaveBeenCalled()
+    expect(screen.getByRole("dialog", { name: /queen · bohemian rhapsody/i })).toBeInTheDocument()
+    expect(screen.getByTitle(/queen · bohemian rhapsody preview/i)).toHaveAttribute(
+      "src",
+      expect.stringContaining("youtube.com/embed/dQw4w9WgXcQ"),
+    )
+  })
+
+  it("closes the preview modal with the Back button", async () => {
+    mockSearchSongs.mockResolvedValue([searchHit])
+
+    render(
+      <MemoryRouter>
+        <SongSearch />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText(/search songs/i), {
+      target: { value: "queen bohemian" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /search/i }))
+
+    fireEvent.click(await screen.findByRole("option", { name: /queen · bohemian rhapsody/i }), {
+      shiftKey: true,
+    })
+    fireEvent.click(screen.getByRole("button", { name: /back/i }))
+
+    expect(screen.queryByRole("dialog", { name: /queen · bohemian rhapsody/i })).not.toBeInTheDocument()
+  })
+
+  it("closes the preview modal on outside click", async () => {
+    mockSearchSongs.mockResolvedValue([searchHit])
+
+    render(
+      <MemoryRouter>
+        <SongSearch />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText(/search songs/i), {
+      target: { value: "queen bohemian" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /search/i }))
+
+    fireEvent.click(await screen.findByRole("option", { name: /queen · bohemian rhapsody/i }), {
+      shiftKey: true,
+    })
+    fireEvent.mouseDown(screen.getByTestId("search-preview-backdrop"))
+
+    expect(screen.queryByRole("dialog", { name: /queen · bohemian rhapsody/i })).not.toBeInTheDocument()
+  })
+
+  it("closes the preview modal with Escape", async () => {
+    mockSearchSongs.mockResolvedValue([searchHit])
+
+    render(
+      <MemoryRouter>
+        <SongSearch />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText(/search songs/i), {
+      target: { value: "queen bohemian" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /search/i }))
+
+    fireEvent.click(await screen.findByRole("option", { name: /queen · bohemian rhapsody/i }), {
+      shiftKey: true,
+    })
+    fireEvent.keyDown(window, { key: "Escape" })
+
+    expect(screen.queryByRole("dialog", { name: /queen · bohemian rhapsody/i })).not.toBeInTheDocument()
   })
 
   it("navigates with arrow keys and enter", async () => {
