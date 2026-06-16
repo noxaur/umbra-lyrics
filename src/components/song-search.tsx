@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -133,6 +134,7 @@ export function SongSearch() {
   const [resolving, setResolving] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const [previewHit, setPreviewHit] = useState<SongSearchHit | null>(null)
+  const closePreview = useCallback(() => setPreviewHit(null), [])
   const navigate = useNavigate()
   const listId = useId()
   const optionIdPrefix = useId()
@@ -228,6 +230,10 @@ export function SongSearch() {
   }
 
   useEffect(() => {
+    setPreviewHit(null)
+  }, [query])
+
+  useEffect(() => {
     if (opening) return
 
     const trimmed = query.trim()
@@ -290,6 +296,10 @@ export function SongSearch() {
 
     if (e.key === "Escape") {
       e.preventDefault()
+      if (previewHit) {
+        closePreview()
+        return
+      }
       setResults([])
       setActiveIndex(-1)
       setError(null)
@@ -404,7 +414,7 @@ export function SongSearch() {
           hit={previewHit}
           label={formatResultLabel(previewHit)}
           meta={formatResultMeta(previewHit)}
-          onClose={() => setPreviewHit(null)}
+          onClose={closePreview}
         />
       ) : null}
     </div>
