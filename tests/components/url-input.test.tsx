@@ -95,4 +95,18 @@ describe("UrlInput", () => {
       )
     })
   })
+
+  it("shows validation error for empty submit", async () => {
+    navigate.mockClear()
+    renderInput()
+
+    fireEvent.click(screen.getByRole("button", { name: /start/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Enter a valid YouTube, Spotify track, or song link",
+      )
+    })
+    expect(navigate).not.toHaveBeenCalled()
+  })
 })

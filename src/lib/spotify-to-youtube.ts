@@ -37,6 +37,9 @@ function scoreYouTubeHit(hit: SongSearchHit, track: SpotifyTrackHit): number {
   return score
 }
 
+/** Reject matches where artist and track both miss badly (see match-utils thresholds). */
+const MAX_ACCEPTABLE_YOUTUBE_MATCH_SCORE = 100
+
 function pickBestYouTubeHit(hits: SongSearchHit[], track: SpotifyTrackHit): SongSearchHit | null {
   if (hits.length === 0) return null
 
@@ -44,7 +47,10 @@ function pickBestYouTubeHit(hits: SongSearchHit[], track: SpotifyTrackHit): Song
     .map((hit) => ({ hit, score: scoreYouTubeHit(hit, track) }))
     .sort((a, b) => a.score - b.score)
 
-  return scored[0]?.hit ?? null
+  const best = scored[0]
+  if (!best || best.score > MAX_ACCEPTABLE_YOUTUBE_MATCH_SCORE) return null
+
+  return best.hit
 }
 
 async function fetchSpotifyTrackById(

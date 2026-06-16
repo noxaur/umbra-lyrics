@@ -58,6 +58,23 @@ describe("resolveSpotifyTrackToYouTube", () => {
     })
   })
 
+  it("returns no_youtube_match when all candidates score poorly", async () => {
+    mockProxyFetch.mockResolvedValue(
+      new Response(JSON.stringify({ track: spotifyTrack }), { status: 200 }),
+    )
+    mockSearchSongs.mockResolvedValue([
+      {
+        videoId: "wrong123456",
+        title: "Unrelated Topic",
+        channel: "Random Creator",
+        durationSec: 30,
+      },
+    ])
+
+    const result = await resolveSpotifyTrackToYouTube(SPOTIFY_URL)
+    expect(result).toEqual({ ok: false, reason: "no_youtube_match" })
+  })
+
   it("returns best YouTube match by metadata score", async () => {
     mockProxyFetch.mockResolvedValue(
       new Response(JSON.stringify({ track: spotifyTrack }), { status: 200 }),

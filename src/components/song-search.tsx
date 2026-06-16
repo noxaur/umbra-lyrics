@@ -195,6 +195,7 @@ export function SongSearch() {
   }
 
   const onPaste = (value: string) => {
+    setQuery(value)
     void resolveMediaLink(value)
   }
 
