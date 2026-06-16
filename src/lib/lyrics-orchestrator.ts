@@ -250,10 +250,12 @@ export async function orchestrateLyricsSearch(
     ? verified.find((v) => v.candidate.externalId === best.candidate.externalId)?.verification
     : undefined
 
-  if (
+  const shouldPromote = Boolean(
     params.videoId &&
-    shouldPromoteTranscription(bestVerification, transcriptProfile, contentAssessment)
-  ) {
+      shouldPromoteTranscription(bestVerification, transcriptProfile, contentAssessment),
+  )
+
+  if (shouldPromote) {
     report("Transcribing from audio…", "match")
     attempts.push({
       strategy: "transcription:promote",
@@ -319,9 +321,23 @@ export async function orchestrateLyricsSearch(
         },
       )
     }
+
+    attempts.push({
+      strategy: "transcription:promote",
+      provider: "transcription",
+      result: "error",
+      message: "Full transcription failed after weak provider match",
+    })
   }
 
-  if (best && (best.candidate.plainLyrics?.trim() || best.candidate.syncedLyrics?.trim())) {
+  const skipWeakProvider =
+    shouldPromote && bestVerification !== undefined && !isStrongVerification(bestVerification)
+
+  if (
+    !skipWeakProvider &&
+    best &&
+    (best.candidate.plainLyrics?.trim() || best.candidate.syncedLyrics?.trim())
+  ) {
     const lyrics = candidateToResult(best.candidate)
     const synced = Boolean(lyrics.syncedLyrics?.trim())
     const alternateOptions = rankedAlternates.map(toAlternate)

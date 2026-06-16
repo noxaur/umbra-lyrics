@@ -391,4 +391,66 @@ describe("orchestrateLyricsSearch", () => {
     expect(result.verificationScore).toBe(1)
     expect(result.lyrics?.plainLyrics).toContain("actual lyrics from the audio")
   })
+
+  it("does not return weak provider lyrics when transcription promotion fails", async () => {
+    const transcriptionService = await import("@/lib/transcription-service")
+
+    vi.mocked(transcriptionService.sampleTranscribeForVerification).mockImplementationOnce(
+      async () => ({
+        text: "actual lyrics from the audio track",
+        segments: [{ start: 0, end: 25, text: "actual lyrics from the audio track" }],
+        language: "en",
+        source: "whisper",
+        coverageSec: 60,
+        vocalDensity: 0.75,
+        mode: "sample",
+      }),
+    )
+
+    vi.mocked(transcriptionService.fullTranscribeAsProvider).mockResolvedValueOnce(null)
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/api/lyrics/lrclib")) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: 1,
+                trackName: "Song",
+                artistName: "Artist",
+                duration: 200,
+                plainLyrics: "completely wrong lyrics from another song",
+              },
+            ]),
+            { status: 200 },
+          )
+        }
+        if (url.includes("/get/1")) {
+          return new Response(
+            JSON.stringify({
+              id: 1,
+              plainLyrics: "completely wrong lyrics from another song",
+              syncedLyrics: null,
+            }),
+            { status: 200 },
+          )
+        }
+        return new Response("[]", { status: 200 })
+      }),
+    )
+
+    const result = await orchestrateLyricsSearch({
+      track: "Song",
+      artist: "Artist",
+      title: "Artist - Song",
+      durationSec: 200,
+      videoId: "abc123",
+      providerIds: ["lrclib"],
+    })
+
+    expect(result.status).toBe("not_found")
+    expect(result.providerId).not.toBe("lrclib")
+    expect(result.lyrics).toBeUndefined()
+  })
 })
