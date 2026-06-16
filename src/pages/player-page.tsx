@@ -1013,7 +1013,10 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             if (providersTried) setLyricsProvidersSearched(providersTried)
             if (retryRound) setNetworkRetryCount(retryRound)
           },
-          onEnglishProgress: (phase) => setLyricsSearchPhase(phase),
+          onEnglishProgress: (phase) => {
+            if (isUiStale()) return
+            setLyricsSearchPhase(phase)
+          },
           onNativeReady: (nativeResult) => {
             if (isUiStale()) return
             if (!nativeResult.lyrics) return
