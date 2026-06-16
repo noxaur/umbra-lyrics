@@ -210,7 +210,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
       type="button"
       onClick={onSeek}
       className={cn(
-        "mx-auto w-full origin-center py-[0.55rem] will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none",
+        "mx-auto w-full origin-center py-[0.55rem] font-semibold will-change-[transform,opacity,filter] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none",
         showTimestamp
           ? "grid max-w-xl grid-cols-[minmax(3.75rem,4.25rem)_1fr] items-baseline gap-x-2 px-2 sm:gap-x-3 sm:px-3"
           : "max-w-xl px-3 text-center",
@@ -220,7 +220,6 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
       aria-current={active ? "true" : undefined}
       style={{
         transformStyle: "preserve-3d",
-        contain: "layout paint",
         opacity: visual.opacity,
         transform: reducedMotion
           ? undefined
