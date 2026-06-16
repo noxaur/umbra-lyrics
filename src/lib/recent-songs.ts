@@ -1,62 +1,30 @@
-import { detectLanguage, hasCjkScript, isEnglish } from "@/lib/language-service"
-import { parseTrackTitle } from "@/lib/parse-track-title"
+import { detectLanguage } from "@/lib/language-service"
+import {
+  formatTrackLabel,
+  needsEnglishSubtitle,
+  normalizeTrackMetadata,
+  type TrackMetadata,
+} from "@/lib/track-label"
 import { translateLinesWithFallback } from "@/lib/translation-service"
 
 const STORAGE_KEY = "song-kara-recent"
 const MAX_RECENT = 10
-const CYRILLIC_RE = /[\u0400-\u04ff]/
-const HANGUL_RE = /[\uac00-\ud7af]/
 
-export type RecentSong = {
-  videoId: string
-  title: string
-  artist: string
-  track: string
-  englishArtist?: string
-  englishTrack?: string
+export type RecentSong = TrackMetadata & {
   playedAt: number
 }
 
 function normalizeRecent(song: RecentSong): RecentSong {
-  if (song.artist?.trim() && song.track?.trim()) return song
-  const parsed = parseTrackTitle(song.title || "")
   return {
-    ...song,
-    artist: song.artist?.trim() || parsed.artist,
-    track: song.track?.trim() || parsed.track,
+    ...normalizeTrackMetadata(song),
+    playedAt: song.playedAt,
   }
 }
 
-export function needsEnglishSubtitle(text: string): boolean {
-  const sample = text.trim()
-  if (!sample) return false
-  if (hasCjkScript(sample) || HANGUL_RE.test(sample) || CYRILLIC_RE.test(sample)) return true
-  return !isEnglish(detectLanguage(sample))
-}
-
-function primaryRecentLabel(song: RecentSong): string {
-  const normalized = normalizeRecent(song)
-  if (normalized.artist && normalized.track) {
-    return `${normalized.artist} · ${normalized.track}`
-  }
-  return normalized.title?.trim() || normalized.videoId
-}
+export { needsEnglishSubtitle }
 
 export function formatRecentLabel(song: RecentSong): string {
-  const normalized = normalizeRecent(song)
-  const primary = primaryRecentLabel(normalized)
-  const meta = `${normalized.artist} ${normalized.track}`.trim()
-
-  if (
-    needsEnglishSubtitle(meta) &&
-    normalized.englishArtist?.trim() &&
-    normalized.englishTrack?.trim()
-  ) {
-    const english = `${normalized.englishArtist.trim()} · ${normalized.englishTrack.trim()}`
-    if (english !== primary) return `${primary} (${english})`
-  }
-
-  return primary
+  return formatTrackLabel(normalizeRecent(song))
 }
 
 function writeRecentSongs(songs: RecentSong[]) {
