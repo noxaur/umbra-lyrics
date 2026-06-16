@@ -18,6 +18,12 @@ const ThemesPage = lazy(() =>
 const ThemeBuilderPage = lazy(() =>
   import("@/pages/theme-builder-page").then((module) => ({ default: module.ThemeBuilderPage })),
 )
+const PlaylistsPage = lazy(() =>
+  import("@/pages/playlists-page").then((module) => ({ default: module.PlaylistsPage })),
+)
+const PlaylistDetailPage = lazy(() =>
+  import("@/pages/playlist-detail-page").then((module) => ({ default: module.PlaylistDetailPage })),
+)
 
 const MISROUTED_PLAY_ALIASES = PLAY_ROUTE_ALIASES.filter((segment) => segment !== "play")
 
@@ -43,6 +49,8 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/themes" element={<ThemesPage />} />
             <Route path="/themes/build" element={<ThemeBuilderPage />} />
+            <Route path="/playlists" element={<PlaylistsPage />} />
+            <Route path="/playlists/:playlistId" element={<PlaylistDetailPage />} />
             <Route path="/watch" element={<WatchRedirectPage />} />
             <Route path="/auth/spotify/callback" element={<SpotifyCallbackPage />} />
             {MISROUTED_PLAY_ALIASES.map((segment) => (

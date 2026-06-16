@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 import { usePlayerStore } from "@/stores/player-store"
 import { LYRICS_PROVIDER_LABELS, type LyricsAlternate, type LyricsProviderId } from "@/types/lyrics"
 import { LyricsSourcePicker } from "@/components/lyrics-source-picker"
+import { AddToPlaylistMenu } from "@/components/add-to-playlist-menu"
 
 const TRANSLATION_BACKEND_LABELS: Record<string, string> = {
   browser: "Browser",
@@ -137,6 +138,19 @@ export function NowPlayingHeader({
         </div>
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:justify-end">
+          {videoId ? (
+            <AddToPlaylistMenu
+              track={{
+                videoId,
+                title,
+                artist,
+                track,
+              }}
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+            />
+          ) : null}
           {onRefreshLyrics && videoId ? (
             <Button
               variant="outline"

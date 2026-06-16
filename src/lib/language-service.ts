@@ -41,17 +41,101 @@ const ISO639_3_TO_BCP47: Record<string, string> = {
 }
 
 export function francToBcp47(code: string): string {
-  if (!code || code === "und") return "en"
+  if (!code || code === "und") return "und"
   if (code.length === 2) return code.toLowerCase()
   const mapped = ISO639_3_TO_BCP47[code.toLowerCase()]
   if (mapped) return mapped
   return code.slice(0, 2).toLowerCase()
 }
 
-export function detectLanguage(text: string): string {
-  const sample = text.slice(0, 500)
-  const code = franc(sample)
-  return francToBcp47(code === "und" ? "eng" : code)
+export type LyricsLanguageMeta = {
+  title?: string
+  artist?: string
+  track?: string
+  oembedAuthor?: string
+  preferredLanguage?: string
+}
+
+const NON_ENGLISH_FRANC = new Set(["jpn", "kor", "cmn", "zho", "rus", "ukr", "ara", "hin", "tha", "vie"])
+
+export function detectLanguage(text: string, meta?: LyricsLanguageMeta): string {
+  const sample = text.slice(0, 800).trim()
+  if (!sample) {
+    return meta?.preferredLanguage ?? inferPreferredLanguage(meta) ?? "en"
+  }
+
+  if (hasCjkScript(sample)) return "ja"
+  if (HANGUL_RE.test(sample)) return "ko"
+  if (CYRILLIC_RE.test(sample)) return "ru"
+
+  const preferred = meta?.preferredLanguage ?? inferPreferredLanguage(meta)
+  if (preferred && !isEnglish(preferred) && isLatinScriptLyrics(sample)) {
+    if (!lyricsLanguageMatchesMetadata(sample, meta ?? {})) {
+      return preferred
+    }
+  }
+
+  const code = franc(sample.slice(0, 500))
+  if (code === "und") {
+    return preferred ?? "und"
+  }
+  return francToBcp47(code)
+}
+
+/** Whether bilingual English lines should be fetched for these lyrics. */
+export function needsEnglishLyrics(text: string, meta?: LyricsLanguageMeta): boolean {
+  const sample = text.trim()
+  if (!sample) return false
+
+  if (hasCjkScript(sample) || HANGUL_RE.test(sample) || CYRILLIC_RE.test(sample)) {
+    return true
+  }
+
+  const preferred = meta?.preferredLanguage ?? inferPreferredLanguage(meta)
+  const detected = detectLanguage(sample, meta)
+
+  if (preferred && !isEnglish(preferred)) return true
+  if (detected === "und") return false
+  return !isEnglish(detected)
+}
+
+/** True when lyric text is plausibly an English (Latin-script) translation, not CJK native. */
+export function looksLikeEnglishLyrics(text: string): boolean {
+  const sample = text.slice(0, 2000).trim()
+  if (!sample) return false
+  if (hasCjkScript(sample) || HANGUL_RE.test(sample) || CYRILLIC_RE.test(sample)) {
+    return false
+  }
+  if (!isLatinScriptLyrics(sample)) return false
+
+  const code = franc(sample.slice(0, 500))
+  if (NON_ENGLISH_FRANC.has(code)) return false
+  return true
+}
+
+/** Source language for machine translation (prefers metadata over noisy franc on romaji). */
+export function resolveTranslationSourceLang(text: string, meta?: LyricsLanguageMeta): string {
+  const sample = text.trim()
+  if (!sample) return meta?.preferredLanguage ?? "und"
+
+  if (hasCjkScript(sample)) return "ja"
+  if (HANGUL_RE.test(sample)) return "ko"
+  if (CYRILLIC_RE.test(sample)) return "ru"
+
+  const preferred = meta?.preferredLanguage ?? inferPreferredLanguage(meta)
+  if (preferred && !isEnglish(preferred)) return preferred
+
+  const detected = detectLanguage(sample, meta)
+  return detected === "und" ? preferred ?? "auto" : detected
+}
+
+/** BCP-47 / auto code for translation API `source` parameters. */
+export function toTranslationSourceCode(code: string): string {
+  const normalized = code.trim().toLowerCase()
+  if (!normalized || normalized === "und" || normalized === "auto") return "auto"
+  const bcp = francToBcp47(normalized)
+  if (bcp === "und") return "auto"
+  return bcp
 }
 
 export function isEnglish(code: string): boolean {
@@ -70,12 +154,13 @@ function isLatinScriptLyrics(text: string): boolean {
 }
 
 /** Infer expected lyric language from video metadata (not store defaults). */
-export function inferPreferredLanguage(meta: {
+export function inferPreferredLanguage(meta?: {
   title?: string
   artist?: string
   track?: string
   oembedAuthor?: string
 }): string | undefined {
+  if (!meta) return undefined
   const combined = [meta.title, meta.artist, meta.track, meta.oembedAuthor]
     .filter(Boolean)
     .join(" ")
@@ -110,7 +195,7 @@ export function lyricsLanguageMatchesMetadata(
     return !isEnglish(detectLanguage(lyricsText))
   }
 
-  const detected = detectLanguage(lyricsText)
+  const detected = detectLanguage(lyricsText, meta)
   if (detected === preferred) return true
   if (isEnglish(detected) && !isEnglish(preferred)) return false
   return true

@@ -1,4 +1,10 @@
-import { isEnglish } from "@/lib/language-service"
+import {
+  isEnglish,
+  looksLikeEnglishLyrics,
+  needsEnglishLyrics,
+  resolveTranslationSourceLang,
+  type LyricsLanguageMeta,
+} from "@/lib/language-service"
 import { searchEnglishLyrics } from "@/lib/lyrics-service"
 import { lyricstranslateProvider } from "@/lib/lyrics-providers/lyricstranslate-provider"
 import { musixmatchProvider } from "@/lib/lyrics-providers/musixmatch-provider"
@@ -27,13 +33,27 @@ export type ResolveEnglishLyricsParams = {
   durationSec: number
   videoId?: string
   skipCache?: boolean
+  metadata?: LyricsLanguageMeta
   onProgress?: (phase: string) => void
+}
+
+function linesAreUsableEnglish(lines: string[], nativeLines: string[]): boolean {
+  if (lines.length === 0) return false
+  const text = lines.join("\n").trim()
+  if (!looksLikeEnglishLyrics(text)) return false
+
+  const native = nativeLines.join("\n").trim().toLowerCase()
+  const candidate = text.toLowerCase()
+  if (native && candidate === native) return false
+
+  return true
 }
 
 async function searchLyricsTranslateEnglish(
   artist: string,
   track: string,
   durationSec: number,
+  nativeLines: string[],
 ): Promise<string[] | null> {
   const candidates = await lyricstranslateProvider.search({
     artist,
@@ -44,13 +64,15 @@ async function searchLyricsTranslateEnglish(
   const hit = pickBestHit(candidates, { artist, track, durationSec })
   const text = hit?.candidate.plainLyrics?.trim() || hit?.candidate.syncedLyrics?.trim()
   if (!text) return null
-  return text.split("\n").filter(Boolean)
+  const lines = text.split("\n").filter(Boolean)
+  return linesAreUsableEnglish(lines, nativeLines) ? lines : null
 }
 
 async function searchMusixmatchEnglish(
   artist: string,
   track: string,
   durationSec: number,
+  nativeLines: string[],
 ): Promise<string[] | null> {
   const candidates = await musixmatchProvider.search({
     artist,
@@ -61,16 +83,33 @@ async function searchMusixmatchEnglish(
   const hit = pickBestHit(candidates, { artist, track, durationSec })
   const text = hit?.candidate.plainLyrics?.trim()
   if (!text) return null
-  return text.split("\n").filter(Boolean)
+  const lines = text.split("\n").filter(Boolean)
+  return linesAreUsableEnglish(lines, nativeLines) ? lines : null
 }
 
 export async function resolveEnglishLyrics(
   params: ResolveEnglishLyricsParams,
 ): Promise<EnglishLyricsResult> {
-  const { track, artist, nativeLines, language, durationSec, videoId, skipCache, onProgress } =
-    params
+  const {
+    track,
+    artist,
+    nativeLines,
+    language,
+    durationSec,
+    videoId,
+    skipCache,
+    metadata,
+    onProgress,
+  } = params
 
-  if (isEnglish(language)) {
+  const nativeText = nativeLines.join("\n")
+  const languageMeta: LyricsLanguageMeta = {
+    ...metadata,
+    artist: metadata?.artist ?? artist,
+    track: metadata?.track ?? track,
+  }
+
+  if (!needsEnglishLyrics(nativeText, languageMeta) && isEnglish(language)) {
     return { lines: nativeLines, source: "found", status: "skipped" }
   }
 
@@ -82,16 +121,19 @@ export async function resolveEnglishLyrics(
 
   const lrclib = await searchEnglishLyrics(track, artist, durationSec)
   if (lrclib?.plainLyrics?.trim()) {
-    return {
-      lines: lrclib.plainLyrics.split("\n").filter(Boolean),
-      source: "found",
-      providerId: "lrclib",
-      status: "ready",
+    const lines = lrclib.plainLyrics.split("\n").filter(Boolean)
+    if (linesAreUsableEnglish(lines, nativeLines)) {
+      return {
+        lines,
+        source: "found",
+        providerId: "lrclib",
+        status: "ready",
+      }
     }
   }
 
   onProgress?.("Searching LyricsTranslate…")
-  const ltLines = await searchLyricsTranslateEnglish(artist, track, durationSec)
+  const ltLines = await searchLyricsTranslateEnglish(artist, track, durationSec, nativeLines)
   if (ltLines && ltLines.length > 0) {
     return {
       lines: ltLines,
@@ -102,7 +144,7 @@ export async function resolveEnglishLyrics(
   }
 
   onProgress?.("Searching Musixmatch…")
-  const mmLines = await searchMusixmatchEnglish(artist, track, durationSec)
+  const mmLines = await searchMusixmatchEnglish(artist, track, durationSec, nativeLines)
   if (mmLines && mmLines.length > 0) {
     return {
       lines: mmLines,
@@ -113,8 +155,9 @@ export async function resolveEnglishLyrics(
   }
 
   onProgress?.("Translating…")
+  const sourceLang = resolveTranslationSourceLang(nativeText, languageMeta)
   const translated = await translateLinesWithFallback(nativeLines, {
-    sourceLang: language,
+    sourceLang,
     videoId,
     skipCache,
     mandatory: true,

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { mediaResolveErrorMessage, resolveMediaInput } from "@/lib/media-url"
 import { buildPlayerNavigationState } from "@/lib/player-navigation"
+import type { SpotifyTrackHit } from "@/lib/spotify-to-youtube"
 
 export function UrlInput() {
   const [url, setUrl] = useState("")

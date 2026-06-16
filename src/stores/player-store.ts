@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import { getPlaylistById, type PlaylistPlaybackContext } from "@/lib/playlists"
 import type { LyricDisplayMode, LyricLine, LyricsAlternate, LyricsProviderId } from "@/types/lyrics"
 import type { LyricsOrchestratorStatus, LyricsSearchStep } from "@/lib/lyrics-orchestrator"
 import type { TranslationBackend } from "@/lib/translation-service"
@@ -52,6 +53,8 @@ type PlayerState = {
   pauseRef: (() => void) | null
   seekRef: ((s: number) => void) | null
   isPlaying: boolean
+  playlistContext: PlaylistPlaybackContext | null
+  playlistNavigateRef: ((trackIndex: number) => void) | null
   setVideoId: (id: string) => void
   setMeta: (meta: { title: string; artist: string; track: string }) => void
   setStatus: (status: PlayerStatus, error?: string | null) => void
@@ -103,6 +106,10 @@ type PlayerState = {
   togglePlay: () => void
   seekBy: (deltaSec: number) => void
   seekToMs: (ms: number) => void
+  setPlaylistContext: (context: PlaylistPlaybackContext | null) => void
+  bindPlaylistNavigation: (navigate: ((trackIndex: number) => void) | null) => void
+  goToNextPlaylistTrack: () => void
+  goToPrevPlaylistTrack: () => void
 }
 
 const VIDEO_HIDDEN_KEY = "song-kara-video-hidden"
@@ -153,6 +160,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   pauseRef: null,
   seekRef: null,
   isPlaying: false,
+  playlistContext: null,
+  playlistNavigateRef: null,
   setVideoId: (id) => set({ videoId: id }),
   setMeta: (meta) => set(meta),
   setStatus: (status, error = null) => set({ status, error }),
@@ -248,5 +257,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
   seekToMs: (ms) => {
     get().seekRef?.(ms / 1000)
+  },
+  setPlaylistContext: (context) => set({ playlistContext: context }),
+  bindPlaylistNavigation: (navigate) => set({ playlistNavigateRef: navigate }),
+  goToNextPlaylistTrack: () => {
+    const { playlistContext, playlistNavigateRef } = get()
+    if (!playlistContext || !playlistNavigateRef) return
+    const playlist = getPlaylistById(playlistContext.playlistId)
+    if (!playlist || playlistContext.trackIndex >= playlist.tracks.length - 1) return
+    playlistNavigateRef(playlistContext.trackIndex + 1)
+  },
+  goToPrevPlaylistTrack: () => {
+    const { playlistContext, playlistNavigateRef } = get()
+    if (!playlistContext || !playlistNavigateRef) return
+    if (playlistContext.trackIndex <= 0) return
+    playlistNavigateRef(playlistContext.trackIndex - 1)
   },
 }))

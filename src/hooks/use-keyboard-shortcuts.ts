@@ -5,6 +5,9 @@ export function useKeyboardShortcuts() {
   const togglePlay = usePlayerStore((s) => s.togglePlay)
   const seekBy = usePlayerStore((s) => s.seekBy)
   const adjustOffset = usePlayerStore((s) => s.adjustOffset)
+  const playlistContext = usePlayerStore((s) => s.playlistContext)
+  const goToNextPlaylistTrack = usePlayerStore((s) => s.goToNextPlaylistTrack)
+  const goToPrevPlaylistTrack = usePlayerStore((s) => s.goToPrevPlaylistTrack)
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -20,11 +23,13 @@ export function useKeyboardShortcuts() {
           break
         case "ArrowLeft":
           e.preventDefault()
-          seekBy(-5)
+          if (e.shiftKey && playlistContext) goToPrevPlaylistTrack()
+          else seekBy(-5)
           break
         case "ArrowRight":
           e.preventDefault()
-          seekBy(5)
+          if (e.shiftKey && playlistContext) goToNextPlaylistTrack()
+          else seekBy(5)
           break
         case "+":
         case "=":
@@ -38,5 +43,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [togglePlay, seekBy, adjustOffset])
+  }, [togglePlay, seekBy, adjustOffset, playlistContext, goToNextPlaylistTrack, goToPrevPlaylistTrack])
 }

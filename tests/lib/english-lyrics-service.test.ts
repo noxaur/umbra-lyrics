@@ -23,6 +23,13 @@ import { translateLinesWithFallback } from "@/lib/translation-service"
 const mockSearch = vi.mocked(searchEnglishLyrics)
 const mockTranslate = vi.mocked(translateLinesWithFallback)
 
+const jpMeta = {
+  title: "【Original Anime MV】別世界 - 天音かなた【ホロライブ】",
+  artist: "天音かなた",
+  track: "別世界",
+  preferredLanguage: "ja",
+}
+
 describe("resolveEnglishLyrics", () => {
   beforeEach(() => {
     mockSearch.mockReset()
@@ -56,11 +63,64 @@ describe("resolveEnglishLyrics", () => {
       nativeLines: ["別の世界へ"],
       language: "ja",
       durationSec: 200,
+      metadata: jpMeta,
     })
 
     expect(result.status).toBe("ready")
     expect(result.source).toBe("found")
     expect(result.lines).toEqual(["Line one", "Line two"])
+  })
+
+  it("rejects LRCLIB hits that duplicate native lyrics", async () => {
+    mockSearch.mockResolvedValue({
+      id: 1,
+      providerId: "lrclib",
+      plainLyrics: "別の世界へ",
+      syncedLyrics: null,
+    })
+    mockTranslate.mockResolvedValue({
+      lines: ["Other world"],
+      backend: "google",
+      fromCache: false,
+    })
+
+    const result = await resolveEnglishLyrics({
+      track: "別世界",
+      artist: "天音かなた",
+      nativeLines: ["別の世界へ"],
+      language: "ja",
+      durationSec: 200,
+      metadata: jpMeta,
+    })
+
+    expect(result.status).toBe("ready")
+    expect(result.source).toBe("translated")
+    expect(mockTranslate).toHaveBeenCalled()
+  })
+
+  it("still fetches English when franc mislabels romaji as English", async () => {
+    mockSearch.mockResolvedValue(null)
+    mockTranslate.mockResolvedValue({
+      lines: ["To another world"],
+      backend: "google",
+      fromCache: false,
+    })
+
+    const result = await resolveEnglishLyrics({
+      track: "別世界",
+      artist: "天音かなた",
+      nativeLines: ["betsu no sekai e"],
+      language: "en",
+      durationSec: 200,
+      metadata: jpMeta,
+    })
+
+    expect(result.status).toBe("ready")
+    expect(result.source).toBe("translated")
+    expect(mockTranslate).toHaveBeenCalledWith(
+      ["betsu no sekai e"],
+      expect.objectContaining({ sourceLang: "ja", mandatory: true }),
+    )
   })
 
   it("falls back to machine translation", async () => {
@@ -77,6 +137,7 @@ describe("resolveEnglishLyrics", () => {
       nativeLines: ["別の世界へ"],
       language: "ja",
       durationSec: 200,
+      metadata: jpMeta,
     })
 
     expect(result.status).toBe("ready")

@@ -12,10 +12,16 @@ import {
   needsEnglishSubtitle,
   type RecentSong,
 } from "@/lib/recent-songs"
+import { readPlaylists } from "@/lib/playlists"
 import { youtubeThumbnailUrl } from "@/lib/youtube-thumbnail"
 
 export function HomePage() {
   const [recent, setRecent] = useState<RecentSong[]>(() => getRecentSongs())
+  const [playlists, setPlaylists] = useState(() => readPlaylists())
+
+  useEffect(() => {
+    setPlaylists(readPlaylists())
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -66,6 +72,34 @@ export function HomePage() {
           <span className="h-px flex-1 bg-border" aria-hidden />
         </div>
         <UrlInput />
+        {playlists.length > 0 && (
+          <div className="w-full max-w-xl">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-sm font-medium text-muted-foreground">Playlists</h2>
+              <Link
+                to="/playlists"
+                className="text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              >
+                View all
+              </Link>
+            </div>
+            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+              {playlists.slice(0, 3).map((playlist) => (
+                <li key={playlist.id}>
+                  <Link
+                    to={`/playlists/${playlist.id}`}
+                    className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="min-w-0 truncate">{playlist.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {playlist.tracks.length} {playlist.tracks.length === 1 ? "song" : "songs"}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {recent.length > 0 && (
           <div className="w-full max-w-xl">
             <div className="mb-2 flex items-center justify-between">
