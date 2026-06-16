@@ -104,10 +104,34 @@ export function buildTranscriptProfile(
   }
 }
 
+function parseLrcTimestampMs(tag: string): number | null {
+  const m = tag.match(/^\[(\d+):(\d+(?:\.\d+)?)\]$/)
+  if (!m) return null
+  return Math.round((Number(m[1]) * 60 + Number(m[2])) * 1000)
+}
+
 function lyricLinesFromCandidate(candidate: ProviderLyricsCandidate): LyricLine[] {
-  const text = candidate.syncedLyrics?.trim()
-    ? candidate.syncedLyrics.replace(/\[[\d:.]+\]/g, "").trim()
-    : candidate.plainLyrics?.trim() ?? ""
+  if (candidate.syncedLyrics?.trim()) {
+    const syncedLines: LyricLine[] = []
+    for (const raw of candidate.syncedLyrics.split("\n")) {
+      const trimmed = raw.trim()
+      if (!trimmed) continue
+      const tagEnd = trimmed.indexOf("]")
+      if (tagEnd <= 0) continue
+      const startMs = parseLrcTimestampMs(trimmed.slice(0, tagEnd + 1))
+      const text = trimmed.slice(tagEnd + 1).trim()
+      if (startMs == null || !text) continue
+      syncedLines.push({
+        text,
+        startMs,
+        endMs: startMs + 3000,
+        kind: "lyric",
+      })
+    }
+    if (syncedLines.length > 0) return syncedLines
+  }
+
+  const text = candidate.plainLyrics?.trim() ?? ""
   if (!text) return []
 
   return text

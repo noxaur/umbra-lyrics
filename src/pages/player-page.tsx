@@ -608,6 +608,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       },
     ) => {
       resetLyricsSearch()
+      setEnglishLines([])
       setStatus("loading")
       setLyricsSearchPhase("Parsing title…")
       setLyricsSearchStep("parse")
@@ -853,14 +854,18 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
     const load = async () => {
       const title = await getVideoTitle()
-      const rough = parseTrackTitle(title, oembedAuthorRef.current ?? undefined)
+      const oembedAuthor =
+        oembedAuthorRef.current ?? (await fetchYouTubeAuthor(videoId))
+      if (oembedAuthor) oembedAuthorRef.current = oembedAuthor
+
+      const rough = parseTrackTitle(title, oembedAuthor ?? undefined)
       setLyricsSearchPhase("Resolving song…")
       setLyricsSearchStep("parse")
 
       const resolved = await resolveTrackMetadata({
         title,
         durationSec: duration,
-        oembedAuthor: oembedAuthorRef.current ?? undefined,
+        oembedAuthor: oembedAuthor ?? undefined,
         roughArtist: rough.artist,
         roughTrack: rough.track,
       })
