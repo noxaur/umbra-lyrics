@@ -42,7 +42,15 @@ const LINE_TEXT =
 const SECTION_LABEL_CLASS =
   "block py-1 text-center text-[0.7rem] font-medium tracking-wide text-muted-foreground"
 
-function WordProgressText({ text, progress }: { text: string; progress: number }) {
+function WordProgressText({
+  text,
+  progress,
+  activeLine = false,
+}: {
+  text: string
+  progress: number
+  activeLine?: boolean
+}) {
   const reducedMotion = useReducedMotion()
   const smoothProgress = useSpring(progress, {
     stiffness: 160,
@@ -52,23 +60,39 @@ function WordProgressText({ text, progress }: { text: string; progress: number }
   })
 
   if (reducedMotion) {
-    return <KaraokeWordProgress text={text} progress={progress} />
+    return (
+      <KaraokeWordProgress
+        text={text}
+        progress={progress}
+        tone={activeLine ? "active-line" : "default"}
+      />
+    )
   }
 
-  return <SmoothKaraokeProgress text={text} progress={smoothProgress} />
+  return (
+    <SmoothKaraokeProgress text={text} progress={smoothProgress} activeLine={activeLine} />
+  )
 }
 
 function SmoothKaraokeProgress({
   text,
   progress,
+  activeLine = false,
 }: {
   text: string
   progress: ReturnType<typeof useSpring>
+  activeLine?: boolean
 }) {
   const [value, setValue] = useState(() => progress.get())
   useMotionValueEvent(progress, "change", setValue)
 
-  return <KaraokeWordProgress text={text} progress={value} />
+  return (
+    <KaraokeWordProgress
+      text={text}
+      progress={value}
+      tone={activeLine ? "active-line" : "default"}
+    />
+  )
 }
 
 function PerWordText({
@@ -87,7 +111,7 @@ function PerWordText({
         const isActive = i === wordIndex
         if (isPast) {
           return (
-            <span key={`${w.startMs}-${i}`} className="text-karaoke-highlight">
+            <span key={`${w.startMs}-${i}`} className="text-karaoke-active-line">
               {w.text}{" "}
             </span>
           )
@@ -95,13 +119,13 @@ function PerWordText({
         if (isActive) {
           return (
             <span key={`${w.startMs}-${i}`} className="inline">
-              <WordProgressText text={w.text} progress={progress} />
+              <WordProgressText text={w.text} progress={progress} activeLine />
               {" "}
             </span>
           )
         }
         return (
-          <span key={`${w.startMs}-${i}`} className="text-karaoke-unsung">
+          <span key={`${w.startMs}-${i}`} className="text-karaoke-ink">
             {w.text}{" "}
           </span>
         )
@@ -161,12 +185,12 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
   const renderNativeText = () => {
     if (!active) return text
     if (!synced) {
-      return <span className="text-karaoke-highlight">{text}</span>
+      return <span className="text-karaoke-active-line">{text}</span>
     }
     if (words && words.length > 0 && wordIndex >= 0) {
       return <PerWordText words={words} wordIndex={wordIndex} progress={progress} />
     }
-    return <WordProgressText text={text} progress={progress} />
+    return <WordProgressText text={text} progress={progress} activeLine />
   }
 
   return (

@@ -543,8 +543,8 @@ export function LyricsStage({
 
 function cnStage(tvMode: boolean) {
   return [
-    "relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain scroll-py-10",
-    "rounded-2xl border border-border bg-karaoke-stage-bg px-4 py-8 pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+    "relative flex w-full min-h-0 flex-none flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain scroll-py-10",
+    "rounded-2xl border bg-karaoke-stage-bg px-4 py-8 pb-[max(1.5rem,env(safe-area-inset-bottom))]",
     "max-h-[min(100%,calc(5*4.25rem+4rem))]",
     tvMode ? "tv-mode" : "",
   ].join(" ")
