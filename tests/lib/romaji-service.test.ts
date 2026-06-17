@@ -6,8 +6,14 @@ describe("romaji-service", () => {
     expect(romanizeJapaneseLine("ひかりのセカイへ")).toBe("hikari no sekai e")
   })
 
-  it("keeps kanji while romanizing available kana", () => {
-    expect(romanizeJapaneseLine("遠いせかいへ")).toBe("遠い sekai e")
+  it("romanizes known kanji readings while romanizing available kana", () => {
+    expect(romanizeJapaneseLine("遠いせかいへ")).toBe("tooi sekai e")
+  })
+
+  it("romanizes common kanji lyric phrases from readings", () => {
+    expect(romanizeJapaneseLine("あなたに見られたなら")).toBe("anata ni mirarareta nara")
+    expect(romanizeJapaneseLine("隠していたこの気持ちも")).toBe("kakushiteita kono kimochi mo")
+    expect(romanizeJapaneseLine("届いてしまいそうで")).toBe("todoite shimaisou de")
   })
 
   it("builds aligned romaji lines for Japanese lyrics", () => {

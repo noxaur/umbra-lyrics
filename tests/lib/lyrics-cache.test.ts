@@ -71,6 +71,20 @@ describe("lyrics-cache", () => {
     expect(cached?.romajiStatus).toBe("ready")
   })
 
+  it("rebuilds stale romaji lines from cached Japanese lyrics", () => {
+    setLyricsCache({
+      ...sampleEntry,
+      lines: [{ startMs: 0, endMs: 3000, text: "隠していたこの気持ちも" }],
+      romajiLines: ["隠 shiteita ko no 気持 chimo"],
+      romajiStatus: "ready",
+      languageCode: "ja",
+    })
+
+    const cached = getLyricsCache("abc12345678")
+    expect(cached?.romajiLines).toEqual(["kakushiteita kono kimochi mo"])
+    expect(cached?.romajiStatus).toBe("ready")
+  })
+
   it("rejects legacy cache version", () => {
     localStorage.setItem(
       "song-kara-lyrics:abc12345678",

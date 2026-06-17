@@ -117,6 +117,19 @@ const KANA: Record<string, string> = {
   ぽ: "po",
 }
 
+const READING_OVERRIDES: Array<[string, string]> = [
+  ["隠していた", "kakushiteita"],
+  ["しまいそう", "shimaisou"],
+  ["見られた", "mirarareta"],
+  ["気持ち", "kimochi"],
+  ["届いて", "todoite"],
+  ["あなた", "anata"],
+  ["この", "kono"],
+  ["遠い", "tooi"],
+  ["世界", "sekai"],
+  ["別", "betsu"],
+]
+
 const HIRAGANA_RE = /[\u3040-\u309f]/
 const KATAKANA_RE = /[\u30a0-\u30ff]/
 const JAPANESE_RE = /[\u3040-\u30ff\u4e00-\u9fff]/
@@ -174,7 +187,10 @@ function romanizeKanaRun(run: string): string {
       roma = roma[0] + roma
     }
     doubleNext = false
-    if ((char === "の" || char === "へ" || char === "を") && current) {
+    if (
+      (char === "の" || char === "へ" || char === "を" || char === "に" || char === "も") &&
+      current
+    ) {
       out.push(current)
       out.push(roma)
       current = ""
@@ -187,7 +203,50 @@ function romanizeKanaRun(run: string): string {
   return out.join(" ")
 }
 
+function tokenizeJapaneseLine(line: string): string[] {
+  const tokens: string[] = []
+  let currentKana = ""
+
+  const flushKana = () => {
+    if (!currentKana) return
+    tokens.push(romanizeKanaRun(currentKana))
+    currentKana = ""
+  }
+
+  for (let i = 0; i < line.length; ) {
+    const rest = line.slice(i)
+    const override = READING_OVERRIDES.find(([native]) => rest.startsWith(native))
+    if (override) {
+      flushKana()
+      tokens.push(override[1])
+      i += override[0].length
+      continue
+    }
+
+    const char = line[i]!
+    const kind = kanaScript(char)
+    if (kind === "hiragana" || kind === "katakana") {
+      currentKana += char
+    } else {
+      flushKana()
+      const trimmed = char.trim()
+      if (trimmed) tokens.push(trimmed)
+    }
+    i += 1
+  }
+
+  flushKana()
+  return tokens.filter(Boolean)
+}
+
 export function romanizeJapaneseLine(line: string): string {
+  if (!JAPANESE_RE.test(line)) return line
+
+  const overrideTokens = tokenizeJapaneseLine(line)
+  if (overrideTokens.some((token) => /[a-z]/i.test(token))) {
+    return overrideTokens.join(" ").replace(/\s+/g, " ").trim()
+  }
+
   const runs = splitJapaneseRuns(line)
   for (let i = 1; i < runs.length; i++) {
     const current = runs[i]!
