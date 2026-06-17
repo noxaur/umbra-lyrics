@@ -17,7 +17,9 @@ export function UrlInput() {
   const goToPlayer = (videoId: string, seedMetadata?: SeedMetadata) => {
     setOpening(true)
     navigate(`/play/${videoId}`, {
-      state: buildPlayerNavigationState(true, seedMetadata),
+      state: buildPlayerNavigationState(true, seedMetadata, {
+        canonicalChecked: seedMetadata ? videoId : undefined,
+      }),
     })
   }
 

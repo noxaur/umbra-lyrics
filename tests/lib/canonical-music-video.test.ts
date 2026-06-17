@@ -102,6 +102,59 @@ describe("resolveCanonicalMusicVideo", () => {
     expect(mockSearchYouTubeMusicSongs).not.toHaveBeenCalled()
   })
 
+  it("tries the next parsed candidate when YouTube Music has no match for the first", async () => {
+    mockResolveTrackMetadata
+      .mockResolvedValueOnce({
+        artist: "Wrong Artist",
+        track: "Wrong Track",
+        source: "deezer",
+        confidence: 0.9,
+        durationSec: 240,
+        alternates: [],
+      })
+      .mockResolvedValueOnce({
+        artist: "Artist Name",
+        track: "Track Name",
+        source: "deezer",
+        confidence: 0.88,
+        durationSec: 245,
+        alternates: [],
+      })
+    mockSearchYouTubeMusicSongs
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          videoId: "canonical01",
+          title: "Track Name",
+          channel: "Artist Name - Topic",
+          durationSec: 245,
+          resultType: "song",
+          isOfficialAudio: true,
+        },
+      ])
+
+    const result = await resolveCanonicalMusicVideo({
+      kind: "youtube",
+      videoId: "original001",
+      title: "Track Name - Artist Name",
+      oembedAuthor: "Artist Name",
+      durationSec: 245,
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      videoId: "canonical01",
+      seedMetadata: {
+        artist: "Artist Name",
+        track: "Track Name",
+        durationSec: 245,
+        source: "music-api",
+      },
+    })
+    expect(mockResolveTrackMetadata).toHaveBeenCalledTimes(2)
+    expect(mockSearchYouTubeMusicSongs).toHaveBeenCalledTimes(2)
+  })
+
   it("uses Spotify metadata as validated and searches YouTube Music", async () => {
     mockProxyFetch.mockResolvedValue(
       new Response(

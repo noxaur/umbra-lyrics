@@ -120,7 +120,7 @@ async function resolveYouTubeCanonical(
 
     if (!isApiConfirmed(resolved)) continue
 
-    return resolveCanonicalFromMetadata(
+    const canonical = await resolveCanonicalFromMetadata(
       {
         artist: resolved.artist,
         track: resolved.track,
@@ -130,6 +130,7 @@ async function resolveYouTubeCanonical(
       },
       options,
     )
+    if (canonical.ok) return canonical
   }
 
   return { ok: false, reason: "metadata_unconfirmed" }

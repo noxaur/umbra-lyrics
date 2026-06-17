@@ -18,8 +18,12 @@ export type PlayerNavigationState = {
 export function buildPlayerNavigationState(
   fromHome: boolean,
   track?: SpotifyTrackHit | SeedMetadata,
+  options?: { canonicalChecked?: string },
 ): PlayerNavigationState {
   const state: PlayerNavigationState = { fromHome }
+  if (options?.canonicalChecked) {
+    state.canonicalChecked = options.canonicalChecked
+  }
   if (track) {
     state.seedMetadata =
       "source" in track
