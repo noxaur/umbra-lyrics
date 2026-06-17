@@ -15,6 +15,7 @@ import { handlePetitLyricsSearch } from "./handlers/petitlyrics"
 import { handleSongMeaningsSearch } from "./handlers/songmeanings"
 import { handleVagalumeSearch } from "./handlers/vagalume"
 import { handleYouTubeOEmbed } from "./handlers/youtube-oembed"
+import { handleYouTubeMusicSearch } from "./handlers/youtube-music-search"
 import { handleYouTubePlaylist } from "./handlers/youtube-playlist"
 import { handleYouTubeSearch } from "./handlers/youtube-search"
 import {
@@ -182,6 +183,14 @@ export async function handleApiRequest(
     const q = url.searchParams.get("q") ?? ""
     const limit = Number(url.searchParams.get("limit") ?? String(10))
     return handleYouTubeSearch(q, limit)
+  }
+
+  if (pathname === "/api/youtube/music-search") {
+    const artist = url.searchParams.get("artist") ?? ""
+    const track = url.searchParams.get("track") ?? ""
+    const limit = Number(url.searchParams.get("limit") ?? String(8))
+    const durationSec = Number(url.searchParams.get("durationSec") ?? "0") || undefined
+    return handleYouTubeMusicSearch(artist, track, limit, durationSec)
   }
 
   if (pathname === "/api/youtube/playlist") {

@@ -1,10 +1,11 @@
 import { extractSpotifyTrackId } from "@/lib/spotify-url"
-import { resolveSpotifyTrackToYouTube, type SpotifyTrackHit } from "@/lib/spotify-to-youtube"
+import { resolveCanonicalMusicVideo } from "@/lib/canonical-music-video"
 import { extractYouTubeVideoId } from "@/lib/youtube-url"
+import type { SeedMetadata } from "@/lib/player-navigation"
 
 export type MediaResolveResult =
-  | { kind: "youtube"; videoId: string }
-  | { kind: "spotify"; videoId: string; track: SpotifyTrackHit }
+  | { kind: "youtube"; videoId: string; seedMetadata?: SeedMetadata }
+  | { kind: "spotify"; videoId: string; seedMetadata: SeedMetadata }
 
 export type MediaResolveError =
   | { kind: "invalid" }
@@ -24,21 +25,42 @@ export async function resolveMediaInput(
 
   const youtubeId = extractYouTubeVideoId(trimmed)
   if (youtubeId) {
+    const canonical = await resolveCanonicalMusicVideo(
+      { kind: "youtube", videoId: youtubeId },
+      options,
+    ).catch(() => null)
+    if (canonical?.ok) {
+      return {
+        ok: true,
+        result: {
+          kind: "youtube",
+          videoId: canonical.videoId,
+          seedMetadata: canonical.seedMetadata,
+        },
+      }
+    }
     return { ok: true, result: { kind: "youtube", videoId: youtubeId } }
   }
 
   const spotifyId = extractSpotifyTrackId(trimmed)
   if (!spotifyId) return null
 
-  const spotify = await resolveSpotifyTrackToYouTube(trimmed, options)
-  if (spotify.ok) {
+  const canonical = await resolveCanonicalMusicVideo(
+    { kind: "spotify", input: trimmed },
+    options,
+  ).catch(() => ({ ok: false as const, reason: "spotify_unavailable" as const }))
+  if (canonical.ok) {
     return {
       ok: true,
-      result: { kind: "spotify", videoId: spotify.videoId, track: spotify.track },
+      result: {
+        kind: "spotify",
+        videoId: canonical.videoId,
+        seedMetadata: canonical.seedMetadata,
+      },
     }
   }
 
-  if (spotify.reason === "spotify_unavailable") {
+  if (canonical.reason === "spotify_unavailable") {
     return { ok: false, error: { kind: "spotify_unavailable" } }
   }
   return { ok: false, error: { kind: "no_youtube_match" } }
