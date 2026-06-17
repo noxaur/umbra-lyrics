@@ -113,6 +113,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const transcribeAbortRef = useRef<AbortController | null>(null)
   const alignAbortRef = useRef<AbortController | null>(null)
   const prevVideoIdRef = useRef<string | null>(null)
+  const currentVideoIdRef = useRef(videoId)
+  currentVideoIdRef.current = videoId
   const {
     containerRef,
     ready,
@@ -1213,7 +1215,16 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     loadedRef.current = true
 
     const load = async () => {
+      const loadVideoId = videoId
+      const loadGeneration = getLyricsLoadGeneration(loadVideoId)
+      const isRouteStale = () =>
+        currentVideoIdRef.current !== loadVideoId ||
+        isLyricsLoadStale(loadVideoId, loadGeneration) ||
+        usePlayerStore.getState().videoId !== loadVideoId
+
       const [title, oembedAuthor] = await Promise.all([getVideoTitle(), ensureOEmbedAuthor()])
+      if (isRouteStale()) return
+
       let activeSeedMetadata = seedMetadata
 
       if (!shouldSkipCanonicalResolve(videoId, navigationState?.canonicalChecked)) {
@@ -1226,6 +1237,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           durationSec: duration,
           oembedAuthor,
         })
+        if (isRouteStale()) return
 
         if (canonical.ok) {
           activeSeedMetadata = canonical.seedMetadata
@@ -1255,6 +1267,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         roughArtist: activeSeedMetadata?.artist ?? rough.artist,
         roughTrack: activeSeedMetadata?.track ?? rough.track,
       })
+      if (isRouteStale()) return
+
       resolvedMetadataRef.current = resolved
       setMeta({ title, artist: resolved.artist, track: resolved.track })
       const hasExistingLyrics = usePlayerStore.getState().lyrics.length > 0
