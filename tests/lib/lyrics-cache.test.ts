@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   clearLyricsCache,
   getLyricsCache,
@@ -83,6 +83,23 @@ describe("lyrics-cache", () => {
     const cached = getLyricsCache("abc12345678")
     expect(cached?.romajiLines).toEqual(["kakushiteita kono kimochi mo"])
     expect(cached?.romajiStatus).toBe("ready")
+  })
+
+  it("does not rewrite cache when romaji lines are already clean", () => {
+    setLyricsCache({
+      ...sampleEntry,
+      lines: [{ startMs: 0, endMs: 3000, text: "隠していたこの気持ちも" }],
+      romajiLines: ["kakushiteita kono kimochi mo"],
+      romajiStatus: "ready",
+      languageCode: "ja",
+      cachedAt: 42,
+    })
+
+    const setItem = vi.spyOn(Storage.prototype, "setItem")
+    const cached = getLyricsCache("abc12345678")
+    expect(cached?.romajiLines).toEqual(["kakushiteita kono kimochi mo"])
+    expect(setItem).not.toHaveBeenCalled()
+    setItem.mockRestore()
   })
 
   it("rejects legacy cache version", () => {

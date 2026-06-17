@@ -9,6 +9,7 @@ import { lyricsTextLooksLikeJunk } from "@/lib/sanitize-lyrics"
 
 const STORAGE_PREFIX = "song-kara-lyrics:"
 const CACHE_VERSION = 9
+const CJK_RE = /[\u3040-\u30ff\u4e00-\u9fff]/
 
 export type LyricsCacheEntry = {
   v: number
@@ -56,6 +57,13 @@ function isValidEntry(value: unknown): value is LyricsCacheEntry {
     (typeof entry.lyricsResult.id === "number" || typeof entry.lyricsResult.id === "string") &&
     typeof entry.lyricsResult.providerId === "string"
   )
+}
+
+function needsRomajiRebuild(entry: LyricsCacheEntry): boolean {
+  const nativeText = entry.lines.map((line) => line.text).join("\n")
+  if (!CJK_RE.test(nativeText)) return false
+  if (entry.romajiStatus !== "ready" || !entry.romajiLines?.length) return true
+  return entry.romajiLines.some((line) => CJK_RE.test(line))
 }
 
 function isTrustedCacheEntry(entry: LyricsCacheEntry): boolean {
@@ -117,14 +125,16 @@ export function getLyricsCache(videoId: string): LyricsCacheEntry | null {
       localStorage.removeItem(storageKey(videoId))
       return null
     }
-    const romaji = buildRomajiLines(
-      parsed.lines.map((line) => line.text),
-      { language: parsed.languageCode },
-    )
-    if (romaji.status === "ready") {
-      parsed.romajiLines = romaji.lines
-      parsed.romajiStatus = romaji.status
-      localStorage.setItem(storageKey(videoId), JSON.stringify(parsed))
+    if (needsRomajiRebuild(parsed)) {
+      const romaji = buildRomajiLines(
+        parsed.lines.map((line) => line.text),
+        { language: parsed.languageCode },
+      )
+      if (romaji.status === "ready") {
+        parsed.romajiLines = romaji.lines
+        parsed.romajiStatus = romaji.status
+        localStorage.setItem(storageKey(videoId), JSON.stringify(parsed))
+      }
     }
     return parsed
   } catch {
