@@ -70,7 +70,7 @@ describe("runLyricsPipeline", () => {
     expect(mockPrefetch).toHaveBeenCalled()
     expect(mockResolvePrefetch).toHaveBeenCalled()
     expect(result.romaji.status).toBe("ready")
-    expect(result.romaji.lines).toEqual(["別 no 世界 e"])
+    expect(result.romaji.lines).toEqual(["betsu no sekai e"])
     expect(result.english.status).toBe("ready")
     expect(result.timings.parallelMs).toBeGreaterThan(0)
   })
