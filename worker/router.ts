@@ -184,6 +184,14 @@ export async function handleApiRequest(
     return handleYouTubeSearch(q, limit)
   }
 
+  if (pathname === "/api/youtube/music-search") {
+    const artist = url.searchParams.get("artist") ?? ""
+    const track = url.searchParams.get("track") ?? ""
+    const limit = Number(url.searchParams.get("limit") ?? String(8))
+    const q = [artist, track, "official audio"].filter(Boolean).join(" ")
+    return handleYouTubeSearch(q, limit)
+  }
+
   if (pathname === "/api/youtube/playlist") {
     const id = url.searchParams.get("id") ?? ""
     const limit = Number(url.searchParams.get("limit") ?? String(100))

@@ -58,4 +58,26 @@ describe("youtube search handler", () => {
     expect(res?.status).toBe(200)
     expect(mockSearch).toHaveBeenCalledWith("queen", 5)
   })
+
+  it("routes music-search through the api router for canonical song lookup", async () => {
+    mockSearch.mockResolvedValue([
+      {
+        videoId: "a8dgNdJVluc",
+        title: "sakanaction / Kaiju -Music Video-",
+        channel: "サカナクション sakanaction",
+        durationSec: 290,
+      },
+    ])
+
+    const res = await handleApiRequest(
+      new Request(
+        "https://song.example/api/youtube/music-search?artist=Sakanaction&track=Kaiju&durationSec=252&limit=8",
+      ),
+    )
+
+    expect(res?.status).toBe(200)
+    const body = (await res?.json()) as { results: Array<{ videoId: string }> }
+    expect(body.results[0]?.videoId).toBe("a8dgNdJVluc")
+    expect(mockSearch).toHaveBeenCalledWith("Sakanaction Kaiju official audio", 8)
+  })
 })
