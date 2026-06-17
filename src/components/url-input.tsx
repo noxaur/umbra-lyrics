@@ -5,8 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { mediaResolveErrorMessage, resolveMediaInput } from "@/lib/media-url"
-import { buildPlayerNavigationState } from "@/lib/player-navigation"
-import type { SpotifyTrackHit } from "@/lib/spotify-to-youtube"
+import { buildPlayerNavigationState, type SeedMetadata } from "@/lib/player-navigation"
 
 export function UrlInput() {
   const [url, setUrl] = useState("")
@@ -15,10 +14,12 @@ export function UrlInput() {
   const [resolving, setResolving] = useState(false)
   const navigate = useNavigate()
 
-  const goToPlayer = (videoId: string, track?: SpotifyTrackHit) => {
+  const goToPlayer = (videoId: string, seedMetadata?: SeedMetadata) => {
     setOpening(true)
     navigate(`/play/${videoId}`, {
-      state: buildPlayerNavigationState(true, track),
+      state: buildPlayerNavigationState(true, seedMetadata, {
+        canonicalChecked: seedMetadata ? videoId : undefined,
+      }),
     })
   }
 
@@ -44,11 +45,11 @@ export function UrlInput() {
       }
 
       if (resolved.result.kind === "youtube") {
-        goToPlayer(resolved.result.videoId)
+        goToPlayer(resolved.result.videoId, resolved.result.seedMetadata)
         return
       }
 
-      goToPlayer(resolved.result.videoId, resolved.result.track)
+      goToPlayer(resolved.result.videoId, resolved.result.seedMetadata)
     } finally {
       setResolving(false)
     }

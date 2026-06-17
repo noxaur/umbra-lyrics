@@ -36,6 +36,17 @@ vi.mock("@/lib/track-metadata-resolver", () => ({
   resolveTrackMetadata: vi.fn(),
 }))
 
+vi.mock("@/lib/canonical-music-video", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/canonical-music-video")>()
+  return {
+    ...actual,
+    resolveCanonicalMusicVideo: vi.fn(async () => ({
+      ok: false as const,
+      reason: "metadata_unconfirmed" as const,
+    })),
+  }
+})
+
 import { resolveTrackMetadata } from "@/lib/track-metadata-resolver"
 
 function deferred<T>() {

@@ -5,27 +5,36 @@ export type SeedMetadata = {
   track: string
   durationSec?: number
   isrc?: string
-  source: "spotify"
+  source: "spotify" | "music-api" | "youtube-music"
 }
 
 export type PlayerNavigationState = {
   fromHome?: boolean
   seedMetadata?: SeedMetadata
+  canonicalChecked?: string
+  canonicalSourceVideoId?: string
 }
 
 export function buildPlayerNavigationState(
   fromHome: boolean,
-  track?: SpotifyTrackHit,
+  track?: SpotifyTrackHit | SeedMetadata,
+  options?: { canonicalChecked?: string },
 ): PlayerNavigationState {
   const state: PlayerNavigationState = { fromHome }
+  if (options?.canonicalChecked) {
+    state.canonicalChecked = options.canonicalChecked
+  }
   if (track) {
-    state.seedMetadata = {
-      artist: track.artist,
-      track: track.name,
-      durationSec: track.durationSec,
-      isrc: track.isrc,
-      source: "spotify",
-    }
+    state.seedMetadata =
+      "source" in track
+        ? track
+        : {
+            artist: track.artist,
+            track: track.name,
+            durationSec: track.durationSec,
+            isrc: track.isrc,
+            source: "spotify",
+          }
   }
   return state
 }

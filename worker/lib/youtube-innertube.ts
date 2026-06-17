@@ -14,6 +14,10 @@ import {
 import { fetchPlaylistViaRss } from "./youtube-playlist-rss"
 import { mapSearchVideos, searchCandidateLimit } from "./youtube-search-map"
 import { rankSongSearchHits, type SongSearchHit } from "./youtube-search-rank"
+import {
+  pickBestYouTubeMusicHit,
+  type YouTubeMusicHit,
+} from "./youtube-music-rank"
 
 export type { PlaylistImportItem }
 export type PlaylistImportResult = {
@@ -104,6 +108,73 @@ export async function searchViaInnertube(query: string, limit: number): Promise<
     searchCandidateLimit(limit),
   )
   return rankSongSearchHits(mapped).slice(0, limit)
+}
+
+type MusicListItemLike = {
+  id?: string
+  title?: string
+  name?: string
+  item_type?: YouTubeMusicHit["resultType"]
+  duration?: { seconds?: number }
+  artists?: Array<{ name?: string }>
+  authors?: Array<{ name?: string }>
+  author?: { name?: string }
+}
+
+function mapMusicItem(item: MusicListItemLike): YouTubeMusicHit | null {
+  const videoId = item.id?.trim()
+  if (!videoId) return null
+  const title = item.title?.trim() || item.name?.trim() || videoId
+  const channel =
+    item.artists?.[0]?.name?.trim() ||
+    item.authors?.[0]?.name?.trim() ||
+    item.author?.name?.trim() ||
+    ""
+  const resultType = item.item_type ?? "unknown"
+
+  return {
+    videoId,
+    title,
+    channel,
+    durationSec: item.duration?.seconds ?? null,
+    resultType,
+    isOfficialAudio: resultType === "song" || /\s-\sTopic$/i.test(channel),
+  }
+}
+
+function collectMusicHits(search: Awaited<ReturnType<Innertube["music"]["search"]>>): YouTubeMusicHit[] {
+  const hits: YouTubeMusicHit[] = []
+  const seen = new Set<string>()
+  const shelves = [search.songs, search.videos].filter(Boolean)
+
+  for (const shelf of shelves) {
+    for (const item of [...(shelf?.contents ?? [])] as MusicListItemLike[]) {
+      const hit = mapMusicItem(item)
+      if (!hit || seen.has(hit.videoId)) continue
+      seen.add(hit.videoId)
+      hits.push(hit)
+    }
+  }
+
+  return hits
+}
+
+export async function searchYouTubeMusicViaInnertube(
+  artist: string,
+  track: string,
+  limit: number,
+  durationSec?: number,
+): Promise<YouTubeMusicHit[]> {
+  const yt = await createInnertube(ClientType.WEB)
+  const query = [artist, track].filter(Boolean).join(" ")
+  const [songSearch, videoSearch] = await Promise.all([
+    yt.music.search(query, { type: "song" }),
+    yt.music.search(query, { type: "video" }),
+  ])
+
+  const hits = [...collectMusicHits(songSearch), ...collectMusicHits(videoSearch)]
+  const best = pickBestYouTubeMusicHit(hits, artist, track, durationSec)
+  return best ? [best, ...hits.filter((hit) => hit.videoId !== best.videoId)].slice(0, limit) : []
 }
 
 function normalizePlaylistId(playlistId: string): string {
