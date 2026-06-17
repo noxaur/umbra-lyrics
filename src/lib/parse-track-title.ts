@@ -212,3 +212,85 @@ export function parseTrackTitle(
 
   return finalizeParsedPair({ artist: "", track: simplifyTrackName(cleaned) }, oembedAuthor)
 }
+
+export type ParseTrackTitleCandidate = {
+  artist: string
+  track: string
+  source: "primary" | "swapped" | "topic" | "channel" | "decorative"
+}
+
+function addCandidate(
+  candidates: ParseTrackTitleCandidate[],
+  candidate: ParseTrackTitleCandidate,
+) {
+  const artist = candidate.artist.trim()
+  const track = candidate.track.trim()
+  if (!track) return
+
+  const key = `${artist.toLowerCase()}\0${track.toLowerCase()}`
+  if (
+    candidates.some(
+      (existing) =>
+        `${existing.artist.toLowerCase()}\0${existing.track.toLowerCase()}` === key,
+    )
+  ) {
+    return
+  }
+
+  candidates.push({ ...candidate, artist, track })
+}
+
+function separatedRawPair(title: string): { left: string; right: string } | null {
+  const cleaned = stripDecorativeTitle(title)
+  for (const sep of [" - ", " – ", " — ", ": "]) {
+    const idx = cleaned.indexOf(sep)
+    if (idx <= 0) continue
+    const left = simplifyTrackName(cleaned.slice(0, idx).trim())
+    const right = simplifyTrackName(cleaned.slice(idx + sep.length).trim())
+    if (left && right) return { left, right }
+  }
+  return null
+}
+
+/** Ordered parse guesses for metadata validation retries. */
+export function parseTrackTitleCandidates(
+  title: string,
+  oembedAuthor?: string,
+): ParseTrackTitleCandidate[] {
+  const candidates: ParseTrackTitleCandidate[] = []
+  const primary = parseTrackTitle(title, oembedAuthor)
+  addCandidate(candidates, { ...primary, source: "primary" })
+
+  const rawPair = separatedRawPair(title)
+  if (rawPair) {
+    addCandidate(candidates, {
+      artist: rawPair.right,
+      track: rawPair.left,
+      source: "swapped",
+    })
+    addCandidate(candidates, {
+      artist: rawPair.left,
+      track: rawPair.right,
+      source: "decorative",
+    })
+  }
+
+  const cleaned = stripDecorativeTitle(title)
+  if (cleaned && cleaned !== title) {
+    const cleanedPrimary = parseTrackTitle(cleaned, oembedAuthor)
+    addCandidate(candidates, { ...cleanedPrimary, source: "decorative" })
+  }
+
+  const topicArtist = extractTopicChannelArtist(oembedAuthor)
+  const track = primary.track || simplifyTrackName(cleaned)
+  if (topicArtist && track) {
+    addCandidate(candidates, { artist: topicArtist, track, source: "topic" })
+  }
+
+  const channelArtist = oembedAuthor?.trim() ? stripChannelSuffix(oembedAuthor) : ""
+  if (channelArtist && track) {
+    addCandidate(candidates, { artist: channelArtist, track, source: "channel" })
+  }
+
+  return candidates
+}

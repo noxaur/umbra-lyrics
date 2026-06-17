@@ -37,6 +37,10 @@ import { translateLinesWithFallback } from "@/lib/translation-service"
 import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
 import { syncMkvExportFromUrl } from "@/lib/beta-features"
 import { parseTrackTitle } from "@/lib/parse-track-title"
+import {
+  resolveCanonicalMusicVideo,
+  shouldSkipCanonicalResolve,
+} from "@/lib/canonical-music-video"
 import { addRecentSong, enrichRecentSongEnglish } from "@/lib/recent-songs"
 import {
   getPlaylistById,
@@ -99,10 +103,9 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const debugPlayer = searchParams.get("debug") === "1"
   const location = useLocation()
   const navigate = useNavigate()
-  const fromHome = Boolean(
-    (location.state as PlayerNavigationState | null)?.fromHome,
-  )
-  const seedMetadata = (location.state as PlayerNavigationState | null)?.seedMetadata
+  const navigationState = location.state as PlayerNavigationState | null
+  const fromHome = Boolean(navigationState?.fromHome)
+  const seedMetadata = navigationState?.seedMetadata
   const onEndedRef = useRef<() => void>(() => {})
   const playlistAutoPlayPending = useRef(false)
   const loadedRef = useRef(false)
@@ -1211,6 +1214,36 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
     const load = async () => {
       const [title, oembedAuthor] = await Promise.all([getVideoTitle(), ensureOEmbedAuthor()])
+      let activeSeedMetadata = seedMetadata
+
+      if (!shouldSkipCanonicalResolve(videoId, navigationState?.canonicalChecked)) {
+        setLyricsSearchPhase("Finding YouTube Music original…")
+        setLyricsSearchStep("search")
+        const canonical = await resolveCanonicalMusicVideo({
+          kind: "youtube",
+          videoId,
+          title,
+          durationSec: duration,
+          oembedAuthor,
+        })
+
+        if (canonical.ok) {
+          activeSeedMetadata = canonical.seedMetadata
+          if (canonical.videoId !== videoId) {
+            navigate(`/play/${canonical.videoId}`, {
+              replace: true,
+              state: {
+                ...((location.state as object | null) ?? {}),
+                seedMetadata: canonical.seedMetadata,
+                canonicalChecked: canonical.videoId,
+                canonicalSourceVideoId: videoId,
+              },
+            })
+            return
+          }
+        }
+      }
+
       const rough = parseTrackTitle(title, oembedAuthor ?? undefined)
       setLyricsSearchPhase("Resolving song…")
       setLyricsSearchStep("parse")
@@ -1219,8 +1252,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         title,
         durationSec: duration,
         oembedAuthor: oembedAuthor ?? undefined,
-        roughArtist: seedMetadata?.artist ?? rough.artist,
-        roughTrack: seedMetadata?.track ?? rough.track,
+        roughArtist: activeSeedMetadata?.artist ?? rough.artist,
+        roughTrack: activeSeedMetadata?.track ?? rough.track,
       })
       resolvedMetadataRef.current = resolved
       setMeta({ title, artist: resolved.artist, track: resolved.track })
@@ -1244,6 +1277,9 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     setMeta,
     ensureOEmbedAuthor,
     seedMetadata,
+    navigationState,
+    navigate,
+    location.state,
     resetLyricsSearch,
   ])
 

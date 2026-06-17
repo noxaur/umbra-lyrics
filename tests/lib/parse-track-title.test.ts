@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest"
-import { parseTrackTitle, simplifyTrackName, stripChannelSuffix, stripDecorativeTitle } from "@/lib/parse-track-title"
+import {
+  parseTrackTitle,
+  parseTrackTitleCandidates,
+  simplifyTrackName,
+  stripChannelSuffix,
+  stripDecorativeTitle,
+} from "@/lib/parse-track-title"
 
 describe("parseTrackTitle", () => {
   it("parses artist - track with suffix", () => {
@@ -108,6 +114,33 @@ describe("parseTrackTitle", () => {
       artist: "Beyoncé",
       track: "Single Ladies",
     })
+  })
+})
+
+describe("parseTrackTitleCandidates", () => {
+  it("keeps the current parser result first", () => {
+    expect(parseTrackTitleCandidates("Fleetwood Mac - The Chain (Official Video)")[0]).toMatchObject({
+      artist: "Fleetwood Mac",
+      track: "The Chain",
+    })
+  })
+
+  it("adds swapped artist and title candidates for validation retries", () => {
+    const candidates = parseTrackTitleCandidates("Track Name - Artist Name")
+    expect(candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ artist: "Artist Name", track: "Track Name" }),
+      ]),
+    )
+  })
+
+  it("adds topic-channel candidates for title-only YouTube Music uploads", () => {
+    const candidates = parseTrackTitleCandidates("Bohemian Rhapsody", "Queen - Topic")
+    expect(candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ artist: "Queen", track: "Bohemian Rhapsody" }),
+      ]),
+    )
   })
 })
 

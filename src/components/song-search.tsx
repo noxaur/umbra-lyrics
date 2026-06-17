@@ -21,7 +21,7 @@ import {
   type SongSearchHit,
 } from "@/lib/youtube-search"
 import { mediaResolveErrorMessage, resolveMediaInput } from "@/lib/media-url"
-import { buildPlayerNavigationState } from "@/lib/player-navigation"
+import { buildPlayerNavigationState, type SeedMetadata } from "@/lib/player-navigation"
 import { youtubeThumbnailUrl } from "@/lib/youtube-thumbnail"
 
 const DEBOUNCE_MS = 300
@@ -142,24 +142,10 @@ export function SongSearch() {
 
   const optionId = (index: number) => `${optionIdPrefix}-option-${index}`
 
-  const goToPlayer = (
-    videoId: string,
-    seedTrack?: { artist: string; name: string; durationSec: number; isrc?: string },
-  ) => {
+  const goToPlayer = (videoId: string, seedMetadata?: SeedMetadata) => {
     setOpening(true)
     navigate(`/play/${videoId}`, {
-      state: buildPlayerNavigationState(
-        true,
-        seedTrack
-          ? {
-              id: "",
-              name: seedTrack.name,
-              artist: seedTrack.artist,
-              durationSec: seedTrack.durationSec,
-              isrc: seedTrack.isrc,
-            }
-          : undefined,
-      ),
+      state: buildPlayerNavigationState(true, seedMetadata),
     })
   }
 
@@ -181,11 +167,11 @@ export function SongSearch() {
       }
 
       if (resolved.result.kind === "youtube") {
-        goToPlayer(resolved.result.videoId)
+        goToPlayer(resolved.result.videoId, resolved.result.seedMetadata)
         return true
       }
 
-      goToPlayer(resolved.result.videoId, resolved.result.track)
+      goToPlayer(resolved.result.videoId, resolved.result.seedMetadata)
       return true
     } finally {
       setResolving(false)
