@@ -110,6 +110,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const transcribeAbortRef = useRef<AbortController | null>(null)
   const alignAbortRef = useRef<AbortController | null>(null)
   const prevVideoIdRef = useRef<string | null>(null)
+  const currentVideoIdRef = useRef(videoId)
+  currentVideoIdRef.current = videoId
   const {
     containerRef,
     ready,
@@ -1210,7 +1212,16 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     loadedRef.current = true
 
     const load = async () => {
+      const loadVideoId = videoId
+      const loadGeneration = getLyricsLoadGeneration(loadVideoId)
+      const isRouteStale = () =>
+        currentVideoIdRef.current !== loadVideoId ||
+        isLyricsLoadStale(loadVideoId, loadGeneration) ||
+        usePlayerStore.getState().videoId !== loadVideoId
+
       const [title, oembedAuthor] = await Promise.all([getVideoTitle(), ensureOEmbedAuthor()])
+      if (isRouteStale()) return
+
       const rough = parseTrackTitle(title, oembedAuthor ?? undefined)
       setLyricsSearchPhase("Resolving song…")
       setLyricsSearchStep("parse")
@@ -1222,6 +1233,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         roughArtist: seedMetadata?.artist ?? rough.artist,
         roughTrack: seedMetadata?.track ?? rough.track,
       })
+      if (isRouteStale()) return
+
       resolvedMetadataRef.current = resolved
       setMeta({ title, artist: resolved.artist, track: resolved.track })
       const hasExistingLyrics = usePlayerStore.getState().lyrics.length > 0
