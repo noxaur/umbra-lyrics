@@ -60,7 +60,7 @@ describe("handoff-demo parity (lyrics stage structure)", () => {
     })
   })
 
-  it("uses handoff v3 stage chrome, spacing, and line styling hooks", async () => {
+  it("uses flat stage layout, spacing, and line styling hooks", async () => {
     const { container } = render(
       <div className="flex h-[402px] min-h-0 flex-col">
         <LyricsStage durationMs={60_000} />
