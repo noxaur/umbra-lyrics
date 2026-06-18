@@ -567,8 +567,7 @@ export function LyricsStage({
 function cnStage(tvMode: boolean) {
   return [
     "relative flex w-full min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain scroll-py-10",
-    "rounded-2xl border bg-karaoke-stage-bg px-4 py-8",
-    "max-h-[min(100%,calc(5*4.25rem+4rem))]",
+    "max-h-full",
     tvMode ? "tv-mode" : "",
   ].join(" ")
 }
