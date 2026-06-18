@@ -345,8 +345,10 @@ export function LyricsStage({
     lastLineChangeRef.current = now
 
     let frame = 0
+    let cancelled = false
     let attempts = 0
     const tryScrollActiveLine = () => {
+      if (cancelled) return
       if (activeRef.current && scrollRef.current) {
         scrollActiveLine(true, lineChangeIntervalMs)
         return
@@ -357,9 +359,11 @@ export function LyricsStage({
       }
     }
     frame = requestAnimationFrame(() => {
+      if (cancelled) return
       frame = requestAnimationFrame(tryScrollActiveLine)
     })
     return () => {
+      cancelled = true
       cancelAnimationFrame(frame)
     }
   }, [activeIndex, lyricsFollowMode, scrollActiveLine])

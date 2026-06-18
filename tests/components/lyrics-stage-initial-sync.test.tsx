@@ -6,7 +6,7 @@ import {
   type ComponentPropsWithoutRef,
   type ForwardedRef,
 } from "react"
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import * as lyricScroll from "@/lib/lyric-scroll"
 import { usePlayerStore } from "@/stores/player-store"
 import type { LyricLine } from "@/types/lyrics"
@@ -102,6 +102,11 @@ describe("LyricsStage initial sync", () => {
     })
   })
 
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
   it("centers active lyric when its ref becomes available after initial layout", async () => {
     const easeSpy = vi.spyOn(lyricScroll, "scrollLineToCenterEase")
 
@@ -116,6 +121,8 @@ describe("LyricsStage initial sync", () => {
     })
 
     expect(easeSpy).toHaveBeenCalled()
+    const lastCall = easeSpy.mock.calls.at(-1)
+    expect(lastCall?.[3]).toMatchObject({ force: true })
     expect(usePlayerStore.getState().lyricsFollowMode).toBe("follow")
   })
 })
