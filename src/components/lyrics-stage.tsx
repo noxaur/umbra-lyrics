@@ -34,6 +34,8 @@ type LyricsStageProps = {
   durationMs?: number
 }
 
+const INITIAL_SYNC_MAX_FRAMES = 8
+
 function idleMessage(videoId: string | undefined, videoReady: boolean | undefined): string {
   if (videoId) {
     if (!videoReady) return "Loading video…"
@@ -342,13 +344,23 @@ export function LyricsStage({
       lastLineChangeRef.current > 0 ? now - lastLineChangeRef.current : undefined
     lastLineChangeRef.current = now
 
-    let raf2 = 0
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => scrollActiveLine(true, lineChangeIntervalMs))
+    let frame = 0
+    let attempts = 0
+    const tryScrollActiveLine = () => {
+      if (activeRef.current && scrollRef.current) {
+        scrollActiveLine(true, lineChangeIntervalMs)
+        return
+      }
+      attempts += 1
+      if (attempts < INITIAL_SYNC_MAX_FRAMES) {
+        frame = requestAnimationFrame(tryScrollActiveLine)
+      }
+    }
+    frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(tryScrollActiveLine)
     })
     return () => {
-      cancelAnimationFrame(raf1)
-      cancelAnimationFrame(raf2)
+      cancelAnimationFrame(frame)
     }
   }, [activeIndex, lyricsFollowMode, scrollActiveLine])
 
