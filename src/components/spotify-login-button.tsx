@@ -41,7 +41,7 @@ export function SpotifyLoginButton() {
       variant="outline"
       size="sm"
       type="button"
-      aria-disabled="true"
+      aria-label="Log in with Spotify (unavailable — click for details)"
       onClick={showSpotifyDisabledNotice}
       className="cursor-not-allowed border-border/60 text-muted-foreground opacity-60 hover:bg-transparent hover:text-muted-foreground"
     >
