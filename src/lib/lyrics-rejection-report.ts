@@ -2,6 +2,7 @@ import {
   LYRICS_PROVIDER_LABELS,
   type LyricsAlternate,
   type LyricsProviderId,
+  type LyricsResult,
 } from "@/types/lyrics"
 import { youTubeMusicWatchUrl, youTubeWatchUrl } from "@/lib/youtube-url"
 
@@ -59,6 +60,47 @@ function timingLabel(report: LyricsRejectionReport): string {
 
 function lyricsBlock(text: string): string {
   return `\`\`\`text\n${text}\n\`\`\``
+}
+
+export function buildPlaylistImportRejectionUrl(input: {
+  videoId: string
+  title: string
+  artist: string
+  track: string
+  selectedAlternate?: LyricsAlternate
+  alternates: LyricsAlternate[]
+  pastedLyrics?: string
+  transcribedResult?: LyricsResult
+}): string | null {
+  if (input.pastedLyrics?.trim()) return null
+
+  const providerId =
+    input.selectedAlternate?.providerId ??
+    input.transcribedResult?.providerId ??
+    input.alternates[0]?.providerId
+  if (!providerId) return null
+
+  const currentLyrics = input.selectedAlternate?.lyricsResult ?? input.transcribedResult ?? undefined
+
+  return buildLyricsRejectionUrl({
+    videoId: input.videoId,
+    title: input.title,
+    artist: input.artist,
+    track: input.track,
+    providerId,
+    synced: input.selectedAlternate?.synced ?? Boolean(input.transcribedResult?.syncedLyrics),
+    autoTimed: false,
+    aligned: providerId === "transcription",
+    currentLyrics: currentLyrics
+      ? {
+          plainLyrics: currentLyrics.plainLyrics,
+          syncedLyrics: currentLyrics.syncedLyrics,
+        }
+      : undefined,
+    alternates: input.alternates,
+    providersSearched: [...new Set(input.alternates.map((alt) => alt.providerId))],
+    attempts: [],
+  })
 }
 
 export function buildLyricsRejectionUrl(report: LyricsRejectionReport): string {

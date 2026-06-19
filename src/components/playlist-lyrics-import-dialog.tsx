@@ -17,6 +17,8 @@ import {
   transcribePlaylistImportRow,
   type PlaylistLyricsImportRow,
 } from "@/lib/playlist-lyrics-import"
+import { buildPlaylistImportRejectionUrl } from "@/lib/lyrics-rejection-report"
+import { clearLyricsRejection, rejectLyrics } from "@/lib/lyrics-rejection"
 import { listPlaylistIndexIssues } from "@/lib/playlist-index-issues"
 
 type DialogStep = "scanning" | "review" | "importing"
@@ -120,7 +122,7 @@ export function PlaylistLyricsImportDialog({
   const selectedRows = rows.filter((row) => row.selected)
   const importableCount = selectedRows.filter((row) => rowCanImport(row)).length
   const hasBlockingRows = selectedRows.some((row) => rowNeedsAttention(row))
-  const allSelected = rows.length > 0 && rows.every((row) => row.selected || row.status === "cached")
+  const allSelected = rows.length > 0 && rows.every((row) => row.selected || row.status === "cached" || row.status === "rejected")
   const busy = step === "scanning" || step === "importing"
 
   const close = () => {
@@ -144,7 +146,7 @@ export function PlaylistLyricsImportDialog({
   const handleSelectAll = (checked: boolean) => {
     setRows((prev) =>
       prev.map((row) =>
-        row.status === "cached" ? row : { ...row, selected: checked },
+        row.status === "cached" || row.status === "rejected" ? row : { ...row, selected: checked },
       ),
     )
   }
@@ -154,13 +156,16 @@ export function PlaylistLyricsImportDialog({
     if (!artist) return
     setRows((prev) =>
       prev.map((row) =>
-        row.selected && row.status !== "cached" ? { ...row, artist } : row,
+        row.selected && row.status !== "cached" && row.status !== "rejected"
+          ? { ...row, artist }
+          : row,
       ),
     )
   }
 
   const handleRetrySelected = async () => {
     const targets = rows.filter((row) => row.selected && row.status !== "cached")
+    for (const row of targets) clearLyricsRejection(row.videoId)
     setStep("scanning")
     const scanned: PlaylistLyricsImportRow[] = []
     for (const row of targets) {
@@ -182,8 +187,9 @@ export function PlaylistLyricsImportDialog({
   const handleRetryRow = async (videoId: string) => {
     const row = rows.find((r) => r.videoId === videoId)
     if (!row) return
+    clearLyricsRejection(videoId)
     setRows((prev) =>
-      updateRow(prev, videoId, { status: "scanning", message: "Searching…" }),
+      updateRow(prev, videoId, { status: "scanning", message: "Searching…", selected: true }),
     )
     const result = await scanPlaylistLyricsImportRow({
       ...row,
@@ -215,6 +221,64 @@ export function PlaylistLyricsImportDialog({
       )
     }
   }
+
+  const handleRejectRow = (videoId: string) => {
+    rejectLyrics(videoId)
+    setRows((prev) =>
+      updateRow(prev, videoId, {
+        status: "rejected",
+        selected: false,
+        selectedAlternate: undefined,
+        alternates: [],
+        pastedLyrics: undefined,
+        transcribedResult: undefined,
+        message: "Lyrics rejected — paste or re-match to try again",
+      }),
+    )
+  }
+
+  const handleRejectSelected = () => {
+    const targets = rows.filter((row) => row.selected && row.status !== "rejected")
+    for (const row of targets) rejectLyrics(row.videoId)
+    setRows((prev) =>
+      prev.map((row) =>
+        targets.some((target) => target.videoId === row.videoId)
+          ? {
+              ...row,
+              status: "rejected" as const,
+              selected: false,
+              selectedAlternate: undefined,
+              alternates: [],
+              pastedLyrics: undefined,
+              transcribedResult: undefined,
+              message: "Lyrics rejected — paste or re-match to try again",
+            }
+          : row,
+      ),
+    )
+  }
+
+  const handleRejectAllIndexed = () => {
+    const targets = rows.filter((row) => row.status === "cached")
+    for (const row of targets) rejectLyrics(row.videoId)
+    setRows((prev) =>
+      prev.map((row) =>
+        row.status === "cached"
+          ? {
+              ...row,
+              status: "rejected" as const,
+              selected: false,
+              selectedAlternate: undefined,
+              alternates: [],
+              message: "Lyrics rejected — paste or re-match to try again",
+            }
+          : row,
+      ),
+    )
+  }
+
+  const indexedCount = rows.filter((row) => row.status === "cached").length
+  const rejectableSelectedCount = selectedRows.filter((row) => row.status !== "rejected").length
 
   const handleSelectAlternate = (videoId: string, alternateId: string) => {
     setRows((prev) =>
@@ -307,14 +371,15 @@ export function PlaylistLyricsImportDialog({
                       setRows((prev) =>
                         updateRow(prev, row.videoId, {
                           artist,
-                          status:
-                            prev.find((r) => r.videoId === row.videoId)?.status === "cached"
-                              ? "cached"
-                              : artist.trim() && row.track.trim()
-                                ? row.selectedAlternate
-                                  ? "ready"
-                                  : row.status
-                                : "needs_metadata",
+                          status: (() => {
+                            const current = prev.find((r) => r.videoId === row.videoId)?.status
+                            if (current === "cached" || current === "rejected") return current
+                            return artist.trim() && row.track.trim()
+                              ? row.selectedAlternate
+                                ? "ready"
+                                : row.status
+                              : "needs_metadata"
+                          })(),
                         }),
                       )
                     }
@@ -322,14 +387,15 @@ export function PlaylistLyricsImportDialog({
                       setRows((prev) =>
                         updateRow(prev, row.videoId, {
                           track,
-                          status:
-                            prev.find((r) => r.videoId === row.videoId)?.status === "cached"
-                              ? "cached"
-                              : track.trim() && row.artist.trim()
-                                ? row.selectedAlternate
-                                  ? "ready"
-                                  : row.status
-                                : "needs_metadata",
+                          status: (() => {
+                            const current = prev.find((r) => r.videoId === row.videoId)?.status
+                            if (current === "cached" || current === "rejected") return current
+                            return track.trim() && row.artist.trim()
+                              ? row.selectedAlternate
+                                ? "ready"
+                                : row.status
+                              : "needs_metadata"
+                          })(),
                         }),
                       )
                     }
@@ -342,6 +408,8 @@ export function PlaylistLyricsImportDialog({
                     onSkip={() =>
                       setRows((prev) => updateRow(prev, row.videoId, { selected: false }))
                     }
+                    onReject={() => handleRejectRow(row.videoId)}
+                    rejectionUrl={buildPlaylistImportRejectionUrl(row)}
                   />
                 ))}
               </ul>
@@ -402,6 +470,24 @@ export function PlaylistLyricsImportDialog({
                 >
                   Retry auto-match
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={rejectableSelectedCount === 0}
+                  onClick={handleRejectSelected}
+                >
+                  Reject selected
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={indexedCount === 0}
+                  onClick={handleRejectAllIndexed}
+                >
+                  Reject all indexed
+                </Button>
               </div>
 
               <div className="flex justify-end gap-2">
@@ -433,6 +519,7 @@ export function PlaylistLyricsImportDialog({
         onClose={() => setPasteVideoId(null)}
         onSubmit={(text) => {
           if (!pasteVideoId) return
+          clearLyricsRejection(pasteVideoId)
           setRows((prev) =>
             updateRow(prev, pasteVideoId, {
               pastedLyrics: text,

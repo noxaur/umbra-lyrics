@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom"
-import { ChevronDown, ChevronUp, GripVertical, Trash2 } from "lucide-react"
+import { ChevronDown, ChevronUp, Flag, GripVertical, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getLyricsCache } from "@/lib/lyrics-cache"
+import { isLyricsRejected } from "@/lib/lyrics-rejection"
 import { getPlaylistIndexIssue } from "@/lib/playlist-index-issues"
 import { formatTrackLabel } from "@/lib/track-label"
 import type { PlaylistTrack } from "@/lib/playlists"
@@ -15,6 +16,7 @@ type PlaylistTrackRowProps = {
   to?: string
   state?: unknown
   onRemove?: () => void
+  onRejectLyrics?: () => void
   onMoveUp?: () => void
   onMoveDown?: () => void
   onDragStart?: (index: number) => void
@@ -29,6 +31,9 @@ function lyricsStatusDot(videoId: string, playlistId?: string): {
   className: string
   label: string
 } {
+  if (isLyricsRejected(videoId)) {
+    return { className: "bg-muted-foreground/70 ring-1 ring-muted-foreground/50", label: "Lyrics rejected" }
+  }
   if (getLyricsCache(videoId)) {
     return { className: "bg-emerald-500", label: "Lyrics indexed" }
   }
@@ -49,6 +54,7 @@ export function PlaylistTrackRow({
   to,
   state,
   onRemove,
+  onRejectLyrics,
   onMoveUp,
   onMoveDown,
   onDragStart,
@@ -60,6 +66,7 @@ export function PlaylistTrackRow({
 }: PlaylistTrackRowProps) {
   const label = formatTrackLabel(track)
   const status = lyricsStatusDot(track.videoId, playlistId)
+  const canRejectLyrics = onRejectLyrics && Boolean(getLyricsCache(track.videoId))
 
   const content = (
     <>
@@ -132,7 +139,7 @@ export function PlaylistTrackRow({
         <div className="flex min-w-0 flex-1 items-center gap-3 text-sm">{content}</div>
       )}
 
-      {(onMoveUp || onMoveDown || onRemove) && (
+      {(onMoveUp || onMoveDown || onRemove || canRejectLyrics) && (
         <div className="flex shrink-0 items-center gap-0.5">
           {onMoveUp ? (
             <Button
@@ -154,6 +161,18 @@ export function PlaylistTrackRow({
               aria-label="Move track down"
             >
               <ChevronDown className="size-4" aria-hidden />
+            </Button>
+          ) : null}
+          {canRejectLyrics ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 text-muted-foreground hover:text-destructive"
+              onClick={onRejectLyrics}
+              aria-label="Reject lyrics"
+              title="Reject lyrics for this track"
+            >
+              <Flag className="size-4" aria-hidden />
             </Button>
           ) : null}
           {onRemove ? (

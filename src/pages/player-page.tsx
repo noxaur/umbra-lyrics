@@ -27,6 +27,7 @@ import {
   lyricsResultToNativeLines,
 } from "@/lib/lyrics-pipeline"
 import { getLyricsCache, reparseCachedLyrics, setLyricsCache, type LyricsCacheEntry } from "@/lib/lyrics-cache"
+import { clearLyricsRejection } from "@/lib/lyrics-rejection"
 import {
   bumpLyricsLoadGeneration,
   getActiveLyricsLoad,
@@ -1425,6 +1426,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const handleRefreshLyrics = useCallback(async () => {
     if (duration <= 0 || usePlayerStore.getState().status === "loading") return
 
+    clearLyricsRejection(videoId)
     bumpLyricsLoadGeneration(videoId)
     transcribeAbortRef.current?.abort()
     alignAbortRef.current?.abort()

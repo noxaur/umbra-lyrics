@@ -15,6 +15,12 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { openPlaylistLyricsImport } from "@/lib/playlist-lyrics-import-open"
 import {
+  countIndexedLyricsInPlaylist,
+  rejectLyrics,
+  rejectLyricsForPlaylist,
+  subscribeLyricsRejections,
+} from "@/lib/lyrics-rejection"
+import {
   getPlaylistIndexingState,
   runAutomaticPlaylistLyricsIndexing,
   subscribePlaylistIndexing,
@@ -61,6 +67,10 @@ function PlaylistDetailContent({
   const refresh = useCallback(() => {
     setPlaylist(getPlaylistById(playlistId))
   }, [playlistId])
+
+  useEffect(() => {
+    return subscribeLyricsRejections(() => refresh())
+  }, [refresh])
 
   useEffect(() => {
     return subscribePlaylistIndexing((id, state) => {
@@ -116,6 +126,25 @@ function PlaylistDetailContent({
   const handleInteractiveFetch = () => {
     openPlaylistLyricsImport({ playlistId })
   }
+
+  const handleRejectAllLyrics = () => {
+    if (
+      !window.confirm(
+        `Reject lyrics for all ${playlist.tracks.length} songs in "${playlist.name}"? Cached lyrics will be cleared and automatic indexing will skip these tracks.`,
+      )
+    ) {
+      return
+    }
+    rejectLyricsForPlaylist(playlistId)
+    refresh()
+  }
+
+  const handleRejectTrackLyrics = (videoId: string) => {
+    rejectLyrics(videoId)
+    refresh()
+  }
+
+  const indexedLyricsCount = countIndexedLyricsInPlaylist(playlistId)
 
   const handleRemove = (videoId: string) => {
     removeTrackFromPlaylist(playlist.id, videoId)
@@ -182,6 +211,11 @@ function PlaylistDetailContent({
                 {indexingStatus}
               </p>
             ) : null}
+            {indexedLyricsCount > 0 ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {indexedLyricsCount} with indexed lyrics
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -212,6 +246,12 @@ function PlaylistDetailContent({
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={handleInteractiveFetch}>
                   Interactive import
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={playlist.tracks.length === 0}
+                  onSelect={handleRejectAllLyrics}
+                >
+                  Reject all lyrics
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -283,6 +323,7 @@ function PlaylistDetailContent({
                   onDragOver={() => {}}
                   onDrop={handleDrop}
                   onRemove={() => handleRemove(track.videoId)}
+                  onRejectLyrics={() => handleRejectTrackLyrics(track.videoId)}
                   onMoveUp={index > 0 ? () => handleMove(track.videoId, "up") : undefined}
                   onMoveDown={
                     index < playlist.tracks.length - 1

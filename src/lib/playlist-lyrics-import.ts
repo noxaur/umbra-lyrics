@@ -2,6 +2,7 @@ import { cacheLyricsFromPipeline } from "@/lib/cache-lyrics-from-pipeline"
 import { getLyricsCache } from "@/lib/lyrics-cache"
 import { orchestrateLyricsSearch, type LyricsOrchestratorResult } from "@/lib/lyrics-orchestrator"
 import type { LyricsPipelineResult } from "@/lib/lyrics-pipeline"
+import { clearLyricsRejection, isLyricsRejected } from "@/lib/lyrics-rejection"
 import { clearPlaylistIndexIssue } from "@/lib/playlist-index-issues"
 import type { PlaylistIndexTrack } from "@/lib/playlist-lyrics-indexer"
 import { updatePlaylistTrackMetadata } from "@/lib/playlists"
@@ -20,6 +21,7 @@ export type LyricsImportRowStatus =
   | "cached"
   | "pasted"
   | "transcribed"
+  | "rejected"
   | "error"
 
 export type PlaylistLyricsImportRow = {
@@ -149,6 +151,7 @@ export function preparePlaylistLyricsImportRows(
       const normalized = normalizeTrackMetadata(track)
       const cached = getLyricsCache(track.videoId)
       const isCached = Boolean(cached)
+      const isRejected = isLyricsRejected(track.videoId)
 
       return {
         videoId: track.videoId,
@@ -156,22 +159,38 @@ export function preparePlaylistLyricsImportRows(
         artist: normalized.artist,
         track: normalized.track,
         durationSec: track.durationSec ?? 0,
-        selected: !isCached,
-        status: isCached ? "cached" : "pending",
+        selected: !isCached && !isRejected,
+        status: isRejected ? "rejected" : isCached ? "cached" : "pending",
         alternates: cached?.alternates ?? [],
         selectedAlternate: isCached
           ? undefined
           : undefined,
-        message: isCached ? "Already indexed" : undefined,
+        message: isRejected
+          ? "Lyrics rejected — paste or re-match to try again"
+          : isCached
+            ? "Already indexed"
+            : undefined,
       } satisfies PlaylistLyricsImportRow
     })
-    .filter((row) => includeCached || row.status !== "cached")
+    .filter((row) => {
+      if (row.status === "rejected") return true
+      return includeCached || row.status !== "cached"
+    })
 }
 
 export async function scanPlaylistLyricsImportRow(
   row: PlaylistLyricsImportRow,
   options: ScanRowOptions = {},
 ): Promise<PlaylistLyricsImportRow> {
+  if (isLyricsRejected(row.videoId)) {
+    return {
+      ...row,
+      status: "rejected",
+      selected: false,
+      message: "Lyrics rejected — paste or re-match to try again",
+    }
+  }
+
   if (row.status === "cached" || row.status === "pasted" || row.status === "transcribed") {
     return row
   }
@@ -309,7 +328,7 @@ export async function scanPlaylistLyricsImportRows(
 
 export function rowCanImport(row: PlaylistLyricsImportRow): boolean {
   if (!row.selected) return false
-  if (row.status === "cached") return false
+  if (row.status === "cached" || row.status === "rejected") return false
   if (row.status === "pasted" && row.pastedLyrics?.trim()) return true
   if (row.status === "transcribed" && row.transcribedResult) return true
   if (row.status === "ready" && row.selectedAlternate) return true
@@ -318,7 +337,7 @@ export function rowCanImport(row: PlaylistLyricsImportRow): boolean {
 
 export function rowNeedsAttention(row: PlaylistLyricsImportRow): boolean {
   if (!row.selected) return false
-  if (row.status === "cached") return false
+  if (row.status === "cached" || row.status === "rejected") return false
   return !rowCanImport(row)
 }
 
@@ -483,6 +502,7 @@ export function commitPlaylistLyricsImportRows(
 
     if (cached) {
       clearPlaylistIndexIssue(row.videoId)
+      clearLyricsRejection(row.videoId)
       result.imported += 1
     } else {
       result.failed += 1

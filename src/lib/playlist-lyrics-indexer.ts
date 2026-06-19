@@ -1,3 +1,4 @@
+import { isLyricsRejected } from "@/lib/lyrics-rejection"
 import { cacheLyricsFromPipeline } from "@/lib/cache-lyrics-from-pipeline"
 import { getLyricsCache } from "@/lib/lyrics-cache"
 import { runLyricsPipeline } from "@/lib/lyrics-pipeline"
@@ -214,6 +215,10 @@ async function indexTrack(job: QueueJob): Promise<void> {
     return
   }
 
+  if (isLyricsRejected(track.videoId)) {
+    return
+  }
+
   const meta = await resolveIndexingMetadata(track)
   if (!meta.track.trim() && !meta.artist.trim()) {
     recordIssue(
@@ -320,6 +325,7 @@ export function enqueuePlaylistLyricsIndexing(
     const key = queueKey(playlistId, track.videoId)
     if (queuedKeys.has(key)) continue
     if (getLyricsCache(track.videoId)) continue
+    if (isLyricsRejected(track.videoId)) continue
     queuedKeys.add(key)
     incrementQueued(playlistId)
     queue.push({ playlistId, track: { ...track } })
