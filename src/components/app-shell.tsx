@@ -1,4 +1,7 @@
 import { Link } from "react-router-dom"
+import { useCallback, useState } from "react"
+import { HomeBrandLink } from "@/components/home-brand-link"
+import { MonsterEasterEgg } from "@/components/monster-easter-egg"
 import { RandomSongButton } from "@/components/random-song-button"
 import { SettingsMenu } from "@/components/settings-menu"
 import { SpotifyLoginButton } from "@/components/spotify-login-button"
@@ -17,6 +20,17 @@ export function AppShell({
 }) {
   const focusMode = usePlayerStore((s) => s.focusMode)
   const stageFullscreen = usePlayerStore((s) => s.stageFullscreen)
+  const [monsterGeneration, setMonsterGeneration] = useState(0)
+  const [monsterActive, setMonsterActive] = useState(false)
+
+  const triggerMonster = useCallback(() => {
+    setMonsterGeneration((generation) => generation + 1)
+    setMonsterActive(true)
+  }, [])
+
+  const handleMonsterFinished = useCallback(() => {
+    setMonsterActive(false)
+  }, [])
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
@@ -33,24 +47,24 @@ export function AppShell({
       {!focusMode && !stageFullscreen && compactHeader ? (
         <>
           <header className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1.5 sm:hidden">
-            <Link
-              to="/"
+            <HomeBrandLink
+              onTripleClick={triggerMonster}
               className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
             >
               ← Home
-            </Link>
+            </HomeBrandLink>
             <div className="flex items-center gap-1">
               <SettingsMenu />
             </div>
           </header>
           <header className="hidden shrink-0 items-center justify-between border-b border-border px-4 py-3 sm:flex">
             <div className="flex min-w-0 items-center gap-4">
-              <Link
-                to="/"
+              <HomeBrandLink
+                onTripleClick={triggerMonster}
                 className="text-lg font-semibold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
               >
                 umbra
-              </Link>
+              </HomeBrandLink>
               <Link
                 to="/playlists"
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
@@ -69,12 +83,12 @@ export function AppShell({
       {!focusMode && !stageFullscreen && !compactHeader ? (
         <header className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2 sm:px-4 sm:py-3">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <Link
-              to="/"
+            <HomeBrandLink
+              onTripleClick={triggerMonster}
               className="text-lg font-semibold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
             >
               umbra
-            </Link>
+            </HomeBrandLink>
             <Link
               to="/playlists"
               className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm sm:inline"
@@ -98,6 +112,11 @@ export function AppShell({
       >
         {children}
       </main>
+      <MonsterEasterEgg
+        active={monsterActive}
+        generation={monsterGeneration}
+        onFinished={handleMonsterFinished}
+      />
     </div>
   )
 }
