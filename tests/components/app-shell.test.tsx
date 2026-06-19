@@ -36,6 +36,16 @@ describe("AppShell", () => {
     expect(playlistsLink).toHaveAttribute("href", "/playlists")
   })
 
+  it("exposes a random song button in the header", () => {
+    renderShell(
+      <AppShell>
+        <div>content</div>
+      </AppShell>,
+    )
+
+    expect(screen.getByRole("button", { name: "Play a random song" })).toBeInTheDocument()
+  })
+
   it("exposes settings in the header", () => {
     renderShell(
       <AppShell>
