@@ -52,14 +52,22 @@ describe("frozen API route inventory", () => {
   })
 
   for (const route of routes) {
-    it(`${contractTarget.name} recognizes ${route.method} ${route.path}`, async () => {
-      if (contractTarget.name === "legacy-typescript-worker") {
-        vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("contract upstream offline")))
-      }
-      const response = await contractTarget.request(smokeRequest(route))
+    it(
+      `${contractTarget.name} recognizes ${route.method} ${route.path}`,
+      async () => {
+        if (contractTarget.name === "legacy-typescript-worker") {
+          vi.stubGlobal(
+            "fetch",
+            vi.fn().mockRejectedValue(new Error("contract upstream offline")),
+          )
+        }
+        const response = await contractTarget.request(smokeRequest(route))
 
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*")
-    })
+        expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*")
+        await response.body?.cancel()
+      },
+      contractTarget.name.startsWith("http:") ? 20_000 : undefined,
+    )
   }
 })
 

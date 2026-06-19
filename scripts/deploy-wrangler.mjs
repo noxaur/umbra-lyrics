@@ -5,7 +5,7 @@ import {
   routeOnlyFailureMessage,
 } from "./deploy-wrangler-logic.mjs"
 
-const configPath = process.argv[2] ?? "dist/song_kara/wrangler.json"
+const configPath = process.argv[2] ?? "dist/song_kara_legacy/wrangler.json"
 const result = spawnSync(
   "npx",
   ["wrangler", "deploy", "--config", configPath],
