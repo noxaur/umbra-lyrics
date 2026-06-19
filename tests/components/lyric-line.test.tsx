@@ -81,6 +81,27 @@ describe("LyricLine", () => {
     )
     expect(screen.getByText("01:05.43")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Seek to 01:05.43, Sing this line" })).toBeInTheDocument()
+    const timestamp = screen.getByText("01:05.43")
+    expect(timestamp.className).toContain("lyrics-timestamp-size")
+    expect(timestamp.className).toContain("lyrics-timestamp-sm-size")
+  })
+
+  it("uses tv primary size classes without tailwind responsive prefixes", () => {
+    render(
+      <LyricLine
+        text="TV line"
+        active
+        distanceFromCenter={0}
+        synced
+        progress={0}
+        displayMode="native"
+        tvMode
+      />,
+    )
+
+    const primary = screen.getByRole("button", { name: "TV line" }).querySelector(".font-semibold")
+    expect(primary?.className).toContain("lyrics-tv-primary-size")
+    expect(primary?.className).toContain("lyrics-tv-primary-lg-size")
   })
 
   it("renders romaji-only lyrics", () => {

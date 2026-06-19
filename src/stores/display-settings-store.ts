@@ -15,6 +15,14 @@ type DisplaySettingsState = DisplaySettings & {
   resetDisplaySettings: () => void
 }
 
+function pickDisplaySettings(state: DisplaySettingsState): DisplaySettings {
+  return {
+    lyricsTextSize: state.lyricsTextSize,
+    secondaryTextSize: state.secondaryTextSize,
+    uiTextSize: state.uiTextSize,
+  }
+}
+
 function commitSettings(settings: DisplaySettings) {
   persistDisplaySettings(settings)
   applyDisplaySettingsToElement(document.documentElement, settings)
@@ -28,19 +36,19 @@ export const useDisplaySettingsStore = create<DisplaySettingsState>((set) => {
     setLyricsTextSize: (lyricsTextSize) =>
       set((state) => {
         const next = { ...state, lyricsTextSize }
-        commitSettings(next)
+        commitSettings(pickDisplaySettings(next))
         return next
       }),
     setSecondaryTextSize: (secondaryTextSize) =>
       set((state) => {
         const next = { ...state, secondaryTextSize }
-        commitSettings(next)
+        commitSettings(pickDisplaySettings(next))
         return next
       }),
     setUiTextSize: (uiTextSize) =>
       set((state) => {
         const next = { ...state, uiTextSize }
-        commitSettings(next)
+        commitSettings(pickDisplaySettings(next))
         return next
       }),
     resetDisplaySettings: () =>

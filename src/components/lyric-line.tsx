@@ -36,7 +36,7 @@ type LyricLineProps = {
 
 const LINE_SIZE = "w-full max-w-xl lyrics-primary-size leading-snug"
 const TV_LINE_SIZE =
-  "max-w-full lyrics-tv-primary-size leading-snug lg:lyrics-tv-primary-lg-size"
+  "max-w-full lyrics-tv-primary-size lyrics-tv-primary-lg-size leading-snug"
 const LINE_TEXT =
   "block w-full max-w-full break-words [overflow-wrap:anywhere] text-balance hyphens-auto"
 const SECTION_LABEL_CLASS =
@@ -237,7 +237,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
         <time
           dateTime={`PT${Math.max(0, startMs!) / 1000}S`}
           className={cn(
-            "self-center font-mono lyrics-timestamp-size tabular-nums leading-none sm:lyrics-timestamp-sm-size",
+            "self-center font-mono lyrics-timestamp-size lyrics-timestamp-sm-size tabular-nums leading-none",
             active ? "text-karaoke-highlight/80" : "text-muted-foreground",
           )}
         >
