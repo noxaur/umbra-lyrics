@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vite-plus/test"
-import { buildLyricsRejectionUrl } from "@/lib/lyrics-rejection-report"
+import {
+  buildLyricsRejectionUrl,
+  buildPlaylistImportRejectionUrl,
+} from "@/lib/lyrics-rejection-report"
 
 describe("buildLyricsRejectionUrl", () => {
   it("builds an encoded GitHub issue URL with lyrics and diagnostics", () => {
@@ -121,6 +124,22 @@ describe("buildLyricsRejectionUrl", () => {
     expect(href.length).toBeLessThanOrEqual(7500)
     const body = new URL(href).searchParams.get("body") ?? ""
     expect(body).toMatch(/truncated|Omitted/)
+  })
+
+  it("builds a playlist import report URL without a matched provider", () => {
+    const href = buildPlaylistImportRejectionUrl({
+      videoId: "video-id",
+      title: "Artist - Track",
+      artist: "Artist",
+      track: "Track",
+      alternates: [],
+      issueType: "no_lyrics",
+    })
+
+    expect(href).not.toBeNull()
+    const url = new URL(href ?? "")
+    expect(url.searchParams.get("title")).toContain("No lyrics")
+    expect(url.searchParams.get("body")).toContain("**Provider:** None recorded")
   })
 
   it("includes the selected issue type when provided", () => {

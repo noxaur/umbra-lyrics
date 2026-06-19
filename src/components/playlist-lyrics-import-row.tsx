@@ -211,7 +211,7 @@ export function PlaylistLyricsImportRowView({
                   <DropdownMenuItem onSelect={onSkip}>Skip</DropdownMenuItem>
                   <DropdownMenuItem onSelect={onReject}>Reject lyrics</DropdownMenuItem>
                   {onReportLyrics ? (
-                    <DropdownMenuItem onClick={onReportLyrics}>
+                    <DropdownMenuItem onSelect={onReportLyrics}>
                       Report on GitHub
                     </DropdownMenuItem>
                   ) : null}

@@ -422,7 +422,7 @@ export function PlaylistLyricsImportDialog({
                     }
                     onReject={() => handleRejectRow(row.videoId)}
                     onReportLyrics={
-                      buildPlaylistImportRejectionUrl(row)
+                      !row.pastedLyrics?.trim()
                         ? () => handleReportRow(row.videoId)
                         : undefined
                     }

@@ -120,8 +120,8 @@ export function buildPlaylistImportRejectionUrl(input: {
   const providerId =
     input.selectedAlternate?.providerId ??
     input.transcribedResult?.providerId ??
-    input.alternates[0]?.providerId
-  if (!providerId) return null
+    input.alternates[0]?.providerId ??
+    null
 
   const currentLyrics = input.selectedAlternate?.lyricsResult ?? input.transcribedResult ?? undefined
 
@@ -138,7 +138,7 @@ export function buildPlaylistImportRejectionUrl(input: {
       ? {
           plainLyrics: currentLyrics.plainLyrics,
           syncedLyrics: currentLyrics.syncedLyrics,
-    }
+        }
       : undefined,
     alternates: input.alternates,
     providersSearched: [...new Set(input.alternates.map((alt) => alt.providerId))],
