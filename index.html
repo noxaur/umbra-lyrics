@@ -9,7 +9,9 @@
     <script>
       (function () {
         try {
-          var raw = localStorage.getItem("umbra-theme-cache");
+          var raw =
+            localStorage.getItem("umbra-theme-cache") ||
+            localStorage.getItem("song-kara-theme-cache");
           if (!raw) return;
           var data = JSON.parse(raw);
           if (!data || !data.tokens || data.catalogVersion !== 2) return;
