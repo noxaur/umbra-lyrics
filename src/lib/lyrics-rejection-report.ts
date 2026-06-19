@@ -3,6 +3,7 @@ import {
   type LyricsAlternate,
   type LyricsProviderId,
 } from "@/types/lyrics"
+import { youTubeMusicWatchUrl, youTubeWatchUrl } from "@/lib/youtube-url"
 
 const ISSUE_URL = "https://github.com/noxaur/umbra-lyrics/issues/new"
 const MAX_ISSUE_URL_LENGTH = 7500
@@ -97,7 +98,8 @@ export function buildLyricsRejectionUrl(report: LyricsRejectionReport): string {
     "",
     "## Track",
     "",
-    `- **YouTube:** https://www.youtube.com/watch?v=${report.videoId}`,
+    `- **YouTube Music:** ${youTubeMusicWatchUrl(report.videoId)}`,
+    `- **YouTube:** ${youTubeWatchUrl(report.videoId)}`,
     `- **Video ID:** \`${report.videoId}\``,
     `- **Title:** ${report.title.trim() || "Unknown"}`,
     `- **Artist:** ${artist}`,
