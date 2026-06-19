@@ -6,16 +6,22 @@ import { usePlayerStore } from "@/stores/player-store"
 import { ThemeProvider } from "@/components/theme-provider"
 import type { ResolvedTrackMetadata } from "@/lib/track-metadata-resolver"
 
+const youtubePlayback = {
+  isPlaying: false,
+  play: vi.fn(),
+  pause: vi.fn(),
+}
+
 vi.mock("@/hooks/use-youtube-player", () => ({
   useYouTubePlayer: (videoId: string) => ({
     containerRef: { current: null },
     ready: true,
     currentTime: 0,
     duration: 250,
-    isPlaying: false,
+    isPlaying: youtubePlayback.isPlaying,
     error: null,
-    play: vi.fn(),
-    pause: vi.fn(),
+    play: youtubePlayback.play,
+    pause: youtubePlayback.pause,
     seekTo: vi.fn(),
     getVideoTitle: vi.fn(async () =>
       videoId === "Fve_lHIPa-I"
@@ -82,12 +88,14 @@ describe("PlayerPage metadata routing", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    youtubePlayback.isPlaying = false
     usePlayerStore.setState({
       videoId: null,
       title: "",
       artist: "",
       track: "",
       status: "idle",
+      stageFullscreen: false,
       lyrics: [],
       englishLines: [],
       romajiLines: [],
@@ -142,5 +150,61 @@ describe("PlayerPage metadata routing", () => {
 
     expect(screen.getByDisplayValue("TK from Ling tosite Sigure")).toBeInTheDocument()
     expect(screen.queryByDisplayValue("Sakanaction")).not.toBeInTheDocument()
+  })
+})
+
+describe("PlayerPage stage fullscreen controls", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    youtubePlayback.isPlaying = false
+    class ResizeObserverMock {
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+      constructor(_callback: ResizeObserverCallback) {}
+    }
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock)
+    vi.mocked(resolveTrackMetadata).mockResolvedValue({
+      artist: "TK from Ling tosite Sigure",
+      track: "Unravel",
+      source: "parse",
+      confidence: 0.9,
+      durationSec: 250,
+      alternates: [],
+    })
+    usePlayerStore.setState({
+      videoId: "Fve_lHIPa-I",
+      title: "Unravel",
+      artist: "TK from Ling tosite Sigure",
+      track: "Unravel",
+      status: "ready",
+      stageFullscreen: true,
+      lyrics: [{ startMs: 0, endMs: 10_000, text: "test line" }],
+      englishLines: [],
+      romajiLines: [],
+      lyricsOutcome: "found",
+      lyricsSearchPhase: null,
+      lyricsSearchStep: null,
+      lyricsAttempts: [],
+      lyricsAlternates: [],
+      lyricsProvidersSearched: [],
+      loadedFromCache: false,
+      lrclibTrackId: null,
+      contentWarning: null,
+      verificationScore: null,
+    })
+  })
+
+  it("shows a play control in stage fullscreen and toggles playback", () => {
+    renderPlayer("Fve_lHIPa-I")
+
+    const playButton = screen.getByRole("button", { name: "Play" })
+    expect(playButton).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Exit fullscreen" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Seek" })).not.toBeInTheDocument()
+
+    fireEvent.click(playButton)
+    expect(youtubePlayback.play).toHaveBeenCalledTimes(1)
   })
 })
