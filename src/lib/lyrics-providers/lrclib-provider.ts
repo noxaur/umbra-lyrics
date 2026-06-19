@@ -7,6 +7,7 @@ import {
   searchByQuery,
   type SearchResult,
 } from "@/lib/lyrics-service"
+import { countLyricLines, RANK_WEIGHTS } from "@/lib/lyrics-ranking"
 import { simplifyTrackName, stripChannelSuffix, stripDecorativeTitle } from "@/lib/parse-track-title"
 import { hasLyricsText, pickBestCandidate, scoreCandidate } from "@/lib/lyrics-providers/match-utils"
 import type { LyricsProvider, ProviderLyricsCandidate, ProviderSearchParams } from "./types"
@@ -52,7 +53,36 @@ async function resolveLyricsFromMatch(match: SearchResult) {
   return null
 }
 
-function buildStrategies(params: ProviderSearchParams): Array<() => Promise<SearchResult[]>> {
+type SearchPair = {
+  track: string
+  artist: string
+}
+
+function searchPairKey(pair: SearchPair): string {
+  return `${pair.track.trim().toLowerCase()}\0${pair.artist.trim().toLowerCase()}`
+}
+
+function buildExactPairs(params: ProviderSearchParams): SearchPair[] {
+  const pairs: SearchPair[] = []
+  const seen = new Set<string>()
+  const add = (track: string | undefined, artist: string | undefined) => {
+    const pair = { track: track?.trim() ?? "", artist: artist?.trim() ?? "" }
+    if (!pair.track) return
+    const key = searchPairKey(pair)
+    if (seen.has(key)) return
+    seen.add(key)
+    pairs.push(pair)
+  }
+
+  add(params.canonicalTrack, params.canonicalArtist)
+  add(params.track, params.artist)
+  return pairs
+}
+
+function buildBroadStrategies(
+  params: ProviderSearchParams,
+  exactPairKeys: Set<string>,
+): Array<() => Promise<SearchResult[]>> {
   const strippedTitle = stripDecorativeTitle(
     params.title || `${params.artist} - ${params.track}`,
   )
@@ -60,9 +90,10 @@ function buildStrategies(params: ProviderSearchParams): Array<() => Promise<Sear
   const simplifiedTitle = simplifyTrackName(strippedTitle)
 
   const strategies: Array<() => Promise<SearchResult[]>> = []
-
-  if (params.track.trim()) {
-    strategies.push(() => searchByParams(params.track, params.artist))
+  const addParams = (track: string, artist: string) => {
+    const pair = { track: track.trim(), artist: artist.trim() }
+    if (!pair.track || exactPairKeys.has(searchPairKey(pair))) return
+    strategies.push(() => searchByParams(pair.track, pair.artist))
   }
 
   if (
@@ -70,7 +101,7 @@ function buildStrategies(params: ProviderSearchParams): Array<() => Promise<Sear
     params.artist.trim() &&
     params.track !== params.artist
   ) {
-    strategies.push(() => searchByParams(params.artist, params.track))
+    addParams(params.artist, params.track)
   }
 
   if (strippedTitle.trim()) {
@@ -94,7 +125,7 @@ function buildStrategies(params: ProviderSearchParams): Array<() => Promise<Sear
   }
 
   if ((simplifiedTrack || params.track).trim()) {
-    strategies.push(() => searchByParams(simplifiedTrack || params.track, ""))
+    addParams(simplifiedTrack || params.track, "")
   }
 
   if (simplifiedTitle.trim() || simplifiedTrack.trim()) {
@@ -102,7 +133,10 @@ function buildStrategies(params: ProviderSearchParams): Array<() => Promise<Sear
       const searches: Promise<SearchResult[]>[] = []
       if (simplifiedTitle) searches.push(searchByQuery(simplifiedTitle))
       if (simplifiedTrack && simplifiedTrack !== simplifiedTitle) {
-        searches.push(searchByParams(simplifiedTrack, params.artist))
+        const pair = { track: simplifiedTrack, artist: params.artist }
+        if (!exactPairKeys.has(searchPairKey(pair))) {
+          searches.push(searchByParams(pair.track, pair.artist))
+        }
       }
       const byId = new Map<number, SearchResult>()
       const settled = await Promise.allSettled(searches)
@@ -115,6 +149,30 @@ function buildStrategies(params: ProviderSearchParams): Array<() => Promise<Sear
   }
 
   return strategies
+}
+
+function findStrongSyncedCandidate(
+  candidates: ProviderLyricsCandidate[],
+  params: ProviderSearchParams,
+  exactPair: SearchPair,
+): ProviderLyricsCandidate | null {
+  const synced = candidates.filter(
+    (candidate) =>
+      candidate.synced &&
+      !candidate.instrumental &&
+      hasLyricsText(candidate) &&
+      countLyricLines(candidate) >= RANK_WEIGHTS.MIN_LINES_FOR_FULL,
+  )
+  const best = pickBestCandidate(
+    synced,
+    params.durationSec,
+    exactPair.artist,
+    exactPair.track,
+  )
+  if (!best) return null
+  return scoreCandidate(best, params.durationSec, exactPair.artist, exactPair.track) < 80
+    ? best
+    : null
 }
 
 function mergeStrategyResults(
@@ -137,11 +195,24 @@ export async function searchLrclibWithStrategies(
   onStrategy?: (phase: string) => void,
 ): Promise<ProviderLyricsCandidate[]> {
   const byId = new Map<number, ProviderLyricsCandidate>()
-  const strategies = buildStrategies(params)
-  if (strategies.length === 0) return []
+  const exactPairs = buildExactPairs(params)
+  if (exactPairs.length === 0) return []
 
   onStrategy?.("Searching LRCLIB…")
 
+  for (const pair of exactPairs) {
+    try {
+      mergeStrategyResults(byId, await searchByParams(pair.track, pair.artist), params)
+    } catch {
+      // Continue with the next exact pair or broad strategies.
+    }
+
+    const strong = findStrongSyncedCandidate([...byId.values()], params, pair)
+    if (strong) return [strong]
+  }
+
+  const exactPairKeys = new Set(exactPairs.map(searchPairKey))
+  const strategies = buildBroadStrategies(params, exactPairKeys)
   const settled = await Promise.allSettled(strategies.map((run) => run()))
   for (const outcome of settled) {
     if (outcome.status !== "fulfilled") continue

@@ -215,4 +215,79 @@ describe("lrclibProvider.search", () => {
     expect(candidates).toHaveLength(1)
     expect(vi.mocked(fetchLyricsById)).not.toHaveBeenCalled()
   })
+
+  it("returns a strong canonical synced match without broad searches", async () => {
+    vi.mocked(searchByParams).mockResolvedValueOnce([
+      {
+        id: 7,
+        trackName: "Kaiju",
+        artistName: "Sakanaction",
+        duration: 200,
+        plainLyrics: "One\nTwo\nThree\nFour",
+        syncedLyrics: "[00:01.00] One\n[00:05.00] Two\n[00:10.00] Three\n[00:15.00] Four",
+      },
+    ])
+
+    const candidates = await lrclibProvider.search({
+      track: "怪獣",
+      artist: "サカナクション",
+      canonicalTrack: "Kaiju",
+      canonicalArtist: "Sakanaction",
+      durationSec: 200,
+      title: "サカナクション - 怪獣",
+    })
+
+    expect(candidates).toHaveLength(1)
+    expect(candidates[0]?.externalId).toBe(7)
+    expect(candidates[0]?.synced).toBe(true)
+    expect(vi.mocked(searchByParams)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(searchByParams)).toHaveBeenCalledWith(
+      "Kaiju",
+      "Sakanaction",
+    )
+    expect(vi.mocked(searchByQuery)).not.toHaveBeenCalled()
+  })
+
+  it("runs broad searches when exact metadata has no strong synced match", async () => {
+    vi.mocked(searchByParams)
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          trackName: "Canonical Song",
+          artistName: "Canonical Artist",
+          duration: 200,
+          plainLyrics: "One\nTwo\nThree\nFour",
+          syncedLyrics: null,
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([])
+    vi.mocked(searchByQuery).mockResolvedValue([
+      {
+        id: 2,
+        trackName: "Canonical Song",
+        artistName: "Canonical Artist",
+        duration: 200,
+        plainLyrics: "One\nTwo\nThree\nFour",
+        syncedLyrics: "[00:01.00] One\n[00:05.00] Two\n[00:10.00] Three\n[00:15.00] Four",
+      },
+    ])
+
+    const candidates = await lrclibProvider.search({
+      track: "Requested Song",
+      artist: "Requested Artist",
+      canonicalTrack: "Canonical Song",
+      canonicalArtist: "Canonical Artist",
+      durationSec: 200,
+      title: "Requested Artist - Requested Song",
+    })
+
+    expect(candidates[0]?.externalId).toBe(2)
+    expect(candidates[0]?.synced).toBe(true)
+    expect(vi.mocked(searchByParams).mock.calls.slice(0, 2)).toEqual([
+      ["Canonical Song", "Canonical Artist"],
+      ["Requested Song", "Requested Artist"],
+    ])
+    expect(vi.mocked(searchByQuery)).toHaveBeenCalled()
+  })
 })
