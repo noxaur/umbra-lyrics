@@ -178,6 +178,7 @@
 
   .lyrics-tv-primary-size {
     font-size: var(--lyrics-tv-primary-size);
+    line-height: 1.375;
   }
 
   @media (min-width: 1024px) {
