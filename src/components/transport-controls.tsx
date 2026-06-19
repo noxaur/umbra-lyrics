@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { HelpCircle, Maximize2, Minimize2, Pause, Play, RotateCcw, SkipBack, SkipForward } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
@@ -10,7 +10,7 @@ import { PlayerViewMenu } from "@/components/player-view-menu"
 import { QueueAddMenu } from "@/components/queue-add-menu"
 import { QueueMenu } from "@/components/queue-menu"
 import { getPlaylistById } from "@/lib/playlists"
-import { readSongQueue } from "@/lib/song-queue"
+import { readSongQueue, subscribeSongQueue } from "@/lib/song-queue"
 import { isEnglish } from "@/lib/language-service"
 import type { LyricDisplayMode } from "@/types/lyrics"
 
@@ -59,6 +59,9 @@ export function TransportControls({
   const queueContext = usePlayerStore((s) => s.queueContext)
   const goToNextQueueTrack = usePlayerStore((s) => s.goToNextQueueTrack)
   const goToPrevQueueTrack = usePlayerStore((s) => s.goToPrevQueueTrack)
+  const [queueLength, setQueueLength] = useState(() => readSongQueue().length)
+
+  useEffect(() => subscribeSongQueue(() => setQueueLength(readSongQueue().length)), [])
 
   const playlist = playlistContext ? getPlaylistById(playlistContext.playlistId) : undefined
   const hasPrevTrack = playlistContext
@@ -69,7 +72,7 @@ export function TransportControls({
   const hasNextTrack = playlist
     ? playlistContext!.trackIndex < playlist.tracks.length - 1
     : queueContext
-      ? queueContext.trackIndex < readSongQueue().length - 1
+      ? queueContext.trackIndex < queueLength - 1
       : false
   const showSkipControls = Boolean(playlistContext || queueContext)
   const goToPrevTrack = playlistContext ? goToPrevPlaylistTrack : goToPrevQueueTrack

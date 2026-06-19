@@ -16,6 +16,7 @@ import {
 import {
   addTrackToQueue,
   isVideoInQueue,
+  readSongQueue,
   updateQueueTrackStatus,
   type QueueTrack,
 } from "@/lib/song-queue"
@@ -112,8 +113,11 @@ function pumpPrefetchQueue(): void {
 }
 
 async function prefetchTrack(job: PrefetchJob): Promise<void> {
+  if (!isVideoInQueue(job.videoId)) return
+
   if (getLyricsCache(job.videoId)) {
     updateQueueTrackStatus(job.videoId, "ready")
+    if (!isVideoInQueue(job.videoId)) return
     pushQueueNotification({
       kind: "success",
       title: "Ready in queue",
@@ -134,6 +138,8 @@ async function prefetchTrack(job: PrefetchJob): Promise<void> {
       skipTranscription: true,
     })
 
+    if (!isVideoInQueue(job.videoId)) return
+
     const cached = cacheLyricsFromPipeline(
       {
         videoId: job.videoId,
@@ -149,6 +155,8 @@ async function prefetchTrack(job: PrefetchJob): Promise<void> {
     const status = cached || pipeline.native.status === "instrumental" ? "ready" : "error"
     updateQueueTrackStatus(job.videoId, status)
 
+    if (!isVideoInQueue(job.videoId)) return
+
     pushQueueNotification({
       kind: status === "ready" ? "success" : "info",
       title: status === "ready" ? "Ready in queue" : "Added to queue",
@@ -159,6 +167,7 @@ async function prefetchTrack(job: PrefetchJob): Promise<void> {
       videoId: job.videoId,
     })
   } catch {
+    if (!isVideoInQueue(job.videoId)) return
     updateQueueTrackStatus(job.videoId, "error")
     pushQueueNotification({
       kind: "info",
@@ -384,4 +393,21 @@ export async function submitCurrentTrackToQueue(track: {
 }): Promise<{ ok: boolean; error?: string; duplicate?: boolean }> {
   const result = await submitQueueCandidate(track)
   return { ok: result.ok, error: result.error, duplicate: result.duplicate }
+}
+
+export function resumeQueuePrefetch(): void {
+  for (const track of readSongQueue()) {
+    if (track.status !== "prefetching") continue
+    if (getLyricsCache(track.videoId)) {
+      updateQueueTrackStatus(track.videoId, "ready")
+      continue
+    }
+    enqueuePrefetch({
+      videoId: track.videoId,
+      title: track.title,
+      artist: track.artist,
+      track: track.track,
+      durationSec: track.seedMetadata?.durationSec ?? 0,
+    })
+  }
 }

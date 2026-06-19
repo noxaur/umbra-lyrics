@@ -44,6 +44,13 @@ function MetadataConfirmToast({
     setTrack(pending.track)
   }, [pending])
 
+  useEffect(() => {
+    if (!pending) {
+      dismissQueueNotification(notification.id)
+      onDone()
+    }
+  }, [notification.id, onDone, pending])
+
   if (!notification.videoId || !pending) return null
 
   const handleConfirm = async () => {

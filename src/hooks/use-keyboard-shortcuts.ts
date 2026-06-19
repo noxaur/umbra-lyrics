@@ -11,8 +11,11 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
   const seekBy = usePlayerStore((s) => s.seekBy)
   const adjustOffset = usePlayerStore((s) => s.adjustOffset)
   const playlistContext = usePlayerStore((s) => s.playlistContext)
+  const queueContext = usePlayerStore((s) => s.queueContext)
   const goToNextPlaylistTrack = usePlayerStore((s) => s.goToNextPlaylistTrack)
   const goToPrevPlaylistTrack = usePlayerStore((s) => s.goToPrevPlaylistTrack)
+  const goToNextQueueTrack = usePlayerStore((s) => s.goToNextQueueTrack)
+  const goToPrevQueueTrack = usePlayerStore((s) => s.goToPrevQueueTrack)
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -29,11 +32,13 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
         case "ArrowLeft":
           e.preventDefault()
           if (e.shiftKey && playlistContext) goToPrevPlaylistTrack()
+          else if (e.shiftKey && queueContext) goToPrevQueueTrack()
           else seekBy(-5)
           break
         case "ArrowRight":
           e.preventDefault()
           if (e.shiftKey && playlistContext) goToNextPlaylistTrack()
+          else if (e.shiftKey && queueContext) goToNextQueueTrack()
           else seekBy(5)
           break
         case "+":
@@ -60,8 +65,11 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
     seekBy,
     adjustOffset,
     playlistContext,
+    queueContext,
     goToNextPlaylistTrack,
     goToPrevPlaylistTrack,
+    goToNextQueueTrack,
+    goToPrevQueueTrack,
     onToggleStageFullscreen,
   ])
 }

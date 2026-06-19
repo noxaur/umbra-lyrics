@@ -51,6 +51,7 @@ import {
 } from "@/lib/playlists"
 import {
   readSongQueue,
+  subscribeSongQueue,
   type QueuePlaybackContext,
 } from "@/lib/song-queue"
 import { analyzeRoute, isValidPlayVideoId } from "@/lib/route-suggestions"
@@ -302,6 +303,22 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     bindQueueNavigation(navigateToQueueTrack)
     return () => bindQueueNavigation(null)
   }, [bindQueueNavigation, navigateToQueueTrack])
+
+  useEffect(() => {
+    return subscribeSongQueue(() => {
+      const { queueContext, videoId } = usePlayerStore.getState()
+      if (!queueContext) return
+      const queue = readSongQueue()
+      const newIndex = queue.findIndex((track) => track.videoId === videoId)
+      if (newIndex === -1) {
+        setQueueContext(null)
+        return
+      }
+      if (newIndex !== queueContext.trackIndex) {
+        setQueueContext({ trackIndex: newIndex })
+      }
+    })
+  }, [setQueueContext])
 
   const ensureOEmbedAuthor = useCallback(async () => {
     if (oembedAuthorRef.current != null) return oembedAuthorRef.current
