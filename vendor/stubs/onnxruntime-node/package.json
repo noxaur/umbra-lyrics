@@ -1,0 +1,8 @@
+{
+  "name": "onnxruntime-node",
+  "version": "0.0.0-stub",
+  "private": true,
+  "description": "Browser-only stub; transcription uses onnxruntime-web.",
+  "type": "module",
+  "main": "./index.js"
+}

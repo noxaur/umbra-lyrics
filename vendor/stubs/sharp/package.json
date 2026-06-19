@@ -1,0 +1,8 @@
+{
+  "name": "sharp",
+  "version": "0.0.0-stub",
+  "private": true,
+  "description": "Browser-only stub; image preprocessing is not used in this app.",
+  "type": "module",
+  "main": "./index.js"
+}
