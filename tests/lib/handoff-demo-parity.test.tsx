@@ -79,11 +79,11 @@ describe("handoff-demo parity (lyrics stage structure)", () => {
     const inactive = [...buttons].find((b) => b.getAttribute("aria-current") !== "true")
     const inner = stage.querySelector<HTMLElement>("[style*='preserve-3d']")
 
-    expect(stage.className).toContain("rounded-2xl")
-    expect(stage.className).toContain("border")
-    expect(stage.className).not.toContain("border-border")
+    expect(stage.className).not.toContain("rounded-2xl")
+    expect(stage.className).not.toContain("border")
+    expect(stage.className).not.toContain("bg-karaoke-stage-bg")
     expect(stage.className).toContain("scroll-py-10")
-    expect(stage.className).toContain("max-h-[min(100%,calc(5*4.25rem+4rem))]")
+    expect(stage.className).toContain("max-h-full")
     expect(inner?.className).toContain("gap-[0.65rem]")
     expect(inner?.parentElement?.className).toContain("max-w-xl")
 

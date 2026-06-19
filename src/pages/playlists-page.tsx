@@ -1,14 +1,16 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
-import { ArrowLeft, ListMusic, Plus } from "lucide-react"
+import { ArrowLeft, Download, ListMusic, Plus } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { PlaylistFormDialog } from "@/components/playlist-form-dialog"
+import { PlaylistImportDialog } from "@/components/playlist-import-dialog"
 import { Button } from "@/components/ui/button"
 import { createPlaylist, readPlaylists, type Playlist } from "@/lib/playlists"
 
 export function PlaylistsPage() {
   const [playlists, setPlaylists] = useState<Playlist[]>(() => readPlaylists())
   const [createOpen, setCreateOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const refresh = () => setPlaylists(readPlaylists())
@@ -42,10 +44,16 @@ export function PlaylistsPage() {
               Save songs for your next karaoke session. Playlists are stored in this browser only.
             </p>
           </div>
-          <Button className="gap-1.5 shrink-0" onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4" aria-hidden />
-            New playlist
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <Button variant="outline" className="gap-1.5" onClick={() => setImportOpen(true)}>
+              <Download className="size-4" aria-hidden />
+              Import from YouTube
+            </Button>
+            <Button className="gap-1.5" onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4" aria-hidden />
+              New playlist
+            </Button>
+          </div>
         </div>
 
         {error ? (
@@ -59,12 +67,18 @@ export function PlaylistsPage() {
             <ListMusic className="mx-auto mb-3 size-8 text-muted-foreground" aria-hidden />
             <p className="font-medium">No playlists yet</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Create a playlist and add songs from the player.
+              Create a playlist, import from YouTube, or add songs from the player.
             </p>
-            <Button className="mt-4 gap-1.5" onClick={() => setCreateOpen(true)}>
-              <Plus className="size-4" aria-hidden />
-              Create playlist
-            </Button>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <Button className="gap-1.5" onClick={() => setCreateOpen(true)}>
+                <Plus className="size-4" aria-hidden />
+                Create playlist
+              </Button>
+              <Button variant="outline" className="gap-1.5" onClick={() => setImportOpen(true)}>
+                <Download className="size-4" aria-hidden />
+                Import from YouTube
+              </Button>
+            </div>
           </div>
         ) : (
           <ul className="divide-y divide-border rounded-lg border border-border bg-card">
@@ -94,6 +108,13 @@ export function PlaylistsPage() {
           setCreateOpen(false)
           setError(null)
         }}
+      />
+
+      <PlaylistImportDialog
+        open={importOpen}
+        mode="new"
+        onImported={refresh}
+        onClose={() => setImportOpen(false)}
       />
     </AppShell>
   )

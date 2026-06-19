@@ -1,10 +1,14 @@
 /** YouTube video IDs are always 11 characters: letters, digits, underscore, hyphen. */
 export const YOUTUBE_VIDEO_ID_RE = /^[\w-]{11}$/
 
+/** YouTube playlist IDs from the `list` query param (e.g. PL..., RD..., TL...). */
+export const YOUTUBE_PLAYLIST_ID_RE = /^[A-Za-z0-9_-]{2,80}$/
+
 /** Public karaoke share origin (custom domain). */
 export const KARAOKE_PUBLIC_ORIGIN = "https://song.opsec.rent"
 
 const YOUTUBE_HOST_RE = /(^|\.)youtube(-nocookie)?\.com$|^youtu\.be$/i
+const YOUTUBE_MUSIC_HOST_RE = /(^|\.)music\.youtube\.com$/i
 const KARAOKE_HOST_RE = /(^|\.)song\.opsec\.rent$/i
 
 /**
@@ -119,6 +123,38 @@ export function isYouTubeUrl(input: string): boolean {
     extractYouTubeVideoId(trimmed) !== null &&
     !isKaraokePlayUrl(trimmed)
   )
+}
+
+function isYouTubePlaylistHost(hostname: string): boolean {
+  return YOUTUBE_HOST_RE.test(hostname) || YOUTUBE_MUSIC_HOST_RE.test(hostname)
+}
+
+/**
+ * Extract a YouTube playlist ID from common share URL formats.
+ */
+export function extractYouTubePlaylistId(input: string): string | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+
+  if (YOUTUBE_PLAYLIST_ID_RE.test(trimmed) && /^[A-Z]{2}/.test(trimmed)) {
+    return trimmed
+  }
+
+  try {
+    const url = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`)
+    if (!isYouTubePlaylistHost(url.hostname)) return null
+
+    const list = url.searchParams.get("list")?.trim()
+    if (list && YOUTUBE_PLAYLIST_ID_RE.test(list)) return list
+  } catch {
+    // Not a parseable URL
+  }
+
+  return null
+}
+
+export function isYouTubePlaylistUrl(input: string): boolean {
+  return extractYouTubePlaylistId(input) !== null
 }
 
 export function isKaraokePlayUrl(input: string): boolean {

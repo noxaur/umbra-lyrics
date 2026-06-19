@@ -157,6 +157,125 @@ export function addTrackToPlaylist(
   return { playlist: playlists[index] }
 }
 
+export type BulkAddTracksResult = {
+  playlist?: Playlist
+  added: number
+  skippedDuplicates: number
+  truncated: number
+  error?: string
+}
+
+export function bulkAddTracksToPlaylist(
+  playlistId: string,
+  tracks: Omit<PlaylistTrack, "addedAt">[],
+): BulkAddTracksResult {
+  const playlists = readPlaylists()
+  const index = playlists.findIndex((p) => p.id === playlistId)
+  if (index === -1) return { added: 0, skippedDuplicates: 0, truncated: 0, error: "Playlist not found" }
+
+  const playlist = playlists[index]
+  const existingIds = new Set(playlist.tracks.map((track) => track.videoId))
+  const nextTracks = [...playlist.tracks]
+  let added = 0
+  let skippedDuplicates = 0
+  let truncated = 0
+  const now = Date.now()
+
+  for (const track of tracks) {
+    const normalized = normalizeTrack({ ...track, addedAt: now + added })
+    if (existingIds.has(normalized.videoId)) {
+      skippedDuplicates += 1
+      continue
+    }
+    if (nextTracks.length >= MAX_TRACKS_PER_PLAYLIST) {
+      truncated += 1
+      continue
+    }
+
+    existingIds.add(normalized.videoId)
+    nextTracks.push(normalized)
+    added += 1
+  }
+
+  if (added === 0 && truncated === 0 && skippedDuplicates === tracks.length) {
+    return {
+      playlist,
+      added,
+      skippedDuplicates,
+      truncated,
+      error: "All tracks are already in this playlist",
+    }
+  }
+
+  const updatedAt = new Date().toISOString()
+  playlists[index] = {
+    ...playlist,
+    tracks: nextTracks,
+    updatedAt,
+  }
+  writePlaylists(playlists)
+
+  return {
+    playlist: playlists[index],
+    added,
+    skippedDuplicates,
+    truncated,
+  }
+}
+
+export function createPlaylistFromImport(
+  name: string,
+  tracks: Omit<PlaylistTrack, "addedAt">[],
+): BulkAddTracksResult & { playlist?: Playlist } {
+  const created = createPlaylist(name)
+  if (created.error) {
+    return {
+      added: 0,
+      skippedDuplicates: 0,
+      truncated: tracks.length,
+      error: created.error,
+    }
+  }
+
+  const result = bulkAddTracksToPlaylist(created.playlist.id, tracks)
+  if (result.error && result.added === 0) {
+    deletePlaylist(created.playlist.id)
+    return result
+  }
+
+  return { ...result, playlist: result.playlist ?? created.playlist }
+}
+
+export function updatePlaylistTrackMetadata(
+  playlistId: string,
+  videoId: string,
+  metadata: Pick<PlaylistTrack, "artist" | "track" | "title">,
+): { playlist?: Playlist; error?: string } {
+  const playlists = readPlaylists()
+  const index = playlists.findIndex((p) => p.id === playlistId)
+  if (index === -1) return { error: "Playlist not found" }
+
+  const playlist = playlists[index]
+  const trackIndex = playlist.tracks.findIndex((t) => t.videoId === videoId)
+  if (trackIndex === -1) return { error: "Track not found" }
+
+  const current = playlist.tracks[trackIndex]
+  const updated = normalizeTrack({
+    ...current,
+    ...metadata,
+    title: metadata.title?.trim() || current.title,
+    artist: metadata.artist?.trim() ?? current.artist,
+    track: metadata.track?.trim() ?? current.track,
+  })
+
+  const tracks = [...playlist.tracks]
+  tracks[trackIndex] = updated
+  const now = new Date().toISOString()
+  playlists[index] = { ...playlist, tracks, updatedAt: now }
+  writePlaylists(playlists)
+  return { playlist: playlists[index] }
+}
+
 export function removeTrackFromPlaylist(
   playlistId: string,
   videoId: string,

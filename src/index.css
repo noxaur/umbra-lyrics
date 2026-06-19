@@ -128,16 +128,6 @@
 
 /* @bogdanrn/yt-embed defaults iframe to 640×360; stretch to fill panel */
 @layer components {
-  /* Handoff v3 tokens — scoped so theme overrides on :root do not drift lyrics stage */
-  [data-lyrics-follow] {
-    --karaoke-stage-bg: #12101c;
-    --karaoke-active-line: #c4b5fd;
-    --karaoke-highlight: #c4b5fd;
-    --karaoke-ink: #f3f4f6;
-    --karaoke-unsung: color-mix(in oklch, #f3f4f6 65%, transparent);
-    border-color: #1f2937;
-  }
-
   .app-dialog {
     @apply border-0 bg-background p-6 shadow-lg;
   }

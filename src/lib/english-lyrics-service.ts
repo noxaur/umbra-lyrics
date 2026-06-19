@@ -173,7 +173,6 @@ export async function resolveEnglishFromPrefetch(
     artist,
     nativeLines,
     language,
-    durationSec,
     videoId,
     skipCache,
     metadata,

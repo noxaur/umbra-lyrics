@@ -2,12 +2,6 @@ import type { EnglishLyricsResult } from "@/lib/english-lyrics-service"
 import { resolveEnglishLyrics } from "@/lib/english-lyrics-service"
 import { detectLanguage, inferPreferredLanguage } from "@/lib/language-service"
 import {
-  assessContentType,
-  buildTranscriptProfile,
-  isStrongVerification,
-  passesVerification,
-  shouldPromoteTranscription,
-  verifyAllCandidates,
   type ContentAssessment,
   type TranscriptProfile,
 } from "@/lib/lyrics-verification"
@@ -24,7 +18,7 @@ import {
 import { pickBestAndAlternates } from "@/lib/lyrics-ranking"
 import { tryMetadataLyricsFallback } from "@/lib/metadata-lyrics-fallback"
 import type { ProviderLyricsCandidate, ProviderSearchParams } from "@/lib/lyrics-providers/types"
-import { sampleTranscribeForVerification, fullTranscribeAsProvider } from "@/lib/transcription-service"
+import { fullTranscribeAsProvider } from "@/lib/transcription-service"
 import type { ResolvedTrackMetadata } from "@/lib/track-metadata-resolver"
 
 export type LyricsSearchAttempt = {
@@ -207,62 +201,34 @@ export async function orchestrateLyricsSearch(
 
   const providerParams = toProviderParams(params)
 
-  const samplePromise =
-    params.videoId
-      ? sampleTranscribeForVerification({
-          videoId: params.videoId,
-          artist: params.artist,
-          track: params.track,
-          language: params.preferredLanguage,
-          durationSec: Math.round(params.durationSec) || undefined,
-        })
-      : Promise.resolve(null)
-
   report(`Searching ${providerIds.length} sources…`, "search")
 
-  const [{ candidates, statuses }, sampleTranscript] = await Promise.all([
-    searchProvidersParallel({
-      params: providerParams,
-      providerIds,
-      onProviderStart: (providerId) => {
-        if (!providersTried.includes(providerId)) providersTried.push(providerId)
-        const label = getProviderById(providerId)?.label ?? providerId
-        report(`Searching ${providerIds.length} sources… (${label})`, "search", { provider: providerId })
-      },
-      onProviderComplete: (status) => {
-        attempts.push({
-          strategy: status.providerId,
-          provider: status.providerId,
-          result: statusToAttemptResult(status.outcome),
-          message:
-            status.outcome === "timeout"
-              ? "Timed out"
-              : status.outcome === "error"
-                ? status.message
-                : status.candidateCount === 0
-                  ? "No matches"
-                  : `${status.candidateCount} candidate${status.candidateCount === 1 ? "" : "s"}`,
-        })
-      },
-    }),
-    samplePromise,
-  ])
-
-  const transcriptProfile = sampleTranscript
-    ? buildTranscriptProfile(sampleTranscript.segments, {
-        language: sampleTranscript.language,
-        coverageSec: sampleTranscript.coverageSec,
+  const { candidates, statuses } = await searchProvidersParallel({
+    params: providerParams,
+    providerIds,
+    onProviderStart: (providerId) => {
+      if (!providersTried.includes(providerId)) providersTried.push(providerId)
+      const label = getProviderById(providerId)?.label ?? providerId
+      report(`Searching ${providerIds.length} sources… (${label})`, "search", { provider: providerId })
+    },
+    onProviderComplete: (status) => {
+      attempts.push({
+        strategy: status.providerId,
+        provider: status.providerId,
+        result: statusToAttemptResult(status.outcome),
+        message:
+          status.outcome === "timeout"
+            ? "Timed out"
+            : status.outcome === "error"
+              ? status.message
+              : status.candidateCount === 0
+                ? "No matches"
+                : `${status.candidateCount} candidate${status.candidateCount === 1 ? "" : "s"}`,
       })
-    : null
+    },
+  })
 
-  const contentAssessment = assessContentType(transcriptProfile)
-
-  report("Verifying against audio…", "match")
-
-  const verified = verifyAllCandidates(candidates, transcriptProfile)
-  const verificationMap = new Map(
-    verified.map((v) => [v.candidate.externalId, v.verification.score]),
-  )
+  report("Ranking lyric matches…", "match")
 
   const rankContext = {
     durationSec: params.durationSec,
@@ -270,101 +236,11 @@ export async function orchestrateLyricsSearch(
     track: params.track,
     preferredLanguage: params.preferredLanguage,
     providerPriority: (id: LyricsProviderId) => getProviderById(id)?.priority ?? 99,
-    verificationScore: (candidate: ProviderLyricsCandidate) =>
-      verificationMap.get(candidate.externalId),
   }
 
-  const verifiedCandidates = verified
-    .filter((v) => passesVerification(v.verification) || !transcriptProfile)
-    .map((v) => v.candidate)
-
-  const pool = verifiedCandidates.length > 0 ? verifiedCandidates : candidates
-  const { best, alternates: rankedAlternates } = pickBestAndAlternates(pool, rankContext)
-
-  const bestVerification = best
-    ? verified.find((v) => v.candidate.externalId === best.candidate.externalId)?.verification
-    : undefined
-
-  const promoteVideoId = params.videoId
-  const shouldPromote = Boolean(
-    promoteVideoId &&
-      shouldPromoteTranscription(bestVerification, transcriptProfile, contentAssessment),
-  )
-
-  if (shouldPromote && promoteVideoId) {
-    report("Transcribing from audio…", "match")
-    attempts.push({
-      strategy: "transcription:promote",
-      provider: "transcription",
-      result: "skipped",
-      message: "Provider verification below threshold — using audio transcription",
-    })
-
-    const transcription = await fullTranscribeAsProvider({
-      videoId: promoteVideoId,
-      artist: params.artist,
-      track: params.track,
-      language: params.preferredLanguage,
-      durationSec: Math.round(params.durationSec) || undefined,
-    })
-
-    if (transcription?.candidate.plainLyrics?.trim()) {
-      if (!providersTried.includes("transcription")) providersTried.push("transcription")
-      attempts.push({
-        strategy: "transcription:primary",
-        provider: "transcription",
-        result: "found",
-        message: transcription.partial ? "Partial transcript" : "Full transcript",
-      })
-
-      const lyrics = candidateToResult(transcription.candidate)
-      const nativeLines = lyrics.plainLyrics?.split("\n").filter(Boolean) ?? []
-      const english = await resolveEnglishForNativeLines(
-        params,
-        nativeLines,
-        (phase) => report(phase, "search"),
-      )
-
-      report(
-        transcription.partial
-          ? "Transcribed partial audio — timing may drift on long tracks"
-          : "Transcribed from audio",
-        "ready",
-        { provider: "transcription" },
-      )
-
-      return successResult(
-        "transcription_primary",
-        attempts,
-        providersTried,
-        lyrics,
-        false,
-        [],
-        {
-          matchId: lyrics.id,
-          verificationScore: 1,
-          contentAssessment,
-          transcriptProfile: transcriptProfile ?? undefined,
-          english,
-          message: transcription.partial
-            ? "Transcribed partial audio — timing may drift on long tracks"
-            : "Transcribed from audio",
-        },
-      )
-    }
-
-    attempts.push({
-      strategy: "transcription:promote",
-      provider: "transcription",
-      result: "error",
-      message: "Full transcription failed after weak provider match",
-    })
-  }
-
-  const skipWeakProvider = shouldPromote
+  const { best, alternates: rankedAlternates } = pickBestAndAlternates(candidates, rankContext)
 
   if (
-    !skipWeakProvider &&
     best &&
     (best.candidate.plainLyrics?.trim() || best.candidate.syncedLyrics?.trim())
   ) {
@@ -373,23 +249,19 @@ export async function orchestrateLyricsSearch(
     const alternateOptions = rankedAlternates.map(toAlternate)
     const providerLabel = getProviderById(lyrics.providerId)?.label ?? lyrics.providerId
     const altCount = alternateOptions.length
-    const verifiedLabel =
-      bestVerification && isStrongVerification(bestVerification)
-        ? " (verified against audio)"
-        : ""
 
     report(
       altCount > 0
-        ? `Used ${providerLabel}${verifiedLabel} (${altCount} alternative${altCount === 1 ? "" : "s"} found)`
+        ? `Used ${providerLabel} (${altCount} alternative${altCount === 1 ? "" : "s"} found)`
         : synced
-          ? `Found synced lyrics${verifiedLabel}`
-          : `Found plain lyrics${verifiedLabel}`,
+          ? "Found synced lyrics"
+          : "Found plain lyrics",
       "ready",
       { provider: lyrics.providerId },
     )
 
     return successResult(
-      "parallel_ranked_verified",
+      "parallel_ranked",
       attempts,
       providersTried,
       lyrics,
@@ -398,12 +270,9 @@ export async function orchestrateLyricsSearch(
       {
         matchId: lyrics.id,
         instrumental: best.candidate.instrumental,
-        verificationScore: bestVerification?.score,
-        contentAssessment,
-        transcriptProfile: transcriptProfile ?? undefined,
         message:
           altCount > 0
-            ? `Used ${providerLabel}${verifiedLabel} (${altCount} alternative${altCount === 1 ? "" : "s"} found)`
+            ? `Used ${providerLabel} (${altCount} alternative${altCount === 1 ? "" : "s"} found)`
             : undefined,
       },
     )
@@ -413,6 +282,73 @@ export async function orchestrateLyricsSearch(
   const emptyMatch = rankedAll.find(
     (r) => !r.candidate.plainLyrics?.trim() && !r.candidate.syncedLyrics?.trim(),
   )?.candidate
+
+  const metadataHit = await tryMetadataLyricsFallback(params, attempts, providersTried, (phase) =>
+    report(phase, "search"),
+  )
+  if (metadataHit?.lyrics) {
+    report(metadataHit.synced ? "Found synced lyrics" : "Found plain lyrics", "ready", {
+      provider: metadataHit.providerId,
+    })
+    return metadataHit
+  }
+
+  if (params.videoId) {
+    report("Preparing browser transcription…", "match", { provider: "transcription" })
+    const transcription = await fullTranscribeAsProvider({
+      videoId: params.videoId,
+      artist: params.artist,
+      track: params.track,
+      language: params.preferredLanguage,
+      durationSec: Math.round(params.durationSec) || undefined,
+      onProgress: ({ message }) => report(message, "match", { provider: "transcription" }),
+    })
+    if (transcription?.candidate.plainLyrics?.trim()) {
+      if (!providersTried.includes("transcription")) providersTried.push("transcription")
+      attempts.push({
+        strategy: "transcription:browser",
+        provider: "transcription",
+        result: "found",
+        message: transcription.partial ? "Partial browser transcript" : "Browser transcript",
+      })
+      const lyrics = candidateToResult(transcription.candidate)
+      const nativeLines = lyrics.plainLyrics?.split("\n").filter(Boolean) ?? []
+      const english = await resolveEnglishForNativeLines(
+        params,
+        nativeLines,
+        (phase) => report(phase, "search"),
+      )
+      report(
+        transcription.partial
+          ? "Browser transcription partial — timing may drift"
+          : "Transcribed in browser",
+        "ready",
+        { provider: "transcription" },
+      )
+      return successResult(
+        "transcription_browser",
+        attempts,
+        providersTried,
+        lyrics,
+        false,
+        [],
+        {
+          matchId: lyrics.id,
+          verificationScore: 1,
+          english,
+          message: transcription.partial
+            ? "Browser transcription partial — timing may drift"
+            : "Transcribed in browser",
+        },
+      )
+    }
+    attempts.push({
+      strategy: "transcription:browser",
+      provider: "transcription",
+      result: "error",
+      message: "Browser transcription unavailable",
+    })
+  }
 
   if (emptyMatch) {
     report("Song found but no lyrics in database", "ready")
@@ -426,19 +362,7 @@ export async function orchestrateLyricsSearch(
       matchId: emptyMatch.externalId,
       instrumental: emptyMatch.instrumental,
       synced: false,
-      contentAssessment,
-      transcriptProfile: transcriptProfile ?? undefined,
     }
-  }
-
-  const metadataHit = await tryMetadataLyricsFallback(params, attempts, providersTried, (phase) =>
-    report(phase, "search"),
-  )
-  if (metadataHit?.lyrics) {
-    report(metadataHit.synced ? "Found synced lyrics" : "Found plain lyrics", "ready", {
-      provider: metadataHit.providerId,
-    })
-    return { ...metadataHit, contentAssessment, transcriptProfile: transcriptProfile ?? undefined }
   }
 
   const anyFound = statuses.some((s) => s.outcome === "found")
@@ -456,8 +380,6 @@ export async function orchestrateLyricsSearch(
         ? "Matches found but no lyric text available"
         : "No lyrics — you can paste or edit",
     synced: false,
-    contentAssessment,
-    transcriptProfile: transcriptProfile ?? undefined,
   }
 }
 

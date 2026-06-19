@@ -8,7 +8,7 @@ A client-side karaoke player: paste a YouTube or Spotify track link, sing along 
 - Paste Spotify track links — resolves to a matching YouTube video automatically
 - Optional **Log in with Spotify** in the header (OAuth; uses your account for track lookups)
 - Synced LRC lyrics with word-level highlight; plain-lyrics fallback
-- **Auto-transcription** when no lyrics are found — speech-to-text from YouTube audio via Cloudflare Workers AI (Whisper)
+- **Auto-transcription** when no lyrics are found — local Whisper speech-to-text in the browser
 - Bilingual mode (native / English / both) with Chrome Translator API fallback
 - Dark-first theme with light/system modes
 - Hide video (lyrics-only mode)
@@ -48,7 +48,7 @@ npm run deploy
 
 The app deploys as a Cloudflare Worker with static assets (`@cloudflare/vite-plugin`) and lyrics API routes on `/api/*`.
 
-Auto-transcription requires the Workers AI binding (`ai` in `wrangler.jsonc`) on a Cloudflare account with Workers AI enabled. Longer tracks may return partial transcripts due to Worker memory limits.
+Auto-transcription downloads a quantized Whisper Base model on first use, then caches it in the browser. WebGPU is used when available, with a slower WebAssembly fallback. Desktop browsers are recommended; longer tracks may use substantial memory.
 
 **Live URLs**
 
