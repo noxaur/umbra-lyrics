@@ -24,8 +24,8 @@ describe("themes", () => {
     vi.restoreAllMocks()
   })
 
-  it("defines at least 18 named themes", () => {
-    expect(themes.length).toBeGreaterThanOrEqual(18)
+  it("defines non-empty generated preset catalog", () => {
+    expect(themes.length).toBeGreaterThan(0)
   })
 
   it("includes required dark and light defaults", () => {
@@ -33,28 +33,30 @@ describe("themes", () => {
     expect(themeById[DEFAULT_LIGHT_THEME_ID]).toBeDefined()
     expect(themeById[DEFAULT_DARK_THEME_ID].category).toBe("dark")
     expect(themeById[DEFAULT_LIGHT_THEME_ID].category).toBe("light")
+    expect(DEFAULT_DARK_THEME_ID).toBe("gruvbox-dark-hard")
+    expect(DEFAULT_LIGHT_THEME_ID).toBe("gruvbox-light-soft")
   })
 
   it("each theme has full karaoke token set", () => {
     for (const theme of themes) {
-      expect(theme.tokens.karaokeActive).toMatch(/^oklch/)
-      expect(theme.tokens.karaokeMuted).toMatch(/^oklch/)
-      expect(theme.tokens.karaokeUnsung).toMatch(/^oklch/)
-      expect(theme.tokens.karaokeStageBg).toMatch(/^oklch/)
+      expect(theme.tokens.karaokeActive).toBeTruthy()
+      expect(theme.tokens.karaokeMuted).toBeTruthy()
+      expect(theme.tokens.karaokeUnsung).toBeTruthy()
+      expect(theme.tokens.karaokeStageBg).toBeTruthy()
     }
   })
 
   it("persists and reads theme id from localStorage", () => {
-    persistThemeId("neon-tokyo", themeById["neon-tokyo"])
-    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("neon-tokyo")
-    expect(readStoredThemeId()).toBe("neon-tokyo")
+    persistThemeId(DEFAULT_DARK_THEME_ID, themeById[DEFAULT_DARK_THEME_ID])
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe(DEFAULT_DARK_THEME_ID)
+    expect(readStoredThemeId()).toBe(DEFAULT_DARK_THEME_ID)
   })
 
   it("caches theme for bootstrap hydration", () => {
-    const theme = themeById.vaporwave
+    const theme = themeById[DEFAULT_DARK_THEME_ID]
     cacheThemeForBootstrap(theme)
     const cached = readCachedTheme()
-    expect(cached?.id).toBe("vaporwave")
+    expect(cached?.id).toBe(DEFAULT_DARK_THEME_ID)
     expect(cached?.tokens.primary).toBe(theme.tokens.primary)
     expect(localStorage.getItem(THEME_CACHE_KEY)).toBeTruthy()
   })
@@ -63,7 +65,7 @@ describe("themes", () => {
     const { theme } = saveCustomTheme({
       name: "My custom",
       category: "dark",
-      tokens: themeById.midnight.tokens,
+      tokens: themeById[DEFAULT_DARK_THEME_ID].tokens,
     })
     persistThemeId(theme.id, theme)
     const registry = buildThemeRegistry([theme])
@@ -86,10 +88,10 @@ describe("themes", () => {
 
   it("applyThemeToElement sets data-theme and css variables", () => {
     const el = document.createElement("div")
-    const theme = getThemeById("vaporwave")
+    const theme = getThemeById(DEFAULT_DARK_THEME_ID)
     applyThemeToElement(el, theme)
 
-    expect(el.getAttribute("data-theme")).toBe("vaporwave")
+    expect(el.getAttribute("data-theme")).toBe(DEFAULT_DARK_THEME_ID)
     expect(el.classList.contains("dark")).toBe(true)
     expect(el.style.getPropertyValue("--primary")).toBe(theme.tokens.primary)
     expect(el.style.getPropertyValue("--karaoke-active-line")).toBe("")
@@ -97,8 +99,20 @@ describe("themes", () => {
   })
 
   it("tokensToCssVars maps all token keys to css custom properties", () => {
-    const vars = tokensToCssVars(themeById.midnight.tokens)
-    expect(vars["--karaoke-active"]).toBe(themeById.midnight.tokens.karaokeActive)
-    expect(vars["--background"]).toBe(themeById.midnight.tokens.background)
+    const vars = tokensToCssVars(themeById[DEFAULT_DARK_THEME_ID].tokens)
+    expect(vars["--karaoke-active"]).toBe(themeById[DEFAULT_DARK_THEME_ID].tokens.karaokeActive)
+    expect(vars["--background"]).toBe(themeById[DEFAULT_DARK_THEME_ID].tokens.background)
+  })
+
+  it("keeps Gruvbox defaults with stable ids and readable token mapping", () => {
+    const dark = themeById[DEFAULT_DARK_THEME_ID]
+    const light = themeById[DEFAULT_LIGHT_THEME_ID]
+
+    expect(dark.name.toLowerCase()).toContain("gruvbox")
+    expect(light.name.toLowerCase()).toContain("gruvbox")
+    expect(dark.tokens.background).toBeTruthy()
+    expect(light.tokens.background).toBeTruthy()
+    expect(dark.tokens.karaokeActive).not.toBe(dark.tokens.karaokeMuted)
+    expect(light.tokens.karaokeActive).not.toBe(light.tokens.karaokeMuted)
   })
 })

@@ -10,13 +10,13 @@ import {
   readCustomThemes,
   saveCustomTheme,
 } from "@/lib/custom-themes"
-import { themeById } from "@/lib/themes"
+import { DEFAULT_DARK_THEME_ID, themeById } from "@/lib/themes"
 
 const sampleInput = {
   name: "Test Stage",
   description: "A test palette",
   category: "dark" as const,
-  tokens: themeById.midnight.tokens,
+  tokens: themeById[DEFAULT_DARK_THEME_ID].tokens,
 }
 
 describe("custom themes", () => {

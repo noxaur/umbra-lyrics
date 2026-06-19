@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useTheme } from "@/components/theme-provider"
 import { getCustomThemeById, inferCategory } from "@/lib/custom-themes"
-import { themeById, type ThemeTokens } from "@/lib/themes"
+import { DEFAULT_DARK_THEME_ID, themeById, type ThemeTokens } from "@/lib/themes"
 
 function cloneTokens(tokens: ThemeTokens): ThemeTokens {
   return { ...tokens }
@@ -22,7 +22,7 @@ export function ThemeBuilderPage() {
 
   const { saveCustomTheme, importCustomTheme, exportCustomTheme } = useTheme()
 
-  const basePreset = themeById.midnight
+  const basePreset = themeById[DEFAULT_DARK_THEME_ID]
 
   const existing = editId ? getCustomThemeById(editId) : undefined
 
@@ -38,9 +38,9 @@ export function ThemeBuilderPage() {
     setTokens((prev) => ({ ...prev, [key]: value }))
   }, [])
 
-  const resetToMidnight = () => {
+  const resetToBasePreset = () => {
     setTokens(cloneTokens(basePreset.tokens))
-    setStatus("Reset to Midnight palette")
+    setStatus(`Reset to ${basePreset.name} palette`)
   }
 
   const handleSave = () => {
@@ -147,9 +147,9 @@ export function ThemeBuilderPage() {
             </div>
 
             <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-              <Button type="button" variant="outline" onClick={resetToMidnight} className="gap-1.5">
+              <Button type="button" variant="outline" onClick={resetToBasePreset} className="gap-1.5">
                 <RotateCcw className="size-4" aria-hidden />
-                Reset to Midnight
+                Reset to {basePreset.name}
               </Button>
               <Button
                 type="button"
