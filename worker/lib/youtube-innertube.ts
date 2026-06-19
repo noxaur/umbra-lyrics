@@ -199,7 +199,7 @@ async function fetchPlaylistViaWatchUrl(
 }
 
 const UNVIEWABLE_PLAYLIST_MESSAGE =
-  "This mix playlist cannot be imported. Open it on YouTube and copy a standard playlist link (list=PL…)."
+  "This mix playlist cannot be imported. Open it on YouTube Music or YouTube and copy a standard playlist link (list=PL…)."
 
 async function fetchPlaylistWithClient(
   clientType: ClientType,
