@@ -265,6 +265,7 @@ export async function fetchPlaylistViaInnertube(
 
   const clientTypes = [ClientType.MUSIC, ClientType.WEB]
   let lastError: unknown
+  let lastEmpty: PlaylistImportResult | null = null
 
   for (const clientType of clientTypes) {
     try {
@@ -286,7 +287,7 @@ export async function fetchPlaylistViaInnertube(
         }
       }
 
-      return browseResult
+      lastEmpty = browseResult
     } catch (error) {
       lastError = error
     }
@@ -294,5 +295,6 @@ export async function fetchPlaylistViaInnertube(
 
   const fromRss = await fetchPlaylistViaRss(normalizedId, limit)
   if (fromRss && fromRss.items.length > 0) return fromRss
+  if (lastEmpty) return lastEmpty
   throw lastError instanceof Error ? lastError : new Error("Playlist import failed")
 }

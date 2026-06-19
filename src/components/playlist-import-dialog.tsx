@@ -13,7 +13,7 @@ import {
   type PlaylistImportResponse,
 } from "@/lib/youtube-playlist"
 import { enqueuePlaylistLyricsIndexing } from "@/lib/playlist-lyrics-indexer"
-import { extractYouTubePlaylistId } from "@/lib/youtube-url"
+import { extractYouTubePlaylistId, youTubeMusicPlaylistUrl } from "@/lib/youtube-url"
 
 type PlaylistImportDialogProps = {
   open: boolean
@@ -209,7 +209,7 @@ export function PlaylistImportDialog({
                 id={urlId}
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://music.youtube.com/playlist?list=PL..."
+                placeholder={`${youTubeMusicPlaylistUrl("PL…")}`}
                 className="mt-1.5"
                 disabled={busy}
               />

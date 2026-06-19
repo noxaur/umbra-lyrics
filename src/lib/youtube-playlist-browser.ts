@@ -161,20 +161,24 @@ export async function fetchPlaylistInBrowser(
   const sourceUrl = options?.sourceUrl?.trim()
   const clientTypes = [ClientType.MUSIC, ClientType.WEB]
   let lastError: unknown
+  let lastEmpty: PlaylistImportResponse | null = null
 
   for (const clientType of clientTypes) {
     try {
-      return await fetchPlaylistWithClient(
+      const result = await fetchPlaylistWithClient(
         clientType,
         normalizedId,
         limit,
         sourceUrl,
         options?.signal,
       )
+      if (result.items.length > 0) return result
+      lastEmpty = result
     } catch (error) {
       lastError = error
     }
   }
 
+  if (lastEmpty) return lastEmpty
   throw lastError instanceof Error ? lastError : new Error("Playlist import failed")
 }
