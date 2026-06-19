@@ -46,6 +46,15 @@
 }
 
 :root {
+  --lyrics-primary-size: clamp(1.15rem, 3.2vw, 2.25rem);
+  --lyrics-tv-primary-size: clamp(1.75rem, 4.5vw, 3.25rem);
+  --lyrics-tv-primary-lg-size: clamp(2.5rem, 6vw, 5rem);
+  --lyrics-secondary-size: 0.875rem;
+  --lyrics-secondary-tv-size: clamp(1rem, 2vw, 2rem);
+  --lyrics-section-label-size: 0.7rem;
+  --lyrics-timestamp-size: 0.6875rem;
+  --lyrics-timestamp-sm-size: 0.75rem;
+  --lyrics-placeholder-size: clamp(1.25rem, 3vw, 2.5rem);
   --radius: 0.5rem;
   --background: oklch(0.98 0.01 280);
   --foreground: oklch(0.15 0.02 280);
@@ -161,5 +170,46 @@
 
   .stage-fullscreen:fullscreen .stage-video-column {
     flex-shrink: 0;
+  }
+
+  .lyrics-primary-size {
+    font-size: var(--lyrics-primary-size);
+  }
+
+  .lyrics-tv-primary-size {
+    font-size: var(--lyrics-tv-primary-size);
+  }
+
+  @media (min-width: 1024px) {
+    .lyrics-tv-primary-lg-size {
+      font-size: var(--lyrics-tv-primary-lg-size);
+      line-height: 1.25;
+    }
+  }
+
+  .lyrics-secondary-size {
+    font-size: var(--lyrics-secondary-size);
+  }
+
+  .lyrics-secondary-tv-size {
+    font-size: var(--lyrics-secondary-tv-size);
+  }
+
+  .lyrics-section-label-size {
+    font-size: var(--lyrics-section-label-size);
+  }
+
+  .lyrics-timestamp-size {
+    font-size: var(--lyrics-timestamp-size);
+  }
+
+  @media (min-width: 640px) {
+    .lyrics-timestamp-sm-size {
+      font-size: var(--lyrics-timestamp-sm-size);
+    }
+  }
+
+  .lyrics-placeholder-size {
+    font-size: var(--lyrics-placeholder-size);
   }
 }

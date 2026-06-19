@@ -54,7 +54,7 @@ function StagePlaceholder({
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 py-10 text-center">
       <p
-        className="text-[clamp(1.25rem,3vw,2.5rem)] font-medium tracking-wide text-muted-foreground/80 motion-safe:animate-pulse motion-reduce:animate-none"
+        className="lyrics-placeholder-size font-medium tracking-wide text-muted-foreground/80 motion-safe:animate-pulse motion-reduce:animate-none"
         role="status"
       >
         {label}

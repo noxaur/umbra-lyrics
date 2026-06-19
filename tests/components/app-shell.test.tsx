@@ -36,6 +36,16 @@ describe("AppShell", () => {
     expect(playlistsLink).toHaveAttribute("href", "/playlists")
   })
 
+  it("exposes settings in the header", () => {
+    renderShell(
+      <AppShell>
+        <div>content</div>
+      </AppShell>,
+    )
+
+    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument()
+  })
+
   it("locks the viewport when requested", () => {
     renderShell(
       <AppShell viewportLock>

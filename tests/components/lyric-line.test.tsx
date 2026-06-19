@@ -63,7 +63,7 @@ describe("LyricLine", () => {
       ?.className
 
     expect(activeClass).toBe(inactiveClass)
-    expect(activeClass).toContain("clamp")
+    expect(activeClass).toContain("lyrics-primary-size")
   })
 
   it("shows LRC timestamp when enabled", () => {
