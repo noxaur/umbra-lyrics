@@ -6,7 +6,7 @@ import cutlet
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="song-kara-romaji", version="1.0.0")
+app = FastAPI(title="umbra-romaji", version="1.0.0")
 
 SYSTEMS: dict[str, str] = {
     "hepburn": "hepburn",

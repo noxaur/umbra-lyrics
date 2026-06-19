@@ -2,7 +2,7 @@ import { jsonResponse } from "../cors"
 import { decodeHtml } from "../lib/normalize"
 
 const WIKI_API = "https://lyrics.fandom.com/api.php"
-const USER_AGENT = "song-kara/1.0.0"
+const USER_AGENT = "umbra/1.0.0"
 
 export type LyricsWikiHit = {
   id: string

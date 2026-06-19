@@ -1,4 +1,4 @@
-# Accessibility & Inclusive UX Audit — song-kara
+# Accessibility & Inclusive UX Audit — umbra
 
 **Date:** 2026-06-15  
 **Standard:** WCAG 2.2 Level AA  
@@ -9,7 +9,7 @@
 
 ## Executive summary
 
-song-kara has solid foundations: `focus-visible` rings, many `aria-label`s on transport controls, `aria-invalid`/`role="alert"` on URL errors, `MotionConfig reducedMotion="user"` on lyric lines, `min-h-[44px]` targets, and `lang="en"` on `<html>`.
+umbra has solid foundations: `focus-visible` rings, many `aria-label`s on transport controls, `aria-invalid`/`role="alert"` on URL errors, `MotionConfig reducedMotion="user"` on lyric lines, `min-h-[44px]` targets, and `lang="en"` on `<html>`.
 
 **Blockers for blind/low-vision karaoke use:** no `aria-live` for active lyric, light-theme contrast failures on lyrics/warnings, and keyboard focus polluted by Motion ghost stops + YouTube iframe before app controls.
 
@@ -21,7 +21,7 @@ song-kara has solid foundations: `focus-visible` rings, many `aria-label`s on tr
 
 | # | Element | Issue |
 |---|---------|-------|
-| 1 | `song-kara` link | OK |
+| 1 | `umbra` link | OK |
 | 2 | Theme button | OK |
 | 3 | **Hidden `motion.span` (Sun icon)** | **Phantom focus — `tabindex="0"`, not visible in dark theme** |
 | 4 | `motion.span` (Moon/Music icon) | **Phantom focus — no accessible name** |
@@ -95,7 +95,7 @@ song-kara has solid foundations: `focus-visible` rings, many `aria-label`s on tr
 | 7 | **`prefers-reduced-motion`?** | **Partial** | Lyric opacity anim respects Motion reducedMotion; **`scrollIntoView({ behavior: "smooth" })` always smooth**; icon spring animations ignore preference. |
 | 8 | **Word-level karaoke fill for AT?** | **Hidden** | Progress overlay `aria-hidden`; AT hears full line text only, no "sung so far" cue. |
 | 9 | **Paste-to-navigate surprise?** | **Risk** | Immediate route change on valid paste — no confirmation; disorienting for SR users mid-form. |
-| 10 | **Document title / context?** | **Static** | `<title>` always `song-kara`; doesn't update with track — SR users lose page context on player. |
+| 10 | **Document title / context?** | **Static** | `<title>` always `umbra`; doesn't update with track — SR users lose page context on player. |
 
 **Bonus:** Recent "Clear" has no `aria-label`; header `<a href="/">` full reload vs client `Link`; player "Translate" has visible text (good) but no loading live region.
 

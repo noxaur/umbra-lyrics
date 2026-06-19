@@ -3,7 +3,7 @@ import { fetchHtml } from "./fetch"
 import { slugifyAz, slugifyForUrl } from "./html"
 import type { LrcFetchResult } from "./types"
 
-const LRCLIB_CLIENT = "song-kara/1.0.0 (https://github.com/song-kara)"
+const LRCLIB_CLIENT = "umbra/1.0.0 (https://github.com/noxaur/umbra-lyrics)"
 
 type LrclibSearchHit = {
   id: number

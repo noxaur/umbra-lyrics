@@ -1,7 +1,7 @@
 import { CORS_HEADERS } from "../cors"
 
 const MB_BASE = "https://musicbrainz.org/ws/2"
-const MB_USER_AGENT = "song-kara/1.0.0 (https://github.com/song-kara)"
+const MB_USER_AGENT = "umbra/1.0.0 (https://github.com/noxaur/umbra-lyrics)"
 
 export async function handleMusicBrainz(pathname: string, search: string): Promise<Response> {
   const suffix = pathname.slice("/api/lyrics/musicbrainz".length)

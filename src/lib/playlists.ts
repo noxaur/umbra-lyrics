@@ -1,6 +1,6 @@
 import { normalizeTrackMetadata, type TrackMetadata } from "@/lib/track-label"
 
-export const PLAYLISTS_STORAGE_KEY = "song-kara-playlists"
+export const PLAYLISTS_STORAGE_KEY = "umbra-playlists"
 export const MAX_PLAYLISTS = 20
 export const MAX_TRACKS_PER_PLAYLIST = 100
 export const PLAYLIST_ID_PREFIX = "playlist-"

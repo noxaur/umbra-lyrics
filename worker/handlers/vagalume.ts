@@ -2,7 +2,7 @@ import { jsonResponse } from "../cors"
 import { decodeHtml } from "../lib/normalize"
 
 const VAGALUME_BASE = "https://api.vagalume.com.br"
-const USER_AGENT = "song-kara/1.0.0"
+const USER_AGENT = "umbra/1.0.0"
 
 export type VagalumeHit = {
   id: string

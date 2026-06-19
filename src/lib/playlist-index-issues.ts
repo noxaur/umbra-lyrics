@@ -1,4 +1,4 @@
-const STORAGE_KEY = "song-kara-playlist-index-issues"
+const STORAGE_KEY = "umbra-playlist-index-issues"
 
 export type PlaylistIndexIssueReason = "needs_metadata" | "index_failed"
 

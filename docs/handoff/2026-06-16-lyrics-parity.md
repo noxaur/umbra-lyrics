@@ -1,7 +1,7 @@
 # Handoff: lyrics stage ↔ handoff-demo v3 parity
 
 **Date:** 2026-06-16  
-**Repo:** `noxaur/umbra-lyrics` (song-kara)  
+**Repo:** `noxaur/umbra-lyrics` (umbra)  
 **Reference:** `public/handoff-demo.html` (lyrics animation v3 — viewport center log stack)
 
 ## Objective
@@ -41,7 +41,7 @@ Depth/scroll logic (`lyric-line-visual.ts`, `lyrics-follow-scroll.ts`, `lyric-sc
 
 ## Open / follow-up
 
-- **Browser parity sign-off** on live prod (`song-kara.nox-heights.workers.dev` or `song.opsec.rent`) if not done post-merge.
+- **Browser parity sign-off** on live prod (`umbra.nox-heights.workers.dev` or `song.opsec.rent`) if not done post-merge.
 - **Light theme** — handoff is dark-only; light `--karaoke-ink` uses `oklch(0.15 0.02 280)`; no parity pass requested.
 - **TV mode** — `TV_LINE_SIZE` / `TV_STACK` unchanged; not part of handoff-demo scope.
 - Local `package-lock.json` may have unrelated `npm install` churn — do not commit unless intentional.

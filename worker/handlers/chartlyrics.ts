@@ -2,7 +2,7 @@ import { jsonResponse } from "../cors"
 import { decodeHtml, extractXmlTag } from "../lib/normalize"
 
 const CHARTLYRICS_BASE = "http://api.chartlyrics.com/apiv1.asmx"
-const USER_AGENT = "song-kara/1.0.0 (https://github.com/song-kara)"
+const USER_AGENT = "umbra/1.0.0 (https://github.com/noxaur/umbra-lyrics)"
 
 export type ChartLyricsHit = {
   id: string

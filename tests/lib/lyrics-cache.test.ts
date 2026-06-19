@@ -105,7 +105,7 @@ describe("lyrics-cache", () => {
 
   it("rejects legacy cache version", () => {
     localStorage.setItem(
-      "song-kara-lyrics:abc12345678",
+      "umbra-lyrics:abc12345678",
       JSON.stringify({ ...sampleEntry, v: 1, cachedAt: 1 }),
     )
     expect(getLyricsCache("abc12345678")).toBeNull()
@@ -113,7 +113,7 @@ describe("lyrics-cache", () => {
 
   it("still reads v5 cache entries for migration", () => {
     localStorage.setItem(
-      "song-kara-lyrics:abc12345678",
+      "umbra-lyrics:abc12345678",
       JSON.stringify({ ...sampleEntry, v: 5, cachedAt: 1 }),
     )
     const cached = getLyricsCache("abc12345678")
@@ -123,7 +123,7 @@ describe("lyrics-cache", () => {
 
   it("rejects v9 entries so plain timing results are refreshed", () => {
     localStorage.setItem(
-      "song-kara-lyrics:abc12345678",
+      "umbra-lyrics:abc12345678",
       JSON.stringify({ ...sampleEntry, v: 9, cachedAt: 1 }),
     )
 
@@ -132,14 +132,14 @@ describe("lyrics-cache", () => {
 
   it("rejects mismatched videoId in payload", () => {
     localStorage.setItem(
-      "song-kara-lyrics:abc12345678",
+      "umbra-lyrics:abc12345678",
       JSON.stringify({ ...sampleEntry, v: 2, videoId: "other", cachedAt: 1 }),
     )
     expect(getLyricsCache("abc12345678")).toBeNull()
   })
 
   it("rejects invalid or empty cache payloads", () => {
-    localStorage.setItem("song-kara-lyrics:abc12345678", "not-json")
+    localStorage.setItem("umbra-lyrics:abc12345678", "not-json")
     expect(getLyricsCache("abc12345678")).toBeNull()
 
     setLyricsCache({ ...sampleEntry, lines: [] })

@@ -1,6 +1,6 @@
 import type { SeedMetadata } from "@/lib/player-navigation"
 
-const STORAGE_KEY = "song-kara-queue-pending-metadata"
+const STORAGE_KEY = "umbra-queue-pending-metadata"
 
 export type QueuePendingMetadata = {
   videoId: string

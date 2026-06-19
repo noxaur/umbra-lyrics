@@ -1,8 +1,8 @@
 import { proxyFetch } from "@/lib/lyrics-providers/api-base"
 
-const SESSION_KEY = "song-kara:spotify-auth"
-const PKCE_KEY = "song-kara:spotify-pkce"
-const RETURN_PATH_KEY = "song-kara:spotify-return"
+const SESSION_KEY = "umbra:spotify-auth"
+const PKCE_KEY = "umbra:spotify-pkce"
+const RETURN_PATH_KEY = "umbra:spotify-return"
 const AUTH_CHANGED_EVENT = "spotify-auth-changed"
 
 export type SpotifySession = {

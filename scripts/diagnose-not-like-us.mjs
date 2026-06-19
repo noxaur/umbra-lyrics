@@ -2,7 +2,7 @@ import { chromium } from "playwright"
 import { mkdir } from "node:fs/promises"
 import path from "node:path"
 
-const BASE = process.env.DEMO_URL ?? "https://song-kara.nox-heights.workers.dev"
+const BASE = process.env.DEMO_URL ?? "https://umbra.nox-heights.workers.dev"
 const VIDEO_ID = process.env.VIDEO_ID ?? "H58vbez_m4E"
 const OUT_DIR = path.resolve(process.env.ARTIFACTS_DIR ?? "/opt/cursor/artifacts")
 
@@ -16,7 +16,7 @@ async function main() {
   await context.addInitScript(() => {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i)
-      if (key?.startsWith("song-kara-")) localStorage.removeItem(key)
+      if (key?.startsWith("umbra-")) localStorage.removeItem(key)
     }
   })
   const page = await context.newPage()

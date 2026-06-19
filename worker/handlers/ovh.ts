@@ -1,7 +1,7 @@
 import { jsonResponse } from "../cors"
 
 const OVH_BASE = "https://api.lyrics.ovh/v1"
-const USER_AGENT = "song-kara/1.0.0 (https://github.com/song-kara)"
+const USER_AGENT = "umbra/1.0.0 (https://github.com/noxaur/umbra-lyrics)"
 
 export async function handleOvhLyrics(artist: string, title: string): Promise<Response> {
   const url = `${OVH_BASE}/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs"
 
-const path = process.argv[2] ?? "dist/song_kara/wrangler.json"
+const path = process.argv[2] ?? "dist/umbra/wrangler.json"
 const config = JSON.parse(fs.readFileSync(path, "utf8"))
 delete config.routes
 if (process.env.DEPLOY_CONTAINERS !== "true") {

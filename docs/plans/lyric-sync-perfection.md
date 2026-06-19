@@ -1,6 +1,6 @@
-# Lyric Sync Perfection — Handoff from song-kara chat
+# Lyric Sync Perfection — Handoff from umbra chat
 
-**Workspace:** `/home/arch/Documents/Projects/ai/umbra-lyrics` (renamed fork of song-kara)
+**Workspace:** `/home/arch/Documents/Projects/ai/umbra-lyrics` (renamed fork of umbra)
 
 **Scope agreed:** Full karaoke-ready + forced alignment (audio-based word timing via Workers AI Whisper + tab capture).
 

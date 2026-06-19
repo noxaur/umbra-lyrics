@@ -37,7 +37,7 @@ function MobilePlayerChrome({ height = 667 }: { height?: number }) {
   return (
     <div className="flex h-dvh flex-col overflow-hidden" style={{ height }}>
       <header className="flex shrink-0 items-center border-b border-border px-4 py-3">
-        <span className="text-lg font-semibold">song-kara</span>
+        <span className="text-lg font-semibold">umbra</span>
       </header>
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

@@ -49,7 +49,7 @@ export function AppShell({
                 to="/"
                 className="text-lg font-semibold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
               >
-                song-kara
+                umbra
               </Link>
               <Link
                 to="/playlists"
@@ -73,7 +73,7 @@ export function AppShell({
               to="/"
               className="text-lg font-semibold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
             >
-              song-kara
+              umbra
             </Link>
             <Link
               to="/playlists"

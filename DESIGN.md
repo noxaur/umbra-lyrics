@@ -1,5 +1,5 @@
 ---
-name: song-kara
+name: umbra
 description: Dimmed-venue karaoke player — lyrics-first, stage-lit, product UI
 colors:
   stage-violet: "oklch(0.72 0.28 320)"
@@ -77,13 +77,13 @@ components:
     padding: "0 0.75rem"
 ---
 
-# Design System: song-kara
+# Design System: umbra
 
 ## Overview
 
 **Creative North Star: "The Dimmed Venue"**
 
-song-kara is a product UI for singing along, not a marketing site. Chrome stays quiet; the lyric stage carries the room. Surfaces read like a karaoke booth after lights-down: tinted neutrals, one violet accent, legible type at arm's length. Density is comfortable, not dashboard-dense. Motion follows the active line and playback state, never page-load theater.
+umbra is a product UI for singing along, not a marketing site. Chrome stays quiet; the lyric stage carries the room. Surfaces read like a karaoke booth after lights-down: tinted neutrals, one violet accent, legible type at arm's length. Density is comfortable, not dashboard-dense. Motion follows the active line and playback state, never page-load theater.
 
 The system rejects generic SaaS dashboards, cream marketing pages, decorative glass cards, hero metric layouts, and busy landing-page scaffolding. It is not a lyrics database admin tool.
 
