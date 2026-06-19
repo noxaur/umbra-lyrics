@@ -31,7 +31,7 @@ export function LyricsMetadataConfirm({ artist, track, onConfirm }: LyricsMetada
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto overscroll-y-contain p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-8"
+      className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-y-auto overscroll-y-contain p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-8"
       role="region"
       aria-labelledby="lyrics-metadata-confirm-title"
     >

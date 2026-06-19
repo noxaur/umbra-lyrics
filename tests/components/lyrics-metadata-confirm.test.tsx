@@ -28,4 +28,25 @@ describe("LyricsMetadataConfirm", () => {
 
     expect(screen.getByRole("button", { name: "Search lyrics" })).toBeDisabled()
   })
+
+  it("vertically centers content in the player lyrics column layout", () => {
+    const { container } = render(
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ height: 400 }}>
+        <LyricsMetadataConfirm artist="Artist" track="Track" onConfirm={vi.fn()} />
+      </div>,
+    )
+
+    const region = container.querySelector("[role='region']") as HTMLElement
+    const title = screen.getByText("Confirm song details")
+
+    expect(region).toBeTruthy()
+    expect(region.className).toContain("justify-center")
+
+    const regionRect = region.getBoundingClientRect()
+    const titleRect = title.getBoundingClientRect()
+    const offset =
+      titleRect.top + titleRect.height / 2 - (regionRect.top + regionRect.height / 2)
+
+    expect(Math.abs(offset)).toBeLessThanOrEqual(48)
+  })
 })
