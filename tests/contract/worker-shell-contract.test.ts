@@ -155,4 +155,27 @@ describe("legacy Worker shell contracts", () => {
     expect(new TextDecoder().decode(first?.value)).toBe("first")
     await reader?.cancel()
   })
+
+  it("attributes uncaught legacy Worker failures", async () => {
+    const target = createLegacyContractTarget({
+      ASSETS: {
+        fetch: async () => {
+          throw new Error("asset fixture failed")
+        },
+      },
+    })
+
+    const response = await target.request(
+      new Request("https://song.example/failing-asset", {
+        headers: { "X-Umbra-Request-Id": "legacy-error-request" },
+      }),
+    )
+
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toEqual({
+      error: "legacy_worker_error",
+      origin: "legacy",
+      requestId: "legacy-error-request",
+    })
+  })
 })

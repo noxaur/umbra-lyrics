@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
@@ -22,21 +22,27 @@ describe("prepare-wrangler-deploy.mjs", () => {
   function runPrepare(
     config: Record<string, unknown>,
     extraEnv: NodeJS.ProcessEnv = {},
+    destinationDirectory?: string,
   ) {
     const configPath = path.join(tempDir, "wrangler.json")
+    const destinationPath = destinationDirectory
+      ? path.join(tempDir, destinationDirectory, "wrangler.json")
+      : configPath
     fs.writeFileSync(configPath, JSON.stringify(config))
     const env = { ...process.env, ...extraEnv }
     delete env.STRIP_ZONE_ROUTES
     delete env.DEPLOY_CONTAINERS
     Object.assign(env, extraEnv)
-    execFileSync("node", [scriptPath, configPath], {
+    execFileSync("node", [scriptPath, configPath, destinationPath], {
       cwd: process.cwd(),
       env,
       stdio: "pipe",
     })
-    return JSON.parse(fs.readFileSync(configPath, "utf8")) as {
+    return JSON.parse(fs.readFileSync(destinationPath, "utf8")) as {
       routes?: Array<{ pattern: string }>
       containers?: unknown
+      main?: string
+      assets?: { directory?: string }
     }
   }
 
@@ -63,5 +69,20 @@ describe("prepare-wrangler-deploy.mjs", () => {
     )
 
     expect(result.routes).toBeUndefined()
+  })
+
+  it("rebases main and asset paths when writing a deploy copy", () => {
+    const result = runPrepare(
+      {
+        name: "song-kara",
+        main: "rust-worker/build/worker/shim.mjs",
+        assets: { directory: "dist/client" },
+      },
+      {},
+      "dist/rust-worker",
+    )
+
+    expect(result.main).toBe("../../rust-worker/build/worker/shim.mjs")
+    expect(result.assets?.directory).toBe("../client")
   })
 })

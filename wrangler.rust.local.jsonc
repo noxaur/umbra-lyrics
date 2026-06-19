@@ -4,14 +4,6 @@
   "main": "rust-worker/build/worker/shim.mjs",
   "compatibility_date": "2026-06-19",
   "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": true,
-  "preview_urls": false,
-  "routes": [
-    {
-      "pattern": "song.opsec.rent/*",
-      "zone_name": "opsec.rent"
-    }
-  ],
   "assets": {
     "directory": "./dist/client",
     "binding": "ASSETS",

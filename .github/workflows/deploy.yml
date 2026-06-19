@@ -19,17 +19,20 @@ jobs:
           node-version: 22
           cache: npm
 
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install worker-build
+        run: cargo install worker-build --version 0.8.5 --locked
+
       - run: npm ci
 
-      - run: npx tsc -b
+      - name: Build web app and Rust gateway
+        run: npm run build
 
-      - run: npx vp build
-
-      - name: Prepare wrangler config for production deploy
-        run: node scripts/prepare-wrangler-deploy.mjs dist/song_kara/wrangler.json
-
-      - name: Deploy Worker to song.opsec.rent
+      - name: Deploy legacy and Rust Workers
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: node scripts/deploy-wrangler.mjs dist/song_kara/wrangler.json
+        run: npm run deploy:legacy && npm run deploy:rust

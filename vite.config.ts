@@ -14,7 +14,9 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    ...(process.env.VITEST ? [] : [cloudflare()]),
+    ...(process.env.VITEST
+      ? []
+      : [cloudflare({ configPath: "./wrangler.legacy.jsonc" })]),
   ],
   resolve: {
     alias: {
