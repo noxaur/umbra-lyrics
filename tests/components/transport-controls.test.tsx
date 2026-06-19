@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react"
+import { MemoryRouter } from "react-router-dom"
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { TransportControls } from "@/components/transport-controls"
 import { usePlayerStore } from "@/stores/player-store"
@@ -7,15 +8,17 @@ const noop = () => {}
 
 function renderControls(overrides: Partial<Parameters<typeof TransportControls>[0]> = {}) {
   return render(
-    <TransportControls
-      duration={120}
-      currentTime={30}
-      isPlaying={false}
-      onPlay={noop}
-      onPause={noop}
-      onSeek={noop}
-      {...overrides}
-    />,
+    <MemoryRouter>
+      <TransportControls
+        duration={120}
+        currentTime={30}
+        isPlaying={false}
+        onPlay={noop}
+        onPause={noop}
+        onSeek={noop}
+        {...overrides}
+      />
+    </MemoryRouter>,
   )
 }
 
@@ -88,14 +91,16 @@ describe("TransportControls", () => {
 
     usePlayerStore.setState({ englishLines: [] })
     rerender(
-      <TransportControls
-        duration={120}
-        currentTime={30}
-        isPlaying={false}
-        onPlay={noop}
-        onPause={noop}
-        onSeek={noop}
-      />,
+      <MemoryRouter>
+        <TransportControls
+          duration={120}
+          currentTime={30}
+          isPlaying={false}
+          onPlay={noop}
+          onPause={noop}
+          onSeek={noop}
+        />
+      </MemoryRouter>,
     )
 
     expect(usePlayerStore.getState().displayMode).toBe("native")
@@ -132,14 +137,16 @@ describe("TransportControls", () => {
       englishSource: "translated",
     })
     rerender(
-      <TransportControls
-        duration={120}
-        currentTime={30}
-        isPlaying={false}
-        onPlay={noop}
-        onPause={noop}
-        onSeek={noop}
-      />,
+      <MemoryRouter>
+        <TransportControls
+          duration={120}
+          currentTime={30}
+          isPlaying={false}
+          onPlay={noop}
+          onPause={noop}
+          onSeek={noop}
+        />
+      </MemoryRouter>,
     )
 
     expect(usePlayerStore.getState().displayMode).toBe("both")

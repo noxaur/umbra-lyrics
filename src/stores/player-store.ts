@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { getPlaylistById, type PlaylistPlaybackContext } from "@/lib/playlists"
+import { readSongQueue, type QueuePlaybackContext } from "@/lib/song-queue"
 import type { LyricDisplayMode, LyricLine, LyricsAlternate, LyricsProviderId } from "@/types/lyrics"
 import type { LyricsOrchestratorStatus, LyricsSearchStep } from "@/lib/lyrics-orchestrator"
 import type { TranslationBackend } from "@/lib/translation-service"
@@ -59,6 +60,8 @@ type PlayerState = {
   isPlaying: boolean
   playlistContext: PlaylistPlaybackContext | null
   playlistNavigateRef: ((trackIndex: number) => void) | null
+  queueContext: QueuePlaybackContext | null
+  queueNavigateRef: ((trackIndex: number) => void) | null
   setVideoId: (id: string) => void
   setMeta: (meta: { title: string; artist: string; track: string }) => void
   setStatus: (status: PlayerStatus, error?: string | null) => void
@@ -116,6 +119,10 @@ type PlayerState = {
   bindPlaylistNavigation: (navigate: ((trackIndex: number) => void) | null) => void
   goToNextPlaylistTrack: () => void
   goToPrevPlaylistTrack: () => void
+  setQueueContext: (context: QueuePlaybackContext | null) => void
+  bindQueueNavigation: (navigate: ((trackIndex: number) => void) | null) => void
+  goToNextQueueTrack: () => void
+  goToPrevQueueTrack: () => void
 }
 
 const VIDEO_HIDDEN_KEY = "song-kara-video-hidden"
@@ -171,6 +178,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isPlaying: false,
   playlistContext: null,
   playlistNavigateRef: null,
+  queueContext: null,
+  queueNavigateRef: null,
   setVideoId: (id) => set({ videoId: id }),
   setMeta: (meta) => set(meta),
   setStatus: (status, error = null) => set({ status, error }),
@@ -289,5 +298,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (!playlistContext || !playlistNavigateRef) return
     if (playlistContext.trackIndex <= 0) return
     playlistNavigateRef(playlistContext.trackIndex - 1)
+  },
+  setQueueContext: (context) => set({ queueContext: context }),
+  bindQueueNavigation: (navigate) => set({ queueNavigateRef: navigate }),
+  goToNextQueueTrack: () => {
+    const { queueContext, queueNavigateRef } = get()
+    if (!queueContext || !queueNavigateRef) return
+    const queue = readSongQueue()
+    if (queueContext.trackIndex >= queue.length - 1) return
+    queueNavigateRef(queueContext.trackIndex + 1)
+  },
+  goToPrevQueueTrack: () => {
+    const { queueContext, queueNavigateRef } = get()
+    if (!queueContext || !queueNavigateRef) return
+    if (queueContext.trackIndex <= 0) return
+    queueNavigateRef(queueContext.trackIndex - 1)
   },
 }))

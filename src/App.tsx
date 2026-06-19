@@ -1,14 +1,16 @@
-import { lazy, Suspense } from "react"
+import { lazy, Suspense, useEffect } from "react"
 import { Routes, Route } from "react-router-dom"
 import { AppErrorBoundary } from "@/components/app-error-boundary"
 import { AppShell } from "@/components/app-shell"
 import { PlaylistIndexPrompt } from "@/components/playlist-index-prompt"
+import { QueueToastHost } from "@/components/queue-toast-host"
 import { ThemeProvider } from "@/components/theme-provider"
 import { HomePage } from "@/pages/home-page"
 import { NotFoundPage } from "@/pages/not-found-page"
 import { WatchRedirectPage } from "@/pages/watch-redirect-page"
 import { SpotifyCallbackPage } from "@/pages/spotify-callback-page"
 import { PLAY_ROUTE_ALIASES } from "@/lib/route-suggestions"
+import { resumeQueuePrefetch } from "@/lib/song-queue-worker"
 
 const PlayerPage = lazy(() =>
   import("@/pages/player-page").then((module) => ({ default: module.PlayerPage })),
@@ -42,10 +44,15 @@ function RouteLoading() {
 }
 
 export default function App() {
+  useEffect(() => {
+    resumeQueuePrefetch()
+  }, [])
+
   return (
     <ThemeProvider>
       <AppErrorBoundary>
         <PlaylistIndexPrompt />
+        <QueueToastHost />
         <Suspense fallback={<RouteLoading />}>
           <Routes>
             <Route path="/" element={<HomePage />} />
