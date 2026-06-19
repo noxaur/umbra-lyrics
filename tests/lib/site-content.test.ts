@@ -28,8 +28,11 @@ describe("site-content", () => {
     const post = getBlogPostBySlug("rust-rewrite")
     expect(post).toMatchObject({
       slug: "rust-rewrite",
-      title: "Rewriting the backend in Rust",
+      title: "Why we are rebuilding umbra around a Rust backend",
     })
+    expect(post?.blocks.some((block) => block.type === "heading")).toBe(true)
+    expect(post?.blocks.some((block) => block.type === "list")).toBe(true)
+    expect(post?.blocks.some((block) => block.type === "callout")).toBe(true)
   })
 
   it("returns undefined for unknown blog slug", () => {

@@ -2,14 +2,118 @@
   "posts": [
     {
       "slug": "rust-rewrite",
-      "title": "Rewriting the backend in Rust",
-      "summary": "Why we are moving core services off the Worker stack.",
+      "title": "Why we are rebuilding umbra around a Rust backend",
+      "summary": "The client-compute architecture made every listener repeat expensive, unreliable work. We are testing a backend that can cache, persist, and coordinate it.",
       "author": "umbra",
       "publishedAt": "2026-06-19",
-      "tags": ["engineering"],
-      "paragraphs": [
-        "We are currently rewriting the backend to Rust.",
-        "More details soon."
+      "tags": ["engineering", "rust", "architecture"],
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Umbra started with a simple rule: do as much as possible in the browser. That made the first version easy to deploy, but it also made every listener responsible for rebuilding the same result."
+        },
+        {
+          "type": "paragraph",
+          "text": "Lyrics discovery, metadata matching, translation, romanization, transcription, timing, and caching grew into a client-side pipeline with many fallbacks. It works, but it is unreliable and hard to reason about."
+        },
+        {
+          "type": "callout",
+          "title": "This is an architecture prototype",
+          "text": "Rust is not a magic performance switch. The important change is moving shared work to a backend. We are using Rust on Cloudflare Workers to test that model before designing a better second version."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "The problem with user computing"
+        },
+        {
+          "type": "paragraph",
+          "text": "Today, opening a song can trigger a fresh chain of metadata searches, lyrics requests, candidate ranking, language checks, and fallback work. Another user opening the same song may repeat nearly all of it."
+        },
+        {
+          "type": "paragraph",
+          "text": "The browser only knows what it has stored locally. Change devices, clear storage, use private browsing, or open a different browser and the work starts again."
+        },
+        {
+          "type": "paragraph",
+          "text": "That architecture prevents us from turning one successful lookup into a shared result. A popular song should become faster and more reliable as more people play it, not remain equally expensive for every listener."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Search is doing too much work"
+        },
+        {
+          "type": "paragraph",
+          "text": "YouTube search is a recurring source of frustration. A track name can resolve to a music video, live performance, cover, lyric video, remix, interview, or an unrelated result with similar metadata."
+        },
+        {
+          "type": "paragraph",
+          "text": "The client then has to decide whether the video, artist, duration, and lyrics describe the same recording. When that decision is wrong, every later fallback starts from bad information."
+        },
+        {
+          "type": "paragraph",
+          "text": "Lyrics can also take too long to appear. The current pipeline searches several sources, rejects incomplete or noisy results, and may attempt translation or transcription before it can show something useful."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "What a backend unlocks"
+        },
+        {
+          "type": "list",
+          "style": "unordered",
+          "items": [
+            "Cache a resolved song once and serve it quickly to the next listener.",
+            "Make frequently played songs faster instead of repeating the full search for every user.",
+            "Persist canonical song metadata, lyrics, timing, translations, and provenance in one place.",
+            "Share corrections and improved matches across devices and users.",
+            "Measure source failures and ranking decisions without relying on browser-only diagnostics.",
+            "Move expensive transcription and verification out of the listener's device."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Permanent storage also gives us a path toward a real song catalog. We can retain verified results, update them when a better source appears, and stop treating every playback as a completely new problem."
+        },
+        {
+          "type": "paragraph",
+          "text": "Cross-device features become possible when state is no longer trapped in local storage. Saved songs, corrections, preferences, and eventually collaborative improvements can follow a user instead of a browser profile."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Why Rust on Cloudflare Workers"
+        },
+        {
+          "type": "paragraph",
+          "text": "The prototype puts one typed pipeline at the edge: resolve metadata, query a small set of trusted lyrics sources, rank candidates, cache results, and use server-side transcription only when confidence is low."
+        },
+        {
+          "type": "paragraph",
+          "text": "Rust gives us explicit data models and failure handling for that pipeline. Cloudflare Workers keeps deployment close to the existing site and provides edge execution, storage bindings, streaming responses, and Workers AI."
+        },
+        {
+          "type": "paragraph",
+          "text": "We are deliberately not porting the current system line for line. The prototype will test whether fewer sources, clearer ranking, shared caching, and backend-owned decisions produce a simpler and more reliable product."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "What happens next"
+        },
+        {
+          "type": "paragraph",
+          "text": "The rewrite is split into small experiments: preserve the current API, add a Rust gateway, stream resolution progress, centralize metadata and lyrics selection, add caching, then test transcription and YouTube audio."
+        },
+        {
+          "type": "paragraph",
+          "text": "Some searches may remain slow or unstable while those paths are replaced. The goal of this version is to make failures visible, measure the tradeoffs, and learn what the next architecture should actually keep."
+        },
+        {
+          "type": "paragraph",
+          "text": "If the prototype works, the visible result should be straightforward: lyrics load sooner, repeated songs become cheaper and faster, and improvements made for one listener can benefit everyone."
+        }
       ]
     }
   ]

@@ -1,3 +1,24 @@
+export type BlogPostBlock =
+  | {
+      type: "paragraph"
+      text: string
+    }
+  | {
+      type: "heading"
+      level: 2 | 3
+      text: string
+    }
+  | {
+      type: "list"
+      style: "ordered" | "unordered"
+      items: string[]
+    }
+  | {
+      type: "callout"
+      title: string
+      text: string
+    }
+
 export type BlogPost = {
   slug: string
   title: string
@@ -5,7 +26,7 @@ export type BlogPost = {
   author: string
   publishedAt: string
   tags: string[]
-  paragraphs: string[]
+  blocks: BlogPostBlock[]
 }
 
 export type BlogContent = {

@@ -1,12 +1,12 @@
 {
   "alerts": [
     {
-      "id": "rust-rewrite-2026",
-      "severity": "warning",
-      "title": "Under the hood",
-      "message": "We are currently rewriting to Rust.",
+      "id": "rust-backend-prototype-2026",
+      "severity": "info",
+      "title": "Backend prototype in progress",
+      "message": "We are moving repeated lyrics work off your device so songs can load faster, be cached, and improve across users and devices.",
       "dismissible": true,
-      "link": { "href": "/blog/rust-rewrite", "label": "Learn more" }
+      "link": { "href": "/blog/rust-rewrite", "label": "Why we are rebuilding" }
     }
   ]
 }
