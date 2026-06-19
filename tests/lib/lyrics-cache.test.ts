@@ -44,6 +44,7 @@ describe("lyrics-cache", () => {
     expect(cached?.lyricsResult.id).toBe(42)
     expect(cached?.artist).toBe("Artist")
     expect(cached?.cachedAt).toBeTypeOf("number")
+    expect(cached?.v).toBe(10)
   })
 
   it("clears stale english lines when status is skipped on read", () => {
@@ -118,6 +119,15 @@ describe("lyrics-cache", () => {
     const cached = getLyricsCache("abc12345678")
     expect(cached).not.toBeNull()
     expect(cached?.v).toBe(5)
+  })
+
+  it("rejects v9 entries so plain timing results are refreshed", () => {
+    localStorage.setItem(
+      "song-kara-lyrics:abc12345678",
+      JSON.stringify({ ...sampleEntry, v: 9, cachedAt: 1 }),
+    )
+
+    expect(getLyricsCache("abc12345678")).toBeNull()
   })
 
   it("rejects mismatched videoId in payload", () => {

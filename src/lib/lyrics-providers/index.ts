@@ -145,12 +145,14 @@ export type MultiProviderSearchOptions = {
   providerIds?: LyricsProviderId[]
   timeoutMs?: number
   fallbackDelayMs?: number
+  preferredProviderGraceMs?: number
   earlyExitOnDefinitiveLrclib?: boolean
   onProviderStart?: (providerId: LyricsProviderId, phase: string) => void
   onProviderComplete?: (status: ProviderSearchStatus) => void
 }
 
 const STAGED_FALLBACK_DELAY_MS = 1_200
+const PREFERRED_PROVIDER_GRACE_MS = 15_000
 
 const FIRST_STAGE_PROVIDER_IDS = new Set<LyricsProviderId>([
   "musixmatch",
@@ -284,6 +286,8 @@ export async function searchProvidersStaged(
 
   const providersById = new Map(ALL_LYRICS_PROVIDERS.map((provider) => [provider.id, provider]))
   const fallbackDelayMs = options.fallbackDelayMs ?? STAGED_FALLBACK_DELAY_MS
+  const preferredProviderGraceMs =
+    options.preferredProviderGraceMs ?? PREFERRED_PROVIDER_GRACE_MS
   const candidates: ProviderLyricsCandidate[] = []
   const statuses: ProviderSearchStatus[] = []
 
@@ -293,8 +297,40 @@ export async function searchProvidersStaged(
   let fallbackStarted = false
   let fallbackDone = false
   let settled = false
+  let preferredProviderGraceTimer: ReturnType<typeof setTimeout> | null = null
+
+  const settle = (
+    resolve: (value: {
+      candidates: ProviderLyricsCandidate[]
+      statuses: ProviderSearchStatus[]
+    }) => void,
+  ) => {
+    if (settled) return
+    settled = true
+    if (preferredProviderGraceTimer) clearTimeout(preferredProviderGraceTimer)
+    resolve({ candidates: [...candidates], statuses: [...statuses] })
+  }
 
   return new Promise((resolve) => {
+    const startPreferredProviderGrace = () => {
+      if (
+        settled ||
+        preferredProviderGraceTimer != null ||
+        !fallbackFoundCandidates ||
+        firstPending === 0
+      ) {
+        return
+      }
+      if (preferredProviderGraceMs <= 0) {
+        settle(resolve)
+        return
+      }
+      preferredProviderGraceTimer = setTimeout(
+        () => settle(resolve),
+        preferredProviderGraceMs,
+      )
+    }
+
     const finish = () => {
       if (settled) return
 
@@ -302,19 +338,21 @@ export async function searchProvidersStaged(
         options.earlyExitOnDefinitiveLrclib !== false &&
         isDefinitiveLrclibSyncedWin(candidates, options.params)
       ) {
-        settled = true
-        resolve({ candidates: [...candidates], statuses: [...statuses] })
+        settle(resolve)
         return
       }
+
+      startPreferredProviderGrace()
 
       if (!fallbackStarted && firstPending === 0) {
         startStage(fallbackStage, "fallback")
         return
       }
 
-      if (fallbackStarted && fallbackDone && (fallbackFoundCandidates || firstPending === 0)) {
-        settled = true
-        resolve({ candidates: [...candidates], statuses: [...statuses] })
+      if (!fallbackStarted || !fallbackDone) return
+
+      if (firstPending === 0) {
+        settle(resolve)
       }
     }
 

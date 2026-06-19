@@ -199,6 +199,7 @@ describe("lyrics-providers index", () => {
       params: { track: "Song", artist: "Artist", durationSec: 200 },
       providerIds: ["lrclib", "lyrics-ovh"],
       fallbackDelayMs: 20,
+      preferredProviderGraceMs: 20,
       onProviderComplete: (status) => completed.push(status.providerId),
     })
     const elapsed = Date.now() - startedAt
@@ -206,5 +207,112 @@ describe("lyrics-providers index", () => {
     expect(candidates.some((c) => c.providerId === "lyrics-ovh")).toBe(true)
     expect(completed).toContain("lyrics-ovh")
     expect(elapsed).toBeLessThan(300)
+  })
+
+  it("waits for a preferred synced result before accepting plain fallback", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/api/lyrics/lrclib")) {
+          await new Promise((resolve) => setTimeout(resolve, 70))
+          return new Response(
+            JSON.stringify([
+              {
+                id: 1,
+                trackName: "Song",
+                artistName: "Artist",
+                duration: 200,
+                plainLyrics: "One\nTwo\nThree\nFour",
+                syncedLyrics: "[00:01.00] One\n[00:05.00] Two\n[00:10.00] Three\n[00:15.00] Four",
+              },
+            ]),
+            { status: 200 },
+          )
+        }
+        if (url.includes("/api/lyrics/ovh/")) {
+          return new Response(
+            JSON.stringify({ lyrics: "Fallback line one\nTwo\nThree\nFour" }),
+            { status: 200 },
+          )
+        }
+        return new Response("[]", { status: 200 })
+      }),
+    )
+
+    const { candidates } = await searchProvidersStaged({
+      params: { track: "Song", artist: "Artist", durationSec: 200 },
+      providerIds: ["lrclib", "lyrics-ovh"],
+      fallbackDelayMs: 0,
+      preferredProviderGraceMs: 150,
+    })
+
+    expect(candidates.some((candidate) => candidate.providerId === "lrclib" && candidate.synced))
+      .toBe(true)
+  })
+
+  it("accepts plain fallback after preferred provider grace expires", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/api/lyrics/lrclib")) {
+          await new Promise((resolve) => setTimeout(resolve, 200))
+          return new Response("[]", { status: 200 })
+        }
+        if (url.includes("/api/lyrics/ovh/")) {
+          return new Response(
+            JSON.stringify({ lyrics: "Fallback line one\nTwo\nThree\nFour" }),
+            { status: 200 },
+          )
+        }
+        return new Response("[]", { status: 200 })
+      }),
+    )
+
+    const startedAt = Date.now()
+    const { candidates } = await searchProvidersStaged({
+      params: { track: "Song", artist: "Artist", durationSec: 200 },
+      providerIds: ["lrclib", "lyrics-ovh"],
+      fallbackDelayMs: 0,
+      preferredProviderGraceMs: 40,
+    })
+    const elapsed = Date.now() - startedAt
+
+    expect(candidates.some((candidate) => candidate.providerId === "lyrics-ovh")).toBe(true)
+    expect(elapsed).toBeGreaterThanOrEqual(35)
+    expect(elapsed).toBeLessThan(150)
+  })
+
+  it("starts preferred provider grace when the first plain fallback arrives", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (
+          url.includes("/api/lyrics/lrclib") ||
+          url.includes("/api/lyrics/genius/search")
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 200))
+          return new Response("[]", { status: 200 })
+        }
+        if (url.includes("/api/lyrics/ovh/")) {
+          return new Response(
+            JSON.stringify({ lyrics: "Fallback line one\nTwo\nThree\nFour" }),
+            { status: 200 },
+          )
+        }
+        return new Response("[]", { status: 200 })
+      }),
+    )
+
+    const startedAt = Date.now()
+    const { candidates } = await searchProvidersStaged({
+      params: { track: "Song", artist: "Artist", durationSec: 200 },
+      providerIds: ["lrclib", "lyrics-ovh", "genius"],
+      fallbackDelayMs: 0,
+      preferredProviderGraceMs: 40,
+    })
+    const elapsed = Date.now() - startedAt
+
+    expect(candidates.some((candidate) => candidate.providerId === "lyrics-ovh")).toBe(true)
+    expect(elapsed).toBeLessThan(150)
   })
 })

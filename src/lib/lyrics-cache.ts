@@ -8,7 +8,7 @@ import { buildRomajiLines } from "@/lib/romaji-service"
 import { lyricsTextLooksLikeJunk } from "@/lib/sanitize-lyrics"
 
 const STORAGE_PREFIX = "song-kara-lyrics:"
-const CACHE_VERSION = 9
+const CACHE_VERSION = 10
 const CJK_RE = /[\u3040-\u30ff\u4e00-\u9fff]/
 
 export type LyricsCacheEntry = {
