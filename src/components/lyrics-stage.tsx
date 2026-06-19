@@ -52,7 +52,7 @@ function StagePlaceholder({
   detail?: string | null
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-2 py-10 text-center">
+    <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-2 py-10 text-center">
       <p
         className="lyrics-placeholder-size font-medium tracking-wide text-muted-foreground/80 motion-safe:animate-pulse motion-reduce:animate-none"
         role="status"
@@ -109,6 +109,7 @@ export function LyricsStage({
     Record<number, { distancePx: number; lineHeightPx: number }>
   >({})
   const [edgeSpacerPx, setEdgeSpacerPx] = useState(120)
+  const prevEdgeSpacerRef = useRef(120)
   const reducedMotion = useReducedMotion()
 
   const timeMs = currentTime * 1000
@@ -313,8 +314,16 @@ export function LyricsStage({
     const container = scrollRef.current
     if (!container) return
 
+    const measureLineHeightPx = () => {
+      const activeEl = activeRef.current
+      if (activeEl?.offsetHeight) return activeEl.offsetHeight
+      const firstLine = lineRefs.current.get(0)
+      if (firstLine?.offsetHeight) return firstLine.offsetHeight
+      return undefined
+    }
+
     const updateEdgeSpacer = () => {
-      setEdgeSpacerPx(stageEdgeSpacerPx(container.clientHeight))
+      setEdgeSpacerPx(stageEdgeSpacerPx(container.clientHeight, measureLineHeightPx()))
     }
     updateEdgeSpacer()
 
@@ -325,7 +334,23 @@ export function LyricsStage({
       observer.disconnect()
       window.removeEventListener("resize", updateEdgeSpacer)
     }
-  }, [lyrics.length, displayMode, tvMode])
+  }, [lyrics.length, displayMode, tvMode, activeIndex])
+
+  useEffect(() => {
+    if (prevEdgeSpacerRef.current === edgeSpacerPx) return
+    prevEdgeSpacerRef.current = edgeSpacerPx
+    if (activeIndex < 0 || lyricsFollowMode !== "follow") return
+
+    let raf1 = 0
+    let raf2 = 0
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => scrollActiveLine(true))
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [activeIndex, edgeSpacerPx, lyricsFollowMode, scrollActiveLine])
 
   useEffect(() => {
     measureCenterLineIndex()

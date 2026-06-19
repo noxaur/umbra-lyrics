@@ -1652,7 +1652,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
               />
             )}
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center overflow-hidden px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:px-6 lg:py-4">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:px-6 lg:py-4">
               {youtubeError ? (
                 <PlayerError
                   title="Video couldn't load"
