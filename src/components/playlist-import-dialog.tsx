@@ -254,10 +254,10 @@ export function PlaylistImportDialog({
             </div>
           ) : null}
 
-          {mode === "new" && step === "preview" ? (
+          {mode === "new" ? (
             <div>
               <label htmlFor={nameId} className="text-sm font-medium">
-                Playlist name
+                Playlist title
               </label>
               <Input
                 id={nameId}
@@ -268,12 +268,20 @@ export function PlaylistImportDialog({
                 maxLength={80}
                 disabled={busy}
               />
+              {step !== "preview" ? (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Optional. Leave blank to use the YouTube playlist title.
+                </p>
+              ) : null}
             </div>
           ) : null}
 
           {preview && step === "preview" ? (
             <div className="rounded-md border border-border bg-muted/20 p-3">
-              <p className="text-sm font-medium">{preview.title}</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                YouTube playlist
+              </p>
+              <p className="mt-1 text-sm font-medium">{preview.title}</p>
               <p className="mt-1 text-sm text-muted-foreground">{formatImportSummary(preview)}</p>
               <ul className="mt-3 max-h-40 space-y-1 overflow-y-auto text-sm">
                 {preview.items.slice(0, 8).map((item) => (
