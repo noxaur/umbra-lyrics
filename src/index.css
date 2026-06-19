@@ -213,4 +213,274 @@
   .lyrics-placeholder-size {
     font-size: var(--lyrics-placeholder-size);
   }
+
+  /* Spotify login button easter egg (10 rapid clicks) */
+  .spotify-easter-egg-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-index-modal);
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .spotify-easter-egg-burst-btn {
+    position: fixed;
+    top: var(--spotify-egg-y);
+    left: var(--spotify-egg-x);
+    width: var(--spotify-egg-btn-w);
+    height: var(--spotify-egg-btn-h);
+    translate: -50% -50%;
+    animation: spotify-egg-burst 520ms cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+  }
+
+  .spotify-easter-egg-explosion {
+    position: fixed;
+    top: var(--spotify-egg-y);
+    left: var(--spotify-egg-x);
+    width: 0.5rem;
+    height: 0.5rem;
+    translate: -50% -50%;
+    border-radius: 9999px;
+    background: #1db954;
+    box-shadow: 0 0 0 0 #1db95466;
+    animation: spotify-egg-flash 520ms ease-out forwards;
+  }
+
+  .spotify-easter-egg-particle {
+    position: fixed;
+    top: var(--spotify-egg-y);
+    left: var(--spotify-egg-x);
+    width: 0.45rem;
+    height: 0.45rem;
+    translate: -50% -50%;
+    border-radius: 9999px;
+    background: color-mix(in oklch, #1db954 70%, white);
+    animation: spotify-egg-particle 520ms ease-out forwards;
+    animation-delay: calc(var(--i, 0) * 12ms);
+  }
+
+  .spotify-easter-egg-particle[data-i="0"] {
+    --dx: 3.2rem;
+    --dy: -0.4rem;
+    --i: 0;
+  }
+  .spotify-easter-egg-particle[data-i="1"] {
+    --dx: 2.4rem;
+    --dy: -2rem;
+    --i: 1;
+  }
+  .spotify-easter-egg-particle[data-i="2"] {
+    --dx: 0.6rem;
+    --dy: -2.8rem;
+    --i: 2;
+  }
+  .spotify-easter-egg-particle[data-i="3"] {
+    --dx: -1.4rem;
+    --dy: -2.4rem;
+    --i: 3;
+  }
+  .spotify-easter-egg-particle[data-i="4"] {
+    --dx: -2.8rem;
+    --dy: -0.8rem;
+    --i: 4;
+  }
+  .spotify-easter-egg-particle[data-i="5"] {
+    --dx: -3rem;
+    --dy: 1.2rem;
+    --i: 5;
+  }
+  .spotify-easter-egg-particle[data-i="6"] {
+    --dx: -1.6rem;
+    --dy: 2.6rem;
+    --i: 6;
+  }
+  .spotify-easter-egg-particle[data-i="7"] {
+    --dx: 0.8rem;
+    --dy: 3rem;
+    --i: 7;
+  }
+  .spotify-easter-egg-particle[data-i="8"] {
+    --dx: 2.6rem;
+    --dy: 2rem;
+    --i: 8;
+  }
+  .spotify-easter-egg-particle[data-i="9"] {
+    --dx: 3.1rem;
+    --dy: 0.5rem;
+    --i: 9;
+  }
+
+  .spotify-angry-logo {
+    position: fixed;
+    top: var(--spotify-egg-y);
+    left: var(--spotify-egg-x);
+    translate: -50% -50%;
+    display: flex;
+    align-items: center;
+    filter: drop-shadow(0 4px 10px #00000040);
+  }
+
+  .spotify-angry-logo--enter {
+    animation: spotify-angry-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  .spotify-angry-logo--dragging {
+    animation: spotify-angry-drag 1400ms cubic-bezier(0.45, 0, 0.2, 1) forwards;
+  }
+
+  .spotify-angry-logo--exiting {
+    animation: spotify-angry-exit 900ms cubic-bezier(0.55, 0, 0.85, 0.36) forwards;
+  }
+
+  .spotify-angry-logo__rope {
+    position: absolute;
+    right: -0.35rem;
+    top: 50%;
+    width: 5.5rem;
+    height: 0.2rem;
+    translate: 0 -50%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, #2a2a2a, #5a5a5a);
+    transform-origin: left center;
+    animation: spotify-rope-wiggle 180ms ease-in-out infinite alternate;
+  }
+
+  .spotify-easter-egg-replacement-btn {
+    position: fixed;
+    top: var(--spotify-egg-y);
+    left: calc(100vw + 8rem);
+    width: var(--spotify-egg-btn-w);
+    height: var(--spotify-egg-btn-h);
+    translate: -50% -50%;
+    white-space: nowrap;
+  }
+
+  .spotify-easter-egg-overlay[data-phase="drag"] .spotify-easter-egg-replacement-btn {
+    animation: spotify-btn-drag-in 1100ms cubic-bezier(0.45, 0, 0.2, 1) 300ms forwards;
+  }
+
+  .spotify-easter-egg-overlay[data-phase="exit"] .spotify-easter-egg-replacement-btn {
+    top: var(--spotify-egg-y);
+    left: var(--spotify-egg-x);
+    translate: -50% -50%;
+  }
+
+  @keyframes spotify-egg-burst {
+    0% {
+      scale: 1;
+      opacity: 0.6;
+      rotate: 0deg;
+    }
+    35% {
+      scale: 1.08;
+      opacity: 1;
+      rotate: -2deg;
+    }
+    100% {
+      scale: 0;
+      opacity: 0;
+      rotate: 18deg;
+    }
+  }
+
+  @keyframes spotify-egg-flash {
+    0% {
+      scale: 0.2;
+      opacity: 0.9;
+      box-shadow: 0 0 0 0 #1db95488;
+    }
+    100% {
+      scale: 8;
+      opacity: 0;
+      box-shadow: 0 0 0 1.5rem #1db95400;
+    }
+  }
+
+  @keyframes spotify-egg-particle {
+    0% {
+      translate: -50% -50%;
+      opacity: 1;
+      scale: 1;
+    }
+    100% {
+      translate: calc(-50% + var(--dx)) calc(-50% + var(--dy));
+      opacity: 0;
+      scale: 0.2;
+    }
+  }
+
+  @keyframes spotify-angry-pop {
+    0% {
+      scale: 0.2;
+      rotate: -20deg;
+      opacity: 0;
+    }
+    55% {
+      scale: 1.15;
+      rotate: 6deg;
+      opacity: 1;
+    }
+    75% {
+      scale: 0.95;
+      rotate: -4deg;
+    }
+    100% {
+      scale: 1;
+      rotate: 0deg;
+      opacity: 1;
+    }
+  }
+
+  @keyframes spotify-angry-drag {
+    0% {
+      left: var(--spotify-egg-x);
+      rotate: 0deg;
+    }
+    22% {
+      left: calc(100vw + 3rem);
+      rotate: 10deg;
+    }
+    100% {
+      left: calc(var(--spotify-egg-x) - 5.5rem);
+      rotate: 0deg;
+    }
+  }
+
+  @keyframes spotify-angry-exit {
+    0% {
+      left: calc(var(--spotify-egg-x) - 5.5rem);
+      opacity: 1;
+      rotate: 0deg;
+    }
+    100% {
+      left: -5rem;
+      opacity: 0;
+      rotate: -12deg;
+    }
+  }
+
+  @keyframes spotify-btn-drag-in {
+    0% {
+      left: calc(100vw + 8rem);
+    }
+    100% {
+      left: var(--spotify-egg-x);
+    }
+  }
+
+  @keyframes spotify-rope-wiggle {
+    from {
+      rotate: -4deg;
+    }
+    to {
+      rotate: 4deg;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spotify-easter-egg-overlay * {
+      animation-duration: 1ms !important;
+      animation-delay: 0ms !important;
+    }
+  }
 }

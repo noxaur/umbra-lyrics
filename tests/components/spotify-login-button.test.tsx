@@ -59,6 +59,30 @@ describe("SpotifyLoginButton", () => {
     })
   })
 
+  it("triggers the easter egg overlay after ten clicks", () => {
+    mockUseSpotifyAuth.mockReturnValue({
+      session: null,
+      isLoggedIn: false,
+      logout: vi.fn(),
+    })
+
+    const { container } = render(<SpotifyLoginButton />)
+
+    const button = screen.getByRole("button", {
+      name: "Log in with Spotify (unavailable — click for details)",
+    })
+
+    for (let i = 0; i < 9; i += 1) {
+      fireEvent.click(button)
+    }
+    expect(container.querySelector(".spotify-easter-egg-overlay")).toBeNull()
+    const notificationsBeforeTenth = listQueueNotifications().length
+
+    fireEvent.click(button)
+    expect(container.querySelector(".spotify-easter-egg-overlay")).not.toBeNull()
+    expect(listQueueNotifications()).toHaveLength(notificationsBeforeTenth)
+  })
+
   it("shows profile and logout when logged in", () => {
     const logout = vi.fn()
     mockUseSpotifyAuth.mockReturnValue({
