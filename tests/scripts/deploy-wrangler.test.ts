@@ -36,6 +36,29 @@ describe("classifyWranglerDeployOutput", () => {
 
   it("documents the route-only failure warning", () => {
     expect(routeOnlyFailureMessage()).toContain("song.opsec.rent")
-    expect(routeOnlyFailureMessage()).toContain("::warning::")
+    expect(routeOnlyFailureMessage()).toContain("route attachment failed")
+  })
+
+  it("uses GitHub Actions warning syntax in CI", () => {
+    const previous = process.env.GITHUB_ACTIONS
+    process.env.GITHUB_ACTIONS = "true"
+    try {
+      expect(routeOnlyFailureMessage()).toMatch(/^::warning::/)
+    } finally {
+      if (previous === undefined) delete process.env.GITHUB_ACTIONS
+      else process.env.GITHUB_ACTIONS = previous
+    }
+  })
+
+  it("uses plain warning text outside CI", () => {
+    const previous = process.env.GITHUB_ACTIONS
+    delete process.env.GITHUB_ACTIONS
+    try {
+      expect(routeOnlyFailureMessage()).toMatch(/^Warning:/)
+      expect(routeOnlyFailureMessage()).not.toContain("::warning::")
+    } finally {
+      if (previous === undefined) delete process.env.GITHUB_ACTIONS
+      else process.env.GITHUB_ACTIONS = previous
+    }
   })
 })

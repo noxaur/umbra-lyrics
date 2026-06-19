@@ -14,9 +14,14 @@ export function classifyWranglerDeployOutput(status, output) {
 }
 
 export function routeOnlyFailureMessage() {
-  return (
-    "::warning::Worker deployed to workers.dev but song.opsec.rent route attachment failed. " +
+  const body =
+    "Worker deployed to workers.dev but song.opsec.rent route attachment failed. " +
     "Grant CLOUDFLARE_API_TOKEN Workers Routes:Edit and Zone:Read on opsec.rent, " +
     "or run STRIP_ZONE_ROUTES=true npm run deploy until the token is updated."
-  )
+
+  if (process.env.GITHUB_ACTIONS === "true") {
+    return `::warning::${body}`
+  }
+
+  return `Warning: ${body}`
 }
