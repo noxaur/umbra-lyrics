@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { LottieIcon } from "@/components/icons/lottie-icon"
+import { Flag, Languages, Layers2, ListMusic, MoreHorizontal, Plus, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -113,14 +113,14 @@ export function NowPlayingOverflowMenu({
             aria-label="More track actions"
             title="More actions"
           >
-            <LottieIcon name="more-horizontal" className="size-4" aria-hidden />
+            <MoreHorizontal className="size-4" aria-hidden />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           {track ? (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <LottieIcon name="list-music" className="size-4" aria-hidden />
+                <ListMusic className="size-4" aria-hidden />
                 Add to playlist
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-56">
@@ -151,7 +151,7 @@ export function NowPlayingOverflowMenu({
                     setCreateOpen(true)
                   }}
                 >
-                  <LottieIcon name="plus" className="size-4" aria-hidden />
+                  <Plus className="size-4" aria-hidden />
                   New playlist
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
@@ -165,10 +165,8 @@ export function NowPlayingOverflowMenu({
                 onRefreshLyrics()
               }}
             >
-              <LottieIcon
-                name="refresh"
-                className="size-4"
-                spin={lyricsRefreshing}
+              <RefreshCw
+                className={cn("size-4", lyricsRefreshing && "motion-safe:animate-spin")}
                 aria-hidden
               />
               {lyricsRefreshing ? "Searching for lyrics…" : "Re-search lyrics"}
@@ -181,7 +179,7 @@ export function NowPlayingOverflowMenu({
                 onReportLyrics()
               }}
             >
-              <LottieIcon name="flag" className="size-4" aria-hidden />
+              <Flag className="size-4" aria-hidden />
               Report lyrics
             </DropdownMenuItem>
           ) : null}
@@ -193,7 +191,7 @@ export function NowPlayingOverflowMenu({
                 onTranslate()
               }}
             >
-              <LottieIcon name="languages" className="size-4" aria-hidden />
+              <Languages className="size-4" aria-hidden />
               {translating ? "Translating…" : "Translate lyrics"}
             </DropdownMenuItem>
           ) : null}
@@ -201,7 +199,7 @@ export function NowPlayingOverflowMenu({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
-                <LottieIcon name="layers-2" className="size-3.5" aria-hidden />
+                <Layers2 className="size-3.5" aria-hidden />
                 Current: {sourceLabel}
               </DropdownMenuLabel>
               {lyricsAlternates.map((alt) => {

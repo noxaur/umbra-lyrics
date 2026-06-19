@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react"
-import { LottieIcon } from "@/components/icons/lottie-icon"
+import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -345,7 +345,7 @@ export function PlaylistImportDialog({
 
           {status ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              {busy ? <LottieIcon name="loader" className="size-4" spin aria-hidden /> : null}
+              {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
               {status}
             </p>
           ) : null}

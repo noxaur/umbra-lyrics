@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom"
-import { LottieIcon } from "@/components/icons/lottie-icon"
+import { ArrowLeft } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { getBlogPostBySlug } from "@/lib/site-content"
 import type { BlogPostBlock } from "@/lib/content-types"
@@ -75,7 +75,7 @@ export function BlogPostPage() {
             to="/blog"
             className="mt-4 inline-flex items-center gap-1.5 text-sm text-primary transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
           >
-            <LottieIcon name="arrow-left" className="size-4" aria-hidden />
+            <ArrowLeft className="size-4" aria-hidden />
             Back to blog
           </Link>
         </div>
@@ -90,7 +90,7 @@ export function BlogPostPage() {
           to="/blog"
           className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
         >
-          <LottieIcon name="arrow-left" className="size-4" aria-hidden />
+          <ArrowLeft className="size-4" aria-hidden />
           Back to blog
         </Link>
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { LottieIcon } from "@/components/icons/lottie-icon"
+import { Music2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -37,7 +37,7 @@ export function LyricsMetadataConfirm({ artist, track, onConfirm }: LyricsMetada
     >
       <div className="max-w-md text-center">
         <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-muted/35">
-          <LottieIcon name="music-2" className="size-8 text-muted-foreground/85" aria-hidden />
+          <Music2 className="size-8 text-muted-foreground/85" aria-hidden />
         </div>
         <p id="lyrics-metadata-confirm-title" className="font-medium text-foreground">
           Confirm song details

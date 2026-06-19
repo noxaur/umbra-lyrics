@@ -8,10 +8,11 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from "react"
-import { LottieIcon } from "@/components/icons/lottie-icon"
 import { useNavigate } from "react-router-dom"
+import { ArrowLeft, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { useSongSearch } from "@/hooks/use-song-search"
 import { parseTrackTitle } from "@/lib/parse-track-title"
 import { formatSongDuration, formatViewCount, type SongSearchHit } from "@/lib/youtube-search"
@@ -88,7 +89,7 @@ function SearchPreviewModal({ hit, label, meta, onClose }: SearchPreviewModalPro
             onClick={onClose}
             className="shrink-0"
           >
-            <LottieIcon name="arrow-left" hover className="size-4" aria-hidden />
+            <ArrowLeft className="size-4" aria-hidden />
             Back
           </Button>
           <div className="min-w-0 flex-1">
@@ -296,7 +297,7 @@ export function SongSearch() {
             role="combobox"
           />
           <Button type="submit" className="shrink-0" disabled={busy || isSearching}>
-            <LottieIcon name="search" hover />
+            <AnimatedIcon icon={Search} />
             {opening ? "Opening…" : resolving ? "Finding…" : isSearching ? "Searching…" : "Search"}
           </Button>
         </div>

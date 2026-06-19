@@ -1,5 +1,5 @@
 import { useId, useState, type KeyboardEvent } from "react"
-import { LottieIcon } from "@/components/icons/lottie-icon"
+import { Link2, ListPlus, Loader2, Plus, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useSongSearch } from "@/hooks/use-song-search"
@@ -129,7 +129,7 @@ export function QueueAddMenu({ className }: { className?: string }) {
           aria-label="Add to queue"
           title="Add to queue"
         >
-          <LottieIcon name="list-plus" className="size-3.5" aria-hidden />
+          <ListPlus className="size-3.5" aria-hidden />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
@@ -146,9 +146,9 @@ export function QueueAddMenu({ className }: { className?: string }) {
               }}
             >
               {addingCurrent ? (
-                <LottieIcon name="loader" className="size-4" spin aria-hidden />
+                <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden />
               ) : (
-                <LottieIcon name="plus" className="size-4" aria-hidden />
+                <Plus className="size-4" aria-hidden />
               )}
               Add current song
             </DropdownMenuItem>
@@ -158,7 +158,7 @@ export function QueueAddMenu({ className }: { className?: string }) {
 
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <LottieIcon name="link-2" className="size-4" aria-hidden />
+            <Link2 className="size-4" aria-hidden />
             Paste URL
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-72 p-2">
@@ -179,7 +179,7 @@ export function QueueAddMenu({ className }: { className?: string }) {
 
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <LottieIcon name="search" className="size-4" aria-hidden />
+            <Search className="size-4" aria-hidden />
             Search songs
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-80 p-2">

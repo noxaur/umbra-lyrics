@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react"
-import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Link } from "react-router-dom"
+import { AlertTriangle, Home, RotateCcw } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { Button } from "@/components/ui/button"
 
@@ -23,7 +23,7 @@ function ErrorFallback({ error, onRetry }: { error: Error | null; onRetry: () =>
 
         <div className="relative z-10 w-full max-w-md text-center" role="alert">
           <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-destructive/25 bg-destructive/10 text-destructive">
-            <LottieIcon name="alert-triangle" className="size-8" aria-hidden />
+            <AlertTriangle className="size-8" aria-hidden />
           </div>
 
           <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
@@ -36,12 +36,12 @@ function ErrorFallback({ error, onRetry }: { error: Error | null; onRetry: () =>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
             <Button variant="outline" className="gap-2" onClick={onRetry}>
-              <LottieIcon name="rotate-ccw" className="size-4" aria-hidden />
+              <RotateCcw className="size-4" aria-hidden />
               Try again
             </Button>
             <Button asChild className="gap-2">
               <Link to="/">
-                <LottieIcon name="home" className="size-4" aria-hidden />
+                <Home className="size-4" aria-hidden />
                 Back to home
               </Link>
             </Button>
