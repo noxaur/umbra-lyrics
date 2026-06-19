@@ -4,8 +4,9 @@ import { cn } from "@/lib/utils"
 import type { IconName } from "./icon-names"
 import { getIconAnimation } from "./icon-registry"
 
-/** Toggle animations that should rest on their final frame (pause, close, etc.). */
-const REST_ON_END_FRAME = new Set<IconName>(["pause", "x"])
+const TOGGLE_FRAME_ICONS = new Set<IconName>(["play", "pause"])
+/** Shared toggle animations that always rest on the final frame (close, etc.). */
+const REST_ON_END_FRAME = new Set<IconName>(["x"])
 
 type LottieIconProps = {
   name: IconName
@@ -29,15 +30,26 @@ function prefersReducedMotion(): boolean {
 function seekStaticFrame(
   lottieRef: import("lottie-react").LottieRefCurrentProps | null,
   name: IconName,
-  { spin, hover }: { spin: boolean; hover: boolean },
+  {
+    spin,
+    hover,
+    active,
+    animationData,
+  }: { spin: boolean; hover: boolean; active: boolean; animationData: object },
 ) {
   if (!lottieRef || spin) return
 
-  const totalFrames = lottieRef.getDuration(true)
+  const totalFrames =
+    lottieRef.getDuration(true) ?? (animationData as { op?: number }).op ?? 1
   if (!totalFrames || totalFrames < 1) return
 
   if (REST_ON_END_FRAME.has(name)) {
     lottieRef.goToAndStop(totalFrames - 1, true)
+    return
+  }
+
+  if (TOGGLE_FRAME_ICONS.has(name)) {
+    lottieRef.goToAndStop(active ? totalFrames - 1 : 0, true)
     return
   }
 
@@ -64,8 +76,13 @@ export function LottieIcon({
   const isDecorative = ariaLabel ? false : (ariaHidden ?? true)
 
   const syncStaticFrame = useCallback(() => {
-    seekStaticFrame(lottieRef.current, name, { spin: shouldSpin, hover: shouldHover })
-  }, [name, shouldHover, shouldSpin])
+    seekStaticFrame(lottieRef.current, name, {
+      spin: shouldSpin,
+      hover: shouldHover,
+      active,
+      animationData,
+    })
+  }, [active, animationData, name, shouldHover, shouldSpin])
 
   useEffect(() => {
     syncStaticFrame()

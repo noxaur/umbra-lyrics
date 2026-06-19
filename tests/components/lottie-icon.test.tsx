@@ -1,24 +1,30 @@
-import { describe, expect, it, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { describe, expect, it, vi, beforeEach } from "vitest"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { LottieIcon } from "@/components/icons/lottie-icon"
 
-const goToAndStop = vi.fn()
-const getDuration = vi.fn(() => 8)
-const play = vi.fn()
+const playMock = vi.fn()
+const goToAndStopMock = vi.fn()
+const getDurationMock = vi.fn(() => 8)
 
 vi.mock("lottie-react", () => ({
   default: ({
-    onDOMLoaded,
     lottieRef,
+    onDOMLoaded,
   }: {
+    lottieRef?: {
+      current: {
+        play: () => void
+        goToAndStop: (frame: number, isFrame: boolean) => void
+        getDuration: (inFrames?: boolean) => number
+      } | null
+    }
     onDOMLoaded?: () => void
-    lottieRef?: { current: unknown }
   }) => {
     if (lottieRef) {
       lottieRef.current = {
-        play,
-        goToAndStop,
-        getDuration,
+        play: playMock,
+        goToAndStop: goToAndStopMock,
+        getDuration: getDurationMock,
       }
     }
     onDOMLoaded?.()
@@ -27,20 +33,43 @@ vi.mock("lottie-react", () => ({
 }))
 
 describe("LottieIcon", () => {
+  beforeEach(() => {
+    playMock.mockReset()
+    goToAndStopMock.mockReset()
+    getDurationMock.mockReturnValue(8)
+  })
+
+  it("renders with aria-hidden by default", () => {
+    const { container } = render(<LottieIcon name="home" className="size-5" />)
+    expect(container.firstElementChild).toHaveAttribute("aria-hidden", "true")
+  })
+
   it("forwards aria-label for standalone status icons", () => {
     render(<LottieIcon name="check-circle-2" aria-label="Already indexed" />)
     expect(screen.getByRole("img", { name: "Already indexed" })).toBeInTheDocument()
   })
 
-  it("rests toggle icons on their end frame", () => {
-    goToAndStop.mockClear()
-    render(<LottieIcon name="pause" className="size-4" aria-hidden />)
-    expect(goToAndStop).toHaveBeenCalledWith(7, true)
+  it("plays on hover when hover is enabled", () => {
+    const { container } = render(<LottieIcon name="home" hover />)
+    fireEvent.mouseEnter(container.firstElementChild!)
+    expect(playMock).toHaveBeenCalledTimes(1)
   })
 
-  it("rests play icons on the first frame", () => {
-    goToAndStop.mockClear()
-    render(<LottieIcon name="play" className="size-4" aria-hidden />)
-    expect(goToAndStop).toHaveBeenCalledWith(0, true)
+  it("skips hover animation when active is true", () => {
+    const { container } = render(<LottieIcon name="play" hover active />)
+    fireEvent.mouseEnter(container.firstElementChild!)
+    expect(playMock).not.toHaveBeenCalled()
+  })
+
+  it("syncs play/pause toggle icons to the active frame", () => {
+    goToAndStopMock.mockClear()
+    render(<LottieIcon name="play" active />)
+    expect(goToAndStopMock).toHaveBeenCalledWith(7, true)
+  })
+
+  it("rests close icons on the end frame", () => {
+    goToAndStopMock.mockClear()
+    render(<LottieIcon name="x" className="size-4" aria-hidden />)
+    expect(goToAndStopMock).toHaveBeenCalledWith(7, true)
   })
 })

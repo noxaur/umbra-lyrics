@@ -102,6 +102,52 @@ function restoreCachedEnglish(
   )
 }
 
+function cachedLyricsLinesChanged(
+  cached: LyricsCacheEntry,
+  reparsed: NonNullable<ReturnType<typeof reparseCachedLyrics>>,
+): boolean {
+  if (reparsed.lines.length !== cached.lines.length) return true
+  return reparsed.lines.some((line, i) => line.startMs !== cached.lines[i]?.startMs)
+}
+
+function applyCachedLyricsTiming(
+  videoId: string,
+  durationSec: number,
+  actions: {
+    setLyrics: ReturnType<typeof usePlayerStore.getState>["setLyrics"]
+    setSyncOffset: ReturnType<typeof usePlayerStore.getState>["setSyncOffset"]
+    resetSyncOffset: ReturnType<typeof usePlayerStore.getState>["resetSyncOffset"]
+  },
+): { applied: boolean; suggestedOffsetMs?: number } {
+  const cached = getLyricsCache(videoId)
+  if (!cached || durationSec <= 0) return { applied: false }
+
+  const reparsed = reparseCachedLyrics(cached, durationSec * 1000)
+  if (!reparsed) return { applied: false }
+
+  if (reparsed.suggestedOffsetMs) actions.setSyncOffset(reparsed.suggestedOffsetMs)
+  else actions.resetSyncOffset()
+
+  if (cachedLyricsLinesChanged(cached, reparsed)) {
+    actions.setLyrics(
+      reparsed.lines,
+      reparsed.synced,
+      cached.providerId ?? cached.lyricsResult.providerId,
+      reparsed.autoTimed ?? false,
+      cached.aligned ?? false,
+    )
+    setLyricsCache({
+      ...cached,
+      lines: reparsed.lines,
+      synced: reparsed.synced,
+      autoTimed: reparsed.autoTimed,
+      parsedDurationMs: durationSec * 1000,
+    })
+  }
+
+  return { applied: true, suggestedOffsetMs: reparsed.suggestedOffsetMs }
+}
+
 /** Minimum embed size YouTube needs to start playback while visually hidden. */
 const HIDDEN_EMBED_CLASS = "w-[320px] h-[180px]"
 
@@ -143,6 +189,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const transcribeAbortRef = useRef<AbortController | null>(null)
   const alignAbortRef = useRef<AbortController | null>(null)
   const prevVideoIdRef = useRef<string | null>(null)
+  const cachedTimingAppliedRef = useRef<string | null>(null)
   const currentVideoIdRef = useRef(videoId)
   currentVideoIdRef.current = videoId
   const {
@@ -384,6 +431,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     setLyricsFollowMode("follow")
     setVideoId(videoId)
     loadedRef.current = false
+    cachedTimingAppliedRef.current = null
     oembedAuthorRef.current = null
     if (isNewVideo) {
       bumpLyricsLoadGeneration(videoId)
@@ -1395,6 +1443,25 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     location.state,
     resetLyricsSearch,
   ])
+
+  useEffect(() => {
+    if (!videoId || duration <= 0) return
+
+    const state = usePlayerStore.getState()
+    if (state.videoId !== videoId || state.lyrics.length === 0) return
+    if (!state.loadedFromCache) return
+    if (!getLyricsCache(videoId)) return
+
+    const timingKey = `${videoId}:${Math.round(duration)}`
+    if (cachedTimingAppliedRef.current === timingKey) return
+
+    const result = applyCachedLyricsTiming(videoId, duration, {
+      setLyrics,
+      setSyncOffset,
+      resetSyncOffset,
+    })
+    if (result.applied) cachedTimingAppliedRef.current = timingKey
+  }, [videoId, duration, setLyrics, setSyncOffset, resetSyncOffset])
 
   const handleRetry = useCallback(
     (artist: string, track: string, providerIds?: LyricsProviderId[]) => {
