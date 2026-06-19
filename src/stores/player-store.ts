@@ -31,6 +31,7 @@ type PlayerState = {
   lyricsAutoTimed: boolean
   lyricsAligned: boolean
   focusMode: boolean
+  stageFullscreen: boolean
   tvMode: boolean
   lyricsSource: LyricsSource
   lyricsOutcome: LyricsOrchestratorStatus | "network_error" | null
@@ -85,6 +86,7 @@ type PlayerState = {
   setVideoHidden: (hidden: boolean) => void
   setShowTimestamps: (show: boolean) => void
   setFocusMode: (on: boolean) => void
+  setStageFullscreen: (on: boolean) => void
   setTvMode: (on: boolean) => void
   resetSyncOffset: () => void
   setSyncOffset: (ms: number) => void
@@ -156,6 +158,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   videoHidden: localStorage.getItem(VIDEO_HIDDEN_KEY) === "true",
   showTimestamps: localStorage.getItem(SHOW_TIMESTAMPS_KEY) === "true",
   focusMode: localStorage.getItem(FOCUS_MODE_KEY) === "true",
+  stageFullscreen: false,
   tvMode: localStorage.getItem(TV_MODE_KEY) === "true",
   activeIndex: -1,
   wordProgress: 0,
@@ -252,6 +255,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     localStorage.setItem(FOCUS_MODE_KEY, String(on))
     set({ focusMode: on })
   },
+  setStageFullscreen: (on) => set({ stageFullscreen: on }),
   setTvMode: (on) => {
     localStorage.setItem(TV_MODE_KEY, String(on))
     set({ tvMode: on })
