@@ -140,4 +140,40 @@ describe("PlaylistLyricsImportDialog", () => {
 
     expect(screen.getByLabelText(/artist for song/i)).toHaveValue("Shared Artist")
   })
+
+  it("lets users edit artist and track without selecting the row first", async () => {
+    const { playlist } = createPlaylist("Editable metadata")
+    const track = {
+      videoId: "abc123def45",
+      title: "Wrong - Parsed",
+      artist: "Wrong Artist",
+      track: "Wrong Track",
+      addedAt: Date.now(),
+    }
+    const playlists = JSON.parse(localStorage.getItem("umbra-playlists") ?? "[]") as Array<{
+      id: string
+      tracks: typeof track[]
+    }>
+    playlists[0].tracks = [track]
+    localStorage.setItem("umbra-playlists", JSON.stringify(playlists))
+
+    render(
+      <PlaylistLyricsImportDialog
+        open
+        playlistId={playlist.id}
+        onClose={() => {}}
+      />,
+    )
+
+    const artistInput = await screen.findByLabelText(/artist for wrong - parsed/i)
+    expect(artistInput).not.toBeDisabled()
+
+    fireEvent.change(artistInput, { target: { value: "Correct Artist" } })
+    fireEvent.change(screen.getByLabelText(/track for wrong - parsed/i), {
+      target: { value: "Correct Track" },
+    })
+
+    expect(artistInput).toHaveValue("Correct Artist")
+    expect(screen.getByLabelText(/track for wrong - parsed/i)).toHaveValue("Correct Track")
+  })
 })

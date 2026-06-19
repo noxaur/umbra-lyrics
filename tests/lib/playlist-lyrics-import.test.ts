@@ -5,6 +5,7 @@ import {
 } from "@/lib/playlist-index-issues"
 import { clearPlaylists, createPlaylist } from "@/lib/playlists"
 import {
+  applyPlaylistImportRowMetadataEdit,
   commitPlaylistLyricsImportRows,
   preparePlaylistLyricsImportRows,
   rowCanImport,
@@ -290,5 +291,79 @@ describe("playlist lyrics import", () => {
         alternates: [],
       }),
     ).toBe(true)
+  })
+
+  it("uses manual artist and track for search when both are provided", async () => {
+    mockOrchestrate.mockResolvedValue({
+      status: "found",
+      strategy: "lrclib",
+      providerId: "lrclib",
+      attempts: [],
+      providersTried: ["lrclib"],
+      message: "Found",
+      synced: true,
+      lyrics: {
+        id: 1,
+        providerId: "lrclib",
+        plainLyrics: "Hello",
+        syncedLyrics: "[00:00.00]Hello",
+      },
+      alternates: [],
+    })
+
+    await scanPlaylistLyricsImportRow({
+      videoId: "abc123def45",
+      title: "Wrong - Parsed",
+      artist: "Manual Artist",
+      track: "Manual Track",
+      durationSec: 200,
+      selected: true,
+      status: "pending",
+      alternates: [],
+    })
+
+    expect(mockOrchestrate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artist: "Manual Artist",
+        track: "Manual Track",
+      }),
+    )
+  })
+
+  it("invalidates stale matches when metadata is edited", () => {
+    const alternate = {
+      providerId: "lrclib" as const,
+      id: 1,
+      synced: true,
+      lineCount: 1,
+      rankScore: 1,
+      lyricsResult: {
+        id: 1,
+        providerId: "lrclib" as const,
+        plainLyrics: "Hello",
+        syncedLyrics: null,
+      },
+    }
+
+    const next = applyPlaylistImportRowMetadataEdit(
+      {
+        videoId: "abc123def45",
+        title: "Artist - Song",
+        artist: "Old Artist",
+        track: "Old Song",
+        durationSec: 200,
+        selected: true,
+        status: "ready",
+        alternates: [alternate],
+        selectedAlternate: alternate,
+      },
+      { artist: "New Artist" },
+    )
+
+    expect(next.artist).toBe("New Artist")
+    expect(next.status).toBe("pending")
+    expect(next.selectedAlternate).toBeUndefined()
+    expect(next.alternates).toEqual([])
+    expect(next.message).toMatch(/retry auto-match/i)
   })
 })
