@@ -17,5 +17,6 @@
     "lib": "@/lib",
     "hooks": "@/hooks"
   },
-  "iconLibrary": "lucide"
+  "iconLibrary": "lucide",
+  "_comment_iconLibrary": "Icons use custom LottieIcon + src/assets/lottie — add new shadcn components with LottieIcon manually"
 }

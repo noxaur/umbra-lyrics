@@ -1,4 +1,23 @@
 import "@testing-library/jest-dom/vitest"
+import { vi } from "vitest"
+
+vi.mock("lottie-react", () => ({
+  default: () => null,
+}))
+
+Object.defineProperty(globalThis, "matchMedia", {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }),
+})
 
 const localStorageMock = (() => {
   let store: Record<string, string> = {}
