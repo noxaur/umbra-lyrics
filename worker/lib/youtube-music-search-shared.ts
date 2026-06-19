@@ -77,6 +77,54 @@ export function musicHitToSongSearchHit(hit: YouTubeMusicHit): SongSearchHit {
   }
 }
 
+export function mergeMusicBiasedSearchResults(
+  musicHits: SongSearchHit[],
+  webHits: SongSearchHit[],
+  limit: number,
+): SongSearchHit[] {
+  const seen = new Set<string>()
+  const merged: SongSearchHit[] = []
+
+  for (const hit of rankSongSearchHits(musicHits)) {
+    if (seen.has(hit.videoId)) continue
+    seen.add(hit.videoId)
+    merged.push(hit)
+    if (merged.length >= limit) return merged
+  }
+
+  for (const hit of rankSongSearchHits(webHits)) {
+    if (seen.has(hit.videoId)) continue
+    seen.add(hit.videoId)
+    merged.push(hit)
+    if (merged.length >= limit) return merged
+  }
+
+  return merged
+}
+
+async function searchMusicCatalog(
+  yt: MusicSearchInnertube,
+  query: string,
+  candidateLimit: number,
+): Promise<SongSearchHit[]> {
+  const [songSearch, videoSearch] = await Promise.all([
+    yt.music.search(query, { type: "song" }),
+    yt.music.search(query, { type: "video" }),
+  ])
+
+  const musicHits = [...collectMusicHits(songSearch), ...collectMusicHits(videoSearch)]
+  const seen = new Set<string>()
+  const mapped: SongSearchHit[] = []
+  for (const hit of musicHits) {
+    if (seen.has(hit.videoId)) continue
+    seen.add(hit.videoId)
+    mapped.push(musicHitToSongSearchHit(hit))
+    if (mapped.length >= candidateLimit) break
+  }
+
+  return mapped
+}
+
 async function searchViaWebVideos(
   yt: MusicSearchInnertube,
   query: string,
@@ -87,7 +135,7 @@ async function searchViaWebVideos(
     [...(search.videos ?? [])] as Parameters<typeof mapSearchVideos>[0],
     searchCandidateLimit(limit),
   )
-  return rankSongSearchHits(mapped).slice(0, limit)
+  return rankSongSearchHits(mapped)
 }
 
 export async function searchSongsMusicFirst(
@@ -97,27 +145,18 @@ export async function searchSongsMusicFirst(
 ): Promise<SongSearchHit[]> {
   const candidateLimit = searchCandidateLimit(limit)
 
-  try {
-    const [songSearch, videoSearch] = await Promise.all([
-      yt.music.search(query, { type: "song" }),
-      yt.music.search(query, { type: "video" }),
-    ])
+  const [musicResult, webResult] = await Promise.allSettled([
+    searchMusicCatalog(yt, query, candidateLimit),
+    searchViaWebVideos(yt, query, limit),
+  ])
 
-    const musicHits = [...collectMusicHits(songSearch), ...collectMusicHits(videoSearch)]
-    if (musicHits.length > 0) {
-      const seen = new Set<string>()
-      const mapped: SongSearchHit[] = []
-      for (const hit of musicHits) {
-        if (seen.has(hit.videoId)) continue
-        seen.add(hit.videoId)
-        mapped.push(musicHitToSongSearchHit(hit))
-        if (mapped.length >= candidateLimit) break
-      }
-      return rankSongSearchHits(mapped).slice(0, limit)
-    }
-  } catch {
-    // Fall through to regular YouTube search.
-  }
+  const musicHits = musicResult.status === "fulfilled" ? musicResult.value : []
+  const webHits = webResult.status === "fulfilled" ? webResult.value : []
 
-  return searchViaWebVideos(yt, query, limit)
+  const merged = mergeMusicBiasedSearchResults(musicHits, webHits, limit)
+  if (merged.length > 0) return merged
+
+  if (webResult.status === "rejected") throw webResult.reason
+  if (musicResult.status === "rejected") throw musicResult.reason
+  return merged
 }
