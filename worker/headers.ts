@@ -13,13 +13,33 @@ const ISOLATION_HEADERS: Record<string, string> = {
   "Cross-Origin-Embedder-Policy": "credentialless",
 }
 
-export function withSecurityHeaders(response: Response, includeIsolation = false): Response {
+/**
+ * Chromium can exempt cross-origin iframes via the iframe `credentialless` attribute.
+ * Firefox and Safari enforce document COEP without that escape hatch, which blocks YouTube.
+ */
+export function isolationHeadersForUserAgent(userAgent: string): Record<string, string> {
+  if (/\bfirefox\//i.test(userAgent)) return {}
+  if (/applewebkit/i.test(userAgent) && !/chrome|chromium|crios|edg\//i.test(userAgent)) {
+    return {}
+  }
+  return ISOLATION_HEADERS
+}
+
+export function withSecurityHeaders(
+  response: Response,
+  includeIsolation = false,
+  userAgent?: string | null,
+): Response {
   const headers = new Headers(response.headers)
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
     headers.set(key, value)
   }
   if (includeIsolation) {
-    for (const [key, value] of Object.entries(ISOLATION_HEADERS)) {
+    const isolation =
+      userAgent == null || userAgent === ""
+        ? ISOLATION_HEADERS
+        : isolationHeadersForUserAgent(userAgent)
+    for (const [key, value] of Object.entries(isolation)) {
       headers.set(key, value)
     }
   }

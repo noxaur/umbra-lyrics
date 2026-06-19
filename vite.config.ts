@@ -1,9 +1,26 @@
 /// <reference types="@voidzero-dev/vite-plus-test" />
 import path from "path"
+import type { Plugin } from "vite"
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
 import { cloudflare } from "@cloudflare/vite-plugin"
 import { defineConfig } from "vite-plus"
+import { isolationHeadersForUserAgent } from "./worker/headers"
+
+function browserAwareIsolationHeaders(): Plugin {
+  return {
+    name: "browser-aware-isolation-headers",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const userAgent = req.headers["user-agent"] ?? ""
+        for (const [key, value] of Object.entries(isolationHeadersForUserAgent(userAgent))) {
+          res.setHeader(key, value)
+        }
+        next()
+      })
+    },
+  }
+}
 
 export default defineConfig({
   lint: {
@@ -14,6 +31,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    ...(process.env.VITEST ? [] : [browserAwareIsolationHeaders()]),
     ...(process.env.VITEST
       ? []
       : [cloudflare({ configPath: "./wrangler.legacy.jsonc" })]),
@@ -25,12 +43,6 @@ export default defineConfig({
         __dirname,
         "node_modules/onnxruntime-common",
       ),
-    },
-  },
-  server: {
-    headers: {
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "credentialless",
     },
   },
   test: {

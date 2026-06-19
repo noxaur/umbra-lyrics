@@ -178,4 +178,22 @@ describe("legacy Worker shell contracts", () => {
       requestId: "legacy-error-request",
     })
   })
+
+  it("omits isolation headers for Firefox so YouTube embeds can load", async () => {
+    const assetsFetch = vi.fn(async () => new Response("<html>umbra</html>"))
+    const target = createLegacyContractTarget({
+      ASSETS: { fetch: assetsFetch },
+    })
+    const firefox =
+      "Mozilla/5.0 (X11; Linux x86_64; rv:152.0) Gecko/20100101 Firefox/152.0"
+
+    const response = await target.request(
+      new Request("https://song.example/play/dQw4w9WgXcQ", {
+        headers: { "User-Agent": firefox },
+      }),
+    )
+
+    expect(response.headers.get("Cross-Origin-Opener-Policy")).toBeNull()
+    expect(response.headers.get("Cross-Origin-Embedder-Policy")).toBeNull()
+  })
 })

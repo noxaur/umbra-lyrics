@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { httpsRedirect, karaokeWatchRedirect, withSecurityHeaders } from "../../worker/headers"
+import {
+  httpsRedirect,
+  isolationHeadersForUserAgent,
+  karaokeWatchRedirect,
+  withSecurityHeaders,
+} from "../../worker/headers"
 
 describe("worker security headers", () => {
   it("redirects http requests to https", () => {
@@ -26,6 +31,23 @@ describe("worker security headers", () => {
     const response = withSecurityHeaders(new Response("ok", { status: 200 }), true)
     expect(response.headers.get("Cross-Origin-Opener-Policy")).toBe("same-origin")
     expect(response.headers.get("Cross-Origin-Embedder-Policy")).toBe("credentialless")
+  })
+
+  it("omits isolation headers for Firefox so YouTube embeds can load", () => {
+    const firefox =
+      "Mozilla/5.0 (X11; Linux x86_64; rv:152.0) Gecko/20100101 Firefox/152.0"
+    const response = withSecurityHeaders(new Response("ok", { status: 200 }), true, firefox)
+    expect(response.headers.get("Cross-Origin-Opener-Policy")).toBeNull()
+    expect(response.headers.get("Cross-Origin-Embedder-Policy")).toBeNull()
+  })
+
+  it("keeps isolation headers for Chromium browsers", () => {
+    const chrome =
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+    expect(isolationHeadersForUserAgent(chrome)).toEqual({
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "credentialless",
+    })
   })
 })
 

@@ -46,10 +46,14 @@ export function useYouTubePlayer(videoId: string, options: UseYouTubePlayerOptio
   }, [player])
 
   useEffect(() => {
-    if (!player || !ready) return
+    if (!player) return
     const iframe = player.iframe
     if (!iframe) return
+
     iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin")
+    if ("credentialless" in iframe) {
+      iframe.setAttribute("credentialless", "")
+    }
   }, [player, ready])
 
   const play = useCallback(() => {

@@ -60,13 +60,21 @@ pub async fn fetch(request: Request, env: Env, _ctx: Context) -> Result<Response
     let decision = route_request(&uri);
     let forwarded_request = forwarded_request(&request, &request_id)?;
 
+    let user_agent = request.headers().get("User-Agent").ok().flatten();
+    let send_isolation = should_send_isolation_headers(user_agent.as_deref());
+
     match decision {
         RouteDecision::Redirect {
             location,
             include_isolation,
         } => {
             let response = Response::redirect_with_status(Url::parse(&location)?, 301)?;
-            decorate_response(response, &request_id, "rust", include_isolation)
+            decorate_response(
+                response,
+                &request_id,
+                "rust",
+                include_isolation && send_isolation,
+            )
         }
         RouteDecision::Legacy => match env.service(LEGACY_BINDING) {
             Ok(legacy) => match legacy.fetch_request(forwarded_request).await {
@@ -77,7 +85,9 @@ pub async fn fetch(request: Request, env: Env, _ctx: Context) -> Result<Response
         },
         RouteDecision::Assets => match env.assets(ASSETS_BINDING) {
             Ok(assets) => match assets.fetch_request(forwarded_request).await {
-                Ok(response) => decorate_response(response, &request_id, "rust-assets", true),
+                Ok(response) => {
+                    decorate_response(response, &request_id, "rust-assets", send_isolation)
+                }
                 Err(error) => gateway_error(&request_id, "assets_service", &error),
             },
             Err(error) => gateway_error(&request_id, "assets_binding", &error),
@@ -130,6 +140,25 @@ fn canonical_player_url(uri: &Uri, video_id: &str) -> String {
     url.set_query(None);
     url.set_fragment(None);
     url.into()
+}
+
+fn should_send_isolation_headers(user_agent: Option<&str>) -> bool {
+    let Some(user_agent) = user_agent else {
+        return true;
+    };
+    let user_agent = user_agent.to_ascii_lowercase();
+    if user_agent.contains("firefox/") {
+        return false;
+    }
+    if user_agent.contains("applewebkit")
+        && !user_agent.contains("chrome")
+        && !user_agent.contains("chromium")
+        && !user_agent.contains("crios")
+        && !user_agent.contains("edg/")
+    {
+        return false;
+    }
+    true
 }
 
 fn request_id(headers: &Headers) -> String {
