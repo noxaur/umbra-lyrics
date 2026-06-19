@@ -1,5 +1,7 @@
 import { proxyFetch } from "@/lib/lyrics-providers/api-base"
 import {
+  isSessionVariantTitle,
+  parseTrackTitle,
   parseTrackTitleCandidates,
   stripDecorativeTitle,
   stripSessionVariantSuffix,
@@ -49,6 +51,18 @@ function isApiConfirmed(metadata: ResolvedTrackMetadata): boolean {
   return metadata.source !== "parse" && metadata.source !== "oembed" && metadata.confidence >= 0.5
 }
 
+function sourceTitleForCanonicalScoring(rawTitle: string, channel?: string): string {
+  const trimmed = rawTitle.trim()
+  if (isSessionVariantTitle(trimmed)) return stripDecorativeTitle(trimmed)
+
+  const parsed = parseTrackTitle(trimmed, channel)
+  if (parsed.track) {
+    return parsed.artist ? `${parsed.artist} - ${parsed.track}` : parsed.track
+  }
+
+  return stripDecorativeTitle(trimmed)
+}
+
 async function fetchSpotifyTrackById(
   trackId: string,
   signal?: AbortSignal,
@@ -88,7 +102,10 @@ async function resolveCanonicalFromMetadata(
     best.videoId !== options.sourceVideoId &&
     options.sourceTitle?.trim()
   ) {
-    const sourceTitle = stripDecorativeTitle(options.sourceTitle.trim())
+    const sourceTitle = sourceTitleForCanonicalScoring(
+      options.sourceTitle,
+      options.sourceChannel?.trim(),
+    )
     const sourceHit: YouTubeMusicHit = {
       videoId: options.sourceVideoId,
       title: sourceTitle,

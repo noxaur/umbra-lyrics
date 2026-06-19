@@ -25,6 +25,10 @@ const TRAILING_PROMO_RE =
 const SESSION_VARIANT_TITLE_RE =
   /\b(a\.?\s*gt|piano|acoustic|guitar)\s+(?:session|ver\.?)\b/i
 
+export function isSessionVariantTitle(title: string): boolean {
+  return SESSION_VARIANT_TITLE_RE.test(title)
+}
+
 /** Strip YouTube channel suffixes from titles and author names. */
 export function stripChannelSuffix(value: string): string {
   return value
