@@ -163,7 +163,10 @@ export function PlaylistImportDialog({
         return { ...track, durationSec: item.durationSec }
       })
       if (lyricsMode === "interactive") {
-        openPlaylistLyricsImport({ playlistId })
+        openPlaylistLyricsImport({
+          playlistId,
+          videoIds: indexTracks.map((track) => track.videoId),
+        })
       } else {
         enqueuePlaylistLyricsIndexing(playlistId, indexTracks)
       }

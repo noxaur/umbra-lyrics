@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { Loader2, X } from "lucide-react"
 import { LyricsPasteModal } from "@/components/lyrics-paste-modal"
 import { PlaylistLyricsImportRowView } from "@/components/playlist-lyrics-import-row"
@@ -37,6 +37,31 @@ function updateRow(
   return rows.map((row) => (row.videoId === videoId ? { ...row, ...patch } : row))
 }
 
+function buildInitialRows(
+  playlistId: string,
+  videoIds?: string[],
+  includeCached = false,
+): PlaylistLyricsImportRow[] {
+  const playlist = getPlaylistById(playlistId)
+  if (!playlist) return []
+
+  const tracks = playlist.tracks.map(({ addedAt: _addedAt, ...track }) => track)
+  const issues = listPlaylistIndexIssues().filter((i) => i.playlistId === playlistId)
+
+  if (videoIds?.length) {
+    if (issues.some((issue) => videoIds.includes(issue.videoId))) {
+      return rowsFromIndexIssues(tracks, issues).filter((row) =>
+        videoIds.includes(row.videoId),
+      )
+    }
+    return preparePlaylistLyricsImportRows(
+      tracks.filter((track) => videoIds.includes(track.videoId)),
+    )
+  }
+
+  return preparePlaylistLyricsImportRows(tracks, { includeCached })
+}
+
 export function PlaylistLyricsImportDialog({
   open,
   playlistId,
@@ -58,26 +83,6 @@ export function PlaylistLyricsImportDialog({
   const playlist = getPlaylistById(playlistId)
   const playlistName = playlist?.name ?? "Playlist"
 
-  const initRows = useCallback(() => {
-    if (!playlist) return []
-
-    const tracks = playlist.tracks.map(({ addedAt: _addedAt, ...track }) => track)
-    const issues = listPlaylistIndexIssues().filter((i) => i.playlistId === playlistId)
-
-    if (videoIds?.length) {
-      if (issues.some((issue) => videoIds.includes(issue.videoId))) {
-        return rowsFromIndexIssues(tracks, issues).filter((row) =>
-          videoIds.includes(row.videoId),
-        )
-      }
-      return preparePlaylistLyricsImportRows(
-        tracks.filter((track) => videoIds.includes(track.videoId)),
-      )
-    }
-
-    return preparePlaylistLyricsImportRows(tracks, { includeCached })
-  }, [playlist, playlistId, videoIds, includeCached])
-
   useEffect(() => {
     if (!open) {
       scanAbortRef.current?.abort()
@@ -88,7 +93,8 @@ export function PlaylistLyricsImportDialog({
     setError(null)
     setStep("scanning")
     setBulkArtist("")
-    const initial = initRows()
+    setIncludeCached(false)
+    const initial = buildInitialRows(playlistId, videoIds)
     setRows(initial)
     setScanProgress({ done: 0, total: initial.length })
 
@@ -107,7 +113,7 @@ export function PlaylistLyricsImportDialog({
     })
 
     return () => controller.abort()
-  }, [open, initRows])
+  }, [open, playlistId, videoIds])
 
   if (!open || !playlist) return null
 

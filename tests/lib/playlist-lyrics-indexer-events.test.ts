@@ -40,10 +40,21 @@ vi.mock("@/lib/youtube-oembed", () => ({
 }))
 
 import { getLyricsCache } from "@/lib/lyrics-cache"
+import { cacheLyricsFromPipeline } from "@/lib/cache-lyrics-from-pipeline"
 import { runLyricsPipeline } from "@/lib/lyrics-pipeline"
+import type { LyricsPipelineResult } from "@/lib/lyrics-pipeline"
 
 const mockGetCache = vi.mocked(getLyricsCache)
+const mockCacheFromPipeline = vi.mocked(cacheLyricsFromPipeline)
 const mockPipeline = vi.mocked(runLyricsPipeline)
+
+function mockCacheLikeProduction(
+  _input: unknown,
+  pipeline: LyricsPipelineResult,
+): boolean {
+  const native = pipeline.native
+  return (native.status === "found" || native.status === "instrumental") && Boolean(native.lyrics)
+}
 
 describe("playlist lyrics indexer events", () => {
   beforeEach(() => {
@@ -51,6 +62,7 @@ describe("playlist lyrics indexer events", () => {
     clearPlaylistIndexIssues()
     vi.clearAllMocks()
     mockGetCache.mockReturnValue(null)
+    mockCacheFromPipeline.mockImplementation(mockCacheLikeProduction)
   })
 
   it("reports idle after indexing completes", async () => {

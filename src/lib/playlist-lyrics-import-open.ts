@@ -1,7 +1,6 @@
 type OpenPlaylistLyricsImportRequest = {
   playlistId: string
   videoIds?: string[]
-  skipScan?: boolean
 }
 
 type Listener = (request: OpenPlaylistLyricsImportRequest | null) => void

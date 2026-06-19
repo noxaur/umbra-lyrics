@@ -130,10 +130,10 @@ describe("PlaylistLyricsImportDialog", () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/bulk artist/i)).toBeInTheDocument()
+      expect(screen.getByRole("textbox", { name: "Bulk artist" })).toBeInTheDocument()
     })
 
-    fireEvent.change(screen.getByLabelText(/bulk artist/i), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Bulk artist" }), {
       target: { value: "Shared Artist" },
     })
     fireEvent.click(screen.getByRole("button", { name: /apply artist/i }))
