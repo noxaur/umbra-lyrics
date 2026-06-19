@@ -95,7 +95,7 @@ describe("SongSearch", () => {
     expect(screen.getByRole("dialog", { name: /queen · bohemian rhapsody/i })).toBeInTheDocument()
     expect(screen.getByTitle(/queen · bohemian rhapsody preview/i)).toHaveAttribute(
       "src",
-      expect.stringContaining("youtube.com/embed/dQw4w9WgXcQ"),
+      expect.stringContaining("www.youtube.com/embed/dQw4w9WgXcQ"),
     )
   })
 

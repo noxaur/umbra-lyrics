@@ -1,4 +1,5 @@
 import type { PlaylistImportItem, PlaylistImportResult } from "./youtube-innertube"
+import { youTubePlaylistRssFeedUrls } from "./youtube-endpoints"
 
 const ENTITY_RE = /&(?:#x([0-9a-fA-F]+)|([a-zA-Z]+));/g
 const ENTRY_RE = /<entry>([\s\S]*?)<\/entry>/g
@@ -65,12 +66,18 @@ export async function fetchPlaylistViaRss(
 ): Promise<PlaylistImportResult | null> {
   if (!playlistId.startsWith("PL")) return null
 
-  const res = await fetch(
-    `https://www.youtube.com/feeds/videos.xml?playlist_id=${encodeURIComponent(playlistId)}`,
-    { signal: AbortSignal.timeout(15_000) },
-  )
-  if (!res.ok) return null
+  for (const feedUrl of youTubePlaylistRssFeedUrls(playlistId)) {
+    try {
+      const res = await fetch(feedUrl, { signal: AbortSignal.timeout(15_000) })
+      if (!res.ok) continue
 
-  const xml = await res.text()
-  return parseYouTubePlaylistRss(xml, playlistId, limit)
+      const xml = await res.text()
+      const parsed = parseYouTubePlaylistRss(xml, playlistId, limit)
+      if (parsed) return parsed
+    } catch {
+      // Try the next feed URL.
+    }
+  }
+
+  return null
 }
