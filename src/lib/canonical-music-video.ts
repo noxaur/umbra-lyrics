@@ -1,5 +1,9 @@
 import { proxyFetch } from "@/lib/lyrics-providers/api-base"
-import { parseTrackTitleCandidates, stripSessionVariantSuffix } from "@/lib/parse-track-title"
+import {
+  parseTrackTitleCandidates,
+  stripDecorativeTitle,
+  stripSessionVariantSuffix,
+} from "@/lib/parse-track-title"
 import { ensureSpotifyAccessToken, spotifyAuthHeaders } from "@/lib/spotify-auth"
 import { extractSpotifyTrackId } from "@/lib/spotify-url"
 import { resolveTrackMetadata, type ResolvedTrackMetadata } from "@/lib/track-metadata-resolver"
@@ -84,9 +88,10 @@ async function resolveCanonicalFromMetadata(
     best.videoId !== options.sourceVideoId &&
     options.sourceTitle?.trim()
   ) {
+    const sourceTitle = stripDecorativeTitle(options.sourceTitle.trim())
     const sourceHit: YouTubeMusicHit = {
       videoId: options.sourceVideoId,
-      title: options.sourceTitle.trim(),
+      title: sourceTitle,
       channel: options.sourceChannel?.trim() ?? "",
       durationSec: metadata.durationSec ?? null,
       resultType: /\s-\sTopic$/i.test(options.sourceChannel ?? "") ? "song" : "video",
@@ -109,7 +114,8 @@ async function resolveCanonicalFromMetadata(
   return {
     ok: true,
     videoId: best.videoId,
-    seedMetadata: metadata,
+    seedMetadata:
+      searchTrack !== metadata.track ? { ...metadata, track: searchTrack } : metadata,
   }
 }
 

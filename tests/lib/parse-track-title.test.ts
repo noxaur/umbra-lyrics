@@ -109,10 +109,29 @@ describe("parseTrackTitle", () => {
     })
   })
 
+  it("parses Topic ver upload as base track name", () => {
+    expect(parseTrackTitle("Anytime Anywhere - A.Gt Ver.", "milet - Topic")).toEqual({
+      artist: "milet",
+      track: "Anytime Anywhere",
+    })
+  })
+
   it("parses milet corner-quote official MV title", () => {
     expect(
       parseTrackTitle(
         "milet「Anytime Anywhere」MUSIC VIDEO (TVアニメ『葬送のフリーレン』エンディングテーマ)",
+        "milet Official YouTube Channel",
+      ),
+    ).toEqual({
+      artist: "milet",
+      track: "Anytime Anywhere",
+    })
+  })
+
+  it("parses corner-quote title after a leading promo prefix", () => {
+    expect(
+      parseTrackTitle(
+        "【MV】milet「Anytime Anywhere」MUSIC VIDEO",
         "milet Official YouTube Channel",
       ),
     ).toEqual({

@@ -22,6 +22,9 @@ const TRAILING_TOPIC_RE = /\s*-\s*topic\s*$/i
 const TRAILING_PROMO_RE =
   /\s+(?:music\s+video|official\s+(?:music\s+)?video|lyrics?\s+video|lyric\s+video|audio|visualizer|mv|amv|mad)\s*$/i
 
+const SESSION_VARIANT_TITLE_RE =
+  /\b(a\.?\s*gt|piano|acoustic|guitar)\s+(?:session|ver\.?)\b/i
+
 /** Strip YouTube channel suffixes from titles and author names. */
 export function stripChannelSuffix(value: string): string {
   return value
@@ -196,15 +199,25 @@ function parseSeparatedTitle(
   return null
 }
 
+function stripLeadingPromo(title: string): string {
+  let cleaned = title.trim()
+  while (LEADING_PROMO_RE.test(cleaned)) {
+    cleaned = cleaned.replace(LEADING_PROMO_RE, "").trim()
+  }
+  return cleaned
+}
+
 /** `Artist「Track」` — common on Japanese official MV uploads. */
 function extractArtistCornerQuotedTrack(title: string): { artist: string; track: string } | null {
-  const match = title.match(/^(.+?)「([^」]+)」/)
-  if (!match?.[1]?.trim() || !match[2]?.trim()) return null
+  for (const candidate of [stripLeadingPromo(title), title]) {
+    const match = candidate.match(/^(.+?)「([^」]+)」/)
+    if (!match?.[1]?.trim() || !match[2]?.trim()) continue
 
-  const artist = simplifyTrackName(match[1].trim())
-  const track = simplifyTrackName(match[2].trim())
-  if (!artist || !track) return null
-  return { artist, track }
+    const artist = simplifyTrackName(match[1].trim())
+    const track = simplifyTrackName(match[2].trim())
+    if (artist && track) return { artist, track }
+  }
+  return null
 }
 
 export function parseTrackTitle(
@@ -215,7 +228,7 @@ export function parseTrackTitle(
   if (fromCornerQuote) return finalizeParsedPair(fromCornerQuote, oembedAuthor)
 
   const topicArtist = extractTopicChannelArtist(oembedAuthor)
-  if (topicArtist && /\b(a\.?\s*gt|piano|acoustic|guitar)\s+session\b/i.test(title)) {
+  if (topicArtist && SESSION_VARIANT_TITLE_RE.test(title)) {
     const cleaned = stripDecorativeTitle(title)
     const track = stripSessionVariantSuffix(cleaned) || simplifyTrackName(cleaned)
     if (track) return finalizeParsedPair({ artist: topicArtist, track }, oembedAuthor)

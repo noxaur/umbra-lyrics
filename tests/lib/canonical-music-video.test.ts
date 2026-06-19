@@ -188,7 +188,7 @@ describe("resolveCanonicalMusicVideo", () => {
       videoId: "OqQAFmkrzew",
       seedMetadata: {
         artist: "milet",
-        track: "Anytime Anywhere - A.Gt Session",
+        track: "Anytime Anywhere",
         durationSec: 231,
         source: "music-api",
       },
