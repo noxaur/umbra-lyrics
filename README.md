@@ -48,6 +48,8 @@ npm run deploy
 
 The app deploys as a Cloudflare Worker with static assets (`@cloudflare/vite-plugin`) and lyrics API routes on `/api/*`.
 
+**Deploy token permissions:** `CLOUDFLARE_API_TOKEN` needs **Workers Scripts:Edit** plus **Workers Routes:Edit** and **Zone:Read** on the `opsec.rent` zone so `song.opsec.rent` routes attach to the `umbra` worker. If CI fails with a zone permission error, either widen the token or run `STRIP_ZONE_ROUTES=true npm run deploy` to deploy workers.dev only, then attach the route in the Cloudflare dashboard.
+
 Auto-transcription downloads a quantized Whisper Base model on first use, then caches it in the browser. WebGPU is used when available, with a slower WebAssembly fallback. Desktop browsers are recommended; longer tracks may use substantial memory.
 
 **Live URLs**
