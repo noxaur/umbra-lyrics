@@ -106,7 +106,7 @@ export async function runLyricsPipeline(
     const sample = lyricsResultSampleText(native.lyrics)
     const language = detectLanguage(sample, languageMeta)
     const romajiT0 = performance.now()
-    romaji = buildRomajiLines(nativeLines, { language })
+    romaji = await buildRomajiLines(nativeLines, { language })
     romajiMs = Math.round(performance.now() - romajiT0)
 
     if (

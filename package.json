@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@bogdanrn/yt-embed": "^0.3.0",
+    "@cloudflare/containers": "^0.0.30",
     "@ffmpeg/core": "^0.12.6",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",

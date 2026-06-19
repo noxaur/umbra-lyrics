@@ -73,6 +73,8 @@ export function cacheLyricsFromPipeline(
     englishSource: english.status === "ready" ? english.source : null,
     translationBackend: english.translationBackend ?? null,
     englishStatus: english.status,
+    romajiLines: pipeline.romaji?.status === "ready" ? pipeline.romaji.lines : [],
+    romajiStatus: pipeline.romaji?.status ?? null,
     languageCode,
     title: input.title,
     artist: input.artist,

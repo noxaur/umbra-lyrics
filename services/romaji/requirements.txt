@@ -1,0 +1,5 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+cutlet>=0.5.0
+fugashi>=1.4.0
+unidic-lite>=1.0.8

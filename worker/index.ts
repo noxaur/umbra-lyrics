@@ -1,6 +1,8 @@
 import { handleApiRequest } from "./router"
 import { httpsRedirect, karaokeWatchRedirect, withSecurityHeaders } from "./headers"
 
+export { RomajiContainer } from "./containers/romaji-container"
+
 type Env = {
   ASSETS: { fetch: (request: Request) => Promise<Response> }
   AI?: {
@@ -8,6 +10,9 @@ type Env = {
   }
   LIBRETRANSLATE_URL?: string
   LIBRETRANSLATE_API_KEY?: string
+  ROMAJI_SERVICE_URL?: string
+  ROMAJI_SERVICE_API_KEY?: string
+  ROMAJI_CONTAINER?: import("./handlers/romaji").RomajiContainerBinding
 }
 
 export default {
