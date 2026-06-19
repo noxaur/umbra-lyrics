@@ -53,6 +53,7 @@ function isApiConfirmed(metadata: ResolvedTrackMetadata): boolean {
 
 function sourceTitleForCanonicalScoring(rawTitle: string, channel?: string): string {
   const trimmed = rawTitle.trim()
+  // Session uploads must keep their suffix so BAD_CANONICAL_RE penalizes them vs Topic audio.
   if (isSessionVariantTitle(trimmed)) return stripDecorativeTitle(trimmed)
 
   const parsed = parseTrackTitle(trimmed, channel)
