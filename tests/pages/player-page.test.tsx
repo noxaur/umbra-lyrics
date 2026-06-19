@@ -14,7 +14,6 @@ vi.mock("@/hooks/use-youtube-player", () => ({
     duration: 250,
     isPlaying: false,
     error: null,
-    playbackHint: null,
     play: vi.fn(),
     pause: vi.fn(),
     seekTo: vi.fn(),

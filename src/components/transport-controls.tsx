@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { HelpCircle, Pause, Play, RefreshCw, RotateCcw, SkipBack, SkipForward } from "lucide-react"
+import { HelpCircle, Pause, Play, RotateCcw, SkipBack, SkipForward } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { formatDuration } from "@/lib/format-time"
@@ -15,18 +15,18 @@ type TransportControlsProps = {
   duration: number
   currentTime: number
   isPlaying: boolean
-  playbackHint?: string | null
   onPlay: () => void
   onPause: () => void
   onSeek: (seconds: number) => void
   onRefreshLyrics?: () => void
 }
 
+const ICON_BTN = "size-8 min-h-8 min-w-8 shrink-0"
+
 export function TransportControls({
   duration,
   currentTime,
   isPlaying,
-  playbackHint,
   onPlay,
   onPause,
   onSeek,
@@ -46,7 +46,6 @@ export function TransportControls({
   const lyricsFollowMode = usePlayerStore((s) => s.lyricsFollowMode)
   const requestLyricsScrollSync = usePlayerStore((s) => s.requestLyricsScrollSync)
   const status = usePlayerStore((s) => s.status)
-  const videoId = usePlayerStore((s) => s.videoId)
   const playlistContext = usePlayerStore((s) => s.playlistContext)
   const goToNextPlaylistTrack = usePlayerStore((s) => s.goToNextPlaylistTrack)
   const goToPrevPlaylistTrack = usePlayerStore((s) => s.goToPrevPlaylistTrack)
@@ -113,16 +112,10 @@ export function TransportControls({
   ]
 
   return (
-    <div className="shrink-0 border-t border-border bg-card px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-      <div className="mx-auto flex max-w-3xl flex-col gap-2.5">
-        {playbackHint ? (
-          <p className="text-center text-xs text-muted-foreground" role="status">
-            {playbackHint}
-          </p>
-        ) : null}
-
-        <div className="flex items-center gap-2">
-          <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+    <div className="shrink-0 border-t border-border bg-card px-3 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+      <div className="mx-auto flex max-w-3xl flex-col gap-1">
+        <div className="flex items-center gap-1.5">
+          <span className="w-9 shrink-0 text-right text-[0.6875rem] tabular-nums text-muted-foreground">
             {formatDuration(currentTime)}
           </span>
           <input
@@ -132,33 +125,33 @@ export function TransportControls({
             step={0.1}
             value={currentTime}
             onChange={(e) => onSeek(Number(e.target.value))}
-            className="min-h-[44px] flex-1 accent-primary"
+            className="h-4 min-h-8 flex-1 accent-primary"
             aria-label="Seek"
           />
-          <span className="w-10 shrink-0 text-xs tabular-nums text-muted-foreground">
+          <span className="w-9 shrink-0 text-[0.6875rem] tabular-nums text-muted-foreground">
             {formatDuration(duration)}
           </span>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="flex items-center justify-center gap-2 sm:justify-start">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+          <div className="flex items-center gap-1">
             {playlistContext ? (
               <Button
                 variant="outline"
                 size="icon"
-                className="size-9 rounded-full"
+                className={`${ICON_BTN} rounded-full`}
                 onClick={goToPrevPlaylistTrack}
                 disabled={!hasPrevTrack}
                 aria-label="Previous track in playlist"
                 title="Previous track (Shift+←)"
               >
-                <SkipBack className="size-4" aria-hidden />
+                <SkipBack className="size-3.5" aria-hidden />
               </Button>
             ) : null}
             <Button
               variant="default"
               size="icon"
-              className="size-11 rounded-full"
+              className="size-9 min-h-9 min-w-9 shrink-0 rounded-full"
               onClick={isPlaying ? onPause : onPlay}
               aria-label={isPlaying ? "Pause" : "Play"}
             >
@@ -168,13 +161,13 @@ export function TransportControls({
               <Button
                 variant="outline"
                 size="icon"
-                className="size-9 rounded-full"
+                className={`${ICON_BTN} rounded-full`}
                 onClick={goToNextPlaylistTrack}
                 disabled={!hasNextTrack}
                 aria-label="Next track in playlist"
                 title="Next track (Shift+→)"
               >
-                <SkipForward className="size-4" aria-hidden />
+                <SkipForward className="size-3.5" aria-hidden />
               </Button>
             ) : null}
 
@@ -182,10 +175,10 @@ export function TransportControls({
               <Button
                 variant="secondary"
                 size="sm"
-                className="h-9 sm:hidden"
+                className="h-8 min-h-8 px-2 text-[0.6875rem] sm:hidden"
                 onClick={() => requestLyricsScrollSync()}
               >
-                Sync lyrics
+                Sync
               </Button>
             ) : null}
 
@@ -193,7 +186,7 @@ export function TransportControls({
               <select
                 value={displayMode}
                 onChange={(e) => setDisplayMode(e.target.value as LyricDisplayMode)}
-                className="h-9 rounded-md border border-input bg-background px-2 text-xs"
+                className="h-8 max-w-[6.5rem] min-h-8 truncate rounded-md border border-input bg-background px-1.5 text-[0.6875rem]"
                 aria-label="Lyric display mode"
                 aria-describedby={!hasEnglish ? "bilingual-helper" : undefined}
               >
@@ -206,82 +199,67 @@ export function TransportControls({
             )}
           </div>
 
-          <fieldset
-            className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg border border-border/70 bg-muted/20 px-2 py-1.5 sm:px-3"
+          <div
+            className="flex min-w-[11rem] flex-1 items-center gap-0.5 border-l border-border/60 pl-1.5 sm:min-w-[14rem]"
+            role="group"
             aria-labelledby="lyrics-timing-label"
           >
-            <legend
-              id="lyrics-timing-label"
-              className="px-1 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground"
-            >
+            <span id="lyrics-timing-label" className="sr-only">
               Lyrics timing
-            </legend>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 shrink-0 px-1.5 text-xs"
-                onClick={() => adjustOffset(-500)}
-                aria-label="Lyrics 0.5 seconds earlier"
-              >
-                −0.5s
-              </Button>
-              <input
-                type="range"
-                min={-5000}
-                max={5000}
-                step={100}
-                value={syncOffsetMs}
-                onChange={(e) => setSyncOffset(Number(e.target.value))}
-                className="min-h-[36px] flex-1 accent-primary"
-                aria-label={`Lyrics timing offset ${(syncOffsetMs / 1000).toFixed(1)} seconds`}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 shrink-0 px-1.5 text-xs"
-                onClick={() => adjustOffset(500)}
-                aria-label="Lyrics 0.5 seconds later"
-              >
-                +0.5s
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8 shrink-0"
-                onClick={resetSyncOffset}
-                aria-label="Reset lyrics timing"
-                title="Reset timing"
-              >
-                <RotateCcw className="size-3.5" />
-              </Button>
-            </div>
-            <span className="text-center text-[0.65rem] tabular-nums text-muted-foreground">
-              {(syncOffsetMs / 1000).toFixed(1)}s offset
             </span>
-          </fieldset>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 min-h-7 shrink-0 px-1 text-[0.625rem]"
+              onClick={() => adjustOffset(-500)}
+              aria-label="Lyrics 0.5 seconds earlier"
+              title="Lyrics 0.5 seconds earlier"
+            >
+              −0.5s
+            </Button>
+            <input
+              type="range"
+              min={-5000}
+              max={5000}
+              step={100}
+              value={syncOffsetMs}
+              onChange={(e) => setSyncOffset(Number(e.target.value))}
+              className="h-4 min-h-7 flex-1 accent-primary"
+              aria-label={`Lyrics timing offset ${(syncOffsetMs / 1000).toFixed(1)} seconds`}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 min-h-7 shrink-0 px-1 text-[0.625rem]"
+              onClick={() => adjustOffset(500)}
+              aria-label="Lyrics 0.5 seconds later"
+              title="Lyrics 0.5 seconds later"
+            >
+              +0.5s
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 min-h-7 min-w-7 shrink-0"
+              onClick={resetSyncOffset}
+              aria-label="Reset lyrics timing"
+              title="Reset timing"
+            >
+              <RotateCcw className="size-3" aria-hidden />
+            </Button>
+            <span
+              className="w-8 shrink-0 text-right text-[0.625rem] tabular-nums text-muted-foreground"
+              title="Lyrics timing offset"
+            >
+              {(syncOffsetMs / 1000).toFixed(1)}s
+            </span>
+          </div>
 
-          <div className="flex items-center justify-center gap-1.5 sm:justify-end">
-            {onRefreshLyrics && videoId ? (
-              <Button
-                variant="outline"
-                size="icon"
-                className="size-9 shrink-0"
-                onClick={onRefreshLyrics}
-                disabled={lyricsRefreshing || duration <= 0}
-                aria-label={lyricsRefreshing ? "Searching for lyrics" : "Re-search lyrics"}
-                title="Re-parse title, search providers, and verify against audio"
-              >
-                <RefreshCw
-                  className={`size-4 ${lyricsRefreshing ? "motion-safe:animate-spin" : ""}`}
-                  aria-hidden
-                />
-              </Button>
-            ) : null}
+          <div className="ml-auto flex items-center gap-0.5">
             <PlayerViewMenu onRefreshLyrics={onRefreshLyrics} lyricsRefreshing={lyricsRefreshing} />
             <ShortcutsHelp>
-              <Button variant="ghost" size="icon" className="size-9" aria-label="Keyboard shortcuts">
-                <HelpCircle className="size-4" />
+              <Button variant="ghost" size="icon" className={ICON_BTN} aria-label="Keyboard shortcuts">
+                <HelpCircle className="size-3.5" />
               </Button>
             </ShortcutsHelp>
             <MkvExportButton durationSec={duration} />
@@ -289,7 +267,7 @@ export function TransportControls({
         </div>
 
         {!hasEnglish && !isEnglish(languageCode) && (
-          <span id="bilingual-helper" className="text-center text-xs text-muted-foreground">
+          <span id="bilingual-helper" className="text-center text-[0.625rem] text-muted-foreground">
             {englishLoading
               ? "Fetching English lyrics…"
               : englishFailed

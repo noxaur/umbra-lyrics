@@ -67,7 +67,13 @@ export function AddToPlaylistMenu({
     <>
       <DropdownMenu onOpenChange={(open) => open && refresh()}>
         <DropdownMenuTrigger asChild>
-          <Button variant={variant} size={size} className={cn("gap-1.5", className)}>
+          <Button
+            variant={variant}
+            size={size}
+            className={cn("gap-1.5", className)}
+            aria-label={size === "icon" ? "Add to playlist" : undefined}
+            title={size === "icon" ? "Add to playlist" : undefined}
+          >
             <ListMusic className="size-4" aria-hidden />
             {size !== "icon" ? <span>Add to playlist</span> : null}
           </Button>

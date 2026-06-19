@@ -142,7 +142,6 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     duration,
     isPlaying,
     error: youtubeError,
-    playbackHint,
     play,
     pause,
     seekTo,
@@ -511,7 +510,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       const language = detectLanguage(sample || parsed.lines.map((l) => l.text).join("\n"), languageMeta)
       const romaji =
         preResolvedRomaji ??
-        buildRomajiLines(parsed.lines.map((line) => line.text), { language })
+        (await buildRomajiLines(parsed.lines.map((line) => line.text), { language }))
       setRomajiLines(romaji.lines, romaji.status)
       addRecentSong({
         videoId,
@@ -1488,7 +1487,6 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
                 yt:{ready ? "ready" : "loading"} · {isPlaying ? "playing" : "paused"} ·{" "}
                 {currentTime.toFixed(1)}/{duration.toFixed(1)}s · vid:
                 {videoHidden ? "hidden" : "shown"}
-                {playbackHint ? ` · ${playbackHint}` : ""}
               </span>
             )}
           </div>
@@ -1564,7 +1562,6 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           duration={duration}
           currentTime={currentTime}
           isPlaying={isPlaying}
-          playbackHint={playbackHint}
           onPlay={play}
           onPause={pause}
           onSeek={seekTo}
