@@ -1,6 +1,7 @@
 import { Check, Pencil, Trash2 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { ThemePreviewMini } from "@/components/theme-preview-mini"
+import { useThemePreviewHandlers } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { isCustomThemeId } from "@/lib/custom-themes"
@@ -23,9 +24,11 @@ type ThemePreviewCardProps = {
 
 export function ThemePreviewCard({ theme, selected, onSelect, onDelete }: ThemePreviewCardProps) {
   const isCustom = isCustomThemeId(theme.id)
+  const previewHandlers = useThemePreviewHandlers(theme.id)
 
   return (
     <div
+      {...previewHandlers}
       className={cn(
         "group relative flex flex-col gap-3 rounded-lg border p-3 transition-colors",
         selected
