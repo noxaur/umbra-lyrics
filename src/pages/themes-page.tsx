@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { LottieIcon } from "@/components/icons/lottie-icon"
+import { ArrowLeft, Moon, Palette, Sun } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { ThemePreviewCard } from "@/components/theme-preview-card"
 import { Button } from "@/components/ui/button"
@@ -29,7 +29,7 @@ export function ThemesPage() {
             to="/"
             className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
           >
-            <LottieIcon name="arrow-left" className="size-4" aria-hidden />
+            <ArrowLeft className="size-4" aria-hidden />
             Back home
           </Link>
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -42,18 +42,18 @@ export function ThemesPage() {
             </div>
             <Button asChild className="gap-1.5 shrink-0">
               <Link to="/themes/build">
-                <LottieIcon name="palette" className="size-4" aria-hidden />
+                <Palette className="size-4" aria-hidden />
                 Build custom theme
               </Link>
             </Button>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={setDarkTheme} className="gap-1.5">
-              <LottieIcon name="moon" className="size-3.5" aria-hidden />
+              <Moon className="size-3.5" aria-hidden />
               Quick dark
             </Button>
             <Button variant="outline" size="sm" onClick={setLightTheme} className="gap-1.5">
-              <LottieIcon name="sun" className="size-3.5" aria-hidden />
+              <Sun className="size-3.5" aria-hidden />
               Quick light
             </Button>
           </div>
@@ -70,7 +70,7 @@ export function ThemesPage() {
           </div>
           {customThemes.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
-              <LottieIcon name="palette" className="mx-auto mb-3 size-8 text-muted-foreground" aria-hidden />
+              <Palette className="mx-auto mb-3 size-8 text-muted-foreground" aria-hidden />
               <p className="font-medium">No custom themes yet</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Create your own stage palette with the theme builder.

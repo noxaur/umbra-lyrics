@@ -12,8 +12,6 @@
     "test:watch": "vp test --watch",
     "benchmark:legacy-lyrics": "node scripts/benchmark-legacy-lyrics.mjs",
     "sync:themes": "node scripts/sync-tinted-themes.mjs",
-    "icons:copy": "node scripts/copy-useanimations-icons.mjs",
-    "icons:registry": "node scripts/generate-icon-registry.mjs",
     "deploy": "npm run build && node scripts/prepare-wrangler-deploy.mjs && node scripts/deploy-wrangler.mjs dist/song_kara/wrangler.json",
     "fix-dns": "node scripts/fix-dns.mjs",
     "cf-typegen": "wrangler types"
@@ -32,7 +30,7 @@
     "clsx": "^2.1.1",
     "franc-min": "^6.2.0",
     "jszip": "^3.10.1",
-    "lottie-react": "^2.4.1",
+    "lucide-react": "^1.18.0",
     "motion": "^12.40.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

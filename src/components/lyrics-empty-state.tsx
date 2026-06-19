@@ -1,5 +1,5 @@
-import { LottieIcon } from "@/components/icons/lottie-icon"
-import type { IconName } from "@/components/icons/icon-names"
+import { FileMusic, Loader2, Mic2, Music2, WifiOff } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export type LyricsEmptyVariant =
@@ -12,15 +12,15 @@ export type LyricsEmptyVariant =
   | "network_error"
   | "gap"
 
-const ICONS: Record<LyricsEmptyVariant, IconName> = {
-  idle: "music-2",
-  loading: "loader",
-  preparing: "music-2",
-  not_found: "file-music",
-  partial: "file-music",
-  instrumental: "mic-2",
-  network_error: "wifi-off",
-  gap: "music-2",
+const ICONS: Record<LyricsEmptyVariant, LucideIcon> = {
+  idle: Music2,
+  loading: Loader2,
+  preparing: Music2,
+  not_found: FileMusic,
+  partial: FileMusic,
+  instrumental: Mic2,
+  network_error: WifiOff,
+  gap: Music2,
 }
 
 type LyricsEmptyStateProps = {
@@ -36,7 +36,7 @@ export function LyricsEmptyState({
   detail,
   className,
 }: LyricsEmptyStateProps) {
-  const iconName = ICONS[variant]
+  const Icon = ICONS[variant]
   const spin = variant === "loading"
 
   return (
@@ -49,10 +49,8 @@ export function LyricsEmptyState({
       aria-busy={spin || undefined}
     >
       <div className="flex size-16 items-center justify-center rounded-full bg-muted/35">
-        <LottieIcon
-          name={iconName}
-          spin={spin}
-          className="size-8 text-muted-foreground/85"
+        <Icon
+          className={cn("size-8 text-muted-foreground/85", spin && "animate-spin motion-reduce:animate-none")}
           aria-hidden
         />
       </div>

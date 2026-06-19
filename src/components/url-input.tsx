@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react"
-import { LottieIcon } from "@/components/icons/lottie-icon"
 import { useNavigate } from "react-router-dom"
+import { Music } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { mediaResolveErrorMessage, resolveMediaInput } from "@/lib/media-url"
 import { buildPlayerNavigationState, type SeedMetadata } from "@/lib/player-navigation"
 
@@ -89,7 +90,7 @@ export function UrlInput() {
           aria-describedby={error ? "url-error" : statusMessage ? "url-opening" : undefined}
         />
         <Button type="submit" className="shrink-0" disabled={busy}>
-          <LottieIcon name="music" hover />
+          <AnimatedIcon icon={Music} />
           {opening ? "Opening…" : resolving ? "Finding…" : "Start"}
         </Button>
       </div>

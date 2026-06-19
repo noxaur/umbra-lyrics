@@ -1,5 +1,5 @@
 import { motion, MotionConfig, useReducedMotion } from "motion/react"
-import { LottieIcon } from "@/components/icons/lottie-icon"
+import { Pause, SkipBack, SkipForward } from "lucide-react"
 import { KaraokeWordProgress } from "@/components/karaoke-word-progress"
 import { tokensToCssVars, type ThemeTokens } from "@/lib/themes"
 import { cn } from "@/lib/utils"
@@ -19,13 +19,13 @@ function PreviewTransport() {
   return (
     <div className="flex items-center justify-center gap-2 border-t border-border/60 px-2 py-1.5">
       <div className="flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground">
-        <LottieIcon name="skip-back" className="size-2.5" aria-hidden />
+        <SkipBack className="size-2.5" aria-hidden />
       </div>
       <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
-        <LottieIcon name="pause" className="size-3" aria-hidden />
+        <Pause className="size-3" aria-hidden />
       </div>
       <div className="flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground">
-        <LottieIcon name="skip-forward" className="size-2.5" aria-hidden />
+        <SkipForward className="size-2.5" aria-hidden />
       </div>
       <div className="ml-1 h-0.5 flex-1 rounded-full bg-muted">
         <div className="h-full w-[42%] rounded-full bg-primary/70" />
