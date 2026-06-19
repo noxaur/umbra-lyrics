@@ -21,7 +21,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
       "onnxruntime-common": path.resolve(
         __dirname,
-        "node_modules/onnxruntime-web/node_modules/onnxruntime-common",
+        "node_modules/onnxruntime-common",
       ),
     },
   },

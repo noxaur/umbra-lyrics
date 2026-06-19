@@ -33,9 +33,11 @@
     "jszip": "^3.10.1",
     "lottie-react": "^2.4.1",
     "motion": "^12.40.0",
+    "onnxruntime-node": "file:vendor/stubs/onnxruntime-node",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.17.0",
+    "sharp": "file:vendor/stubs/sharp",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.1",
     "youtubei.js": "^17.0.1",
@@ -60,10 +62,8 @@
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@^0.1.24",
     "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.24",
-    "@huggingface/transformers": {
-      "onnxruntime-node": "file:vendor/stubs/onnxruntime-node",
-      "sharp": "file:vendor/stubs/sharp"
-    }
+    "onnxruntime-node": "file:vendor/stubs/onnxruntime-node",
+    "sharp": "file:vendor/stubs/sharp"
   },
   "packageManager": "npm@11.17.0"
 }
