@@ -25,10 +25,10 @@ jobs:
 
       - run: npx vp build
 
-      - name: Strip zone routes for CI deploy
+      - name: Prepare wrangler config for production deploy
         run: node scripts/prepare-wrangler-deploy.mjs dist/umbra/wrangler.json
 
-      - name: Deploy Worker
+      - name: Deploy Worker to song.opsec.rent
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
