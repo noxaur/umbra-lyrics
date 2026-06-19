@@ -510,7 +510,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       const language = detectLanguage(sample || parsed.lines.map((l) => l.text).join("\n"), languageMeta)
       const romaji =
         preResolvedRomaji ??
-        (await buildRomajiLines(parsed.lines.map((line) => line.text), { language }))
+        buildRomajiLines(parsed.lines.map((line) => line.text), { language })
       setRomajiLines(romaji.lines, romaji.status)
       addRecentSong({
         videoId,
