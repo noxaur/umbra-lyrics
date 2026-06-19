@@ -551,7 +551,9 @@ dependencies = [
 name = "umbra-rust-worker"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
  "http",
+ "js-sys",
  "serde",
  "serde_json",
  "url",

@@ -177,6 +177,9 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     }
   } | null>(null)
   const debugPlayer = searchParams.get("debug") === "1"
+  const useExperimentalRustResolver =
+    searchParams.get("lyricsResolver") === "rust" ||
+    import.meta.env.VITE_RUST_LYRICS_RESOLVER === "1"
   const location = useLocation()
   const navigate = useNavigate()
   const navigationState = location.state as PlayerNavigationState | null
@@ -1077,7 +1080,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           return
         }
 
-        if (!options?.skipCache) {
+        if (!options?.skipCache && !useExperimentalRustResolver) {
           const cached = getLyricsCache(videoId)
           if (cached) {
             if (isUiStale()) return
@@ -1159,6 +1162,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             oembedAuthor: oembedAuthorRef.current ?? undefined,
           }),
           providerIds: options?.providerIds,
+          useExperimentalRustResolver,
           onProgress: ({ phase, step, retryRound, providersTried }) => {
             if (isUiStale()) return
             setLyricsSearchPhase(phase)
@@ -1301,6 +1305,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       tryTranscribeLyrics,
       setContentWarning,
       setVerificationScore,
+      useExperimentalRustResolver,
     ],
   )
 

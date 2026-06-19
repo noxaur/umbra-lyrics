@@ -55,8 +55,10 @@ npm run deploy
 ```
 
 The public `song-kara` Worker is a Rust/Wasm gateway. It serves the Vite SPA
-from a static-assets binding and forwards `/api/*` to the separately deployed
-`song-kara-legacy` TypeScript Worker through a service binding.
+from a static-assets binding, owns the experimental
+`POST /api/lyrics/resolve` SSE endpoint, and forwards other `/api/*` routes to
+the separately deployed `song-kara-legacy` TypeScript Worker through a service
+binding.
 
 **Deploy token permissions:** `CLOUDFLARE_API_TOKEN` needs **Workers Scripts:Edit** plus **Workers Routes:Edit** and **Zone:Read** on the `opsec.rent` zone so `song.opsec.rent` routes attach to the `song-kara` worker. If route attachment fails, deploy still publishes the worker to `*.workers.dev` and emits a warning; widen the token to attach the custom domain. For a workers.dev-only deploy, run `STRIP_ZONE_ROUTES=true npm run deploy` and attach the route in the Cloudflare dashboard.
 

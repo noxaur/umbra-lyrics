@@ -57,6 +57,97 @@ describeGateway("Rust Worker gateway", () => {
     expect(response.headers.get("X-Umbra-Origin")).toBe("legacy")
     expect(response.headers.get("X-Umbra-Request-Id")).toBe(requestId)
   })
+
+  it("streams the versioned Rust lyrics resolution contract before completion", async () => {
+    const response = await target.request(
+      new Request("https://song.example/api/lyrics/resolve", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Umbra-Request-Id": "resolution-contract-request",
+        },
+        body: JSON.stringify({
+          videoId: "dQw4w9WgXcQ",
+          title: "Never Gonna Give You Up",
+          author: "Rick Astley",
+          duration: 212.4,
+          language: "en",
+        }),
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("Content-Type")).toContain("text/event-stream")
+    expect(response.headers.get("X-Umbra-Origin")).toBe("rust")
+    expect(response.headers.get("X-Umbra-Request-Id")).toBe("resolution-contract-request")
+
+    const reader = response.body?.getReader()
+    const first = await reader?.read()
+    const firstText = new TextDecoder().decode(first?.value)
+    expect(firstText).toContain("event: phase")
+    expect(firstText).toContain('"protocolVersion":"1"')
+    expect(firstText).not.toContain("event: result")
+
+    let remaining = ""
+    while (true) {
+      const chunk = await reader?.read()
+      if (!chunk || chunk.done) break
+      remaining += new TextDecoder().decode(chunk.value)
+    }
+    expect(remaining).toContain("event: metadata")
+    expect(remaining).toContain("event: warning")
+    expect(remaining).toContain("event: result")
+    expect(remaining).toContain('"resolution":"placeholder"')
+  })
+
+  it("returns invalid input as a typed terminal SSE error", async () => {
+    const response = await target.request(
+      new Request("https://song.example/api/lyrics/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId: "short" }),
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    const body = await response.text()
+    expect(body).toContain("event: error")
+    expect(body).toContain('"code":"invalid_request"')
+    expect(body).toContain('"field":"videoId"')
+  })
+
+  it("distinguishes malformed JSON from a valid JSON schema error", async () => {
+    const malformed = await target.request(
+      new Request("https://song.example/api/lyrics/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{",
+      }),
+    )
+    expect(await malformed.text()).toContain('"code":"invalid_json"')
+
+    const wrongSchema = await target.request(
+      new Request("https://song.example/api/lyrics/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId: "dQw4w9WgXcQ", unknown: true }),
+      }),
+    )
+    expect(await wrongSchema.text()).toContain('"code":"invalid_request"')
+  })
+
+  it("allows clients to cancel the pending resolution stream", async () => {
+    const response = await target.request(
+      new Request("https://song.example/api/lyrics/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId: "dQw4w9WgXcQ" }),
+      }),
+    )
+    const reader = response.body?.getReader()
+    expect((await reader?.read())?.done).toBe(false)
+    await expect(reader?.cancel("contract disconnect")).resolves.toBeUndefined()
+  })
 })
 
 describeRustFailure("Rust Worker failure attribution", () => {
