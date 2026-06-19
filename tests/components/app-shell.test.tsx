@@ -13,6 +13,29 @@ function renderShell(ui: React.ReactElement) {
 }
 
 describe("AppShell", () => {
+  it("uses React Router Link for brand navigation", () => {
+    renderShell(
+      <AppShell>
+        <div>content</div>
+      </AppShell>,
+    )
+
+    const brand = screen.getByRole("link", { name: "song-kara" })
+    expect(brand).toHaveAttribute("href", "/")
+    expect(brand.tagName).toBe("A")
+  })
+
+  it("links to playlists page from header", () => {
+    renderShell(
+      <AppShell>
+        <div>content</div>
+      </AppShell>,
+    )
+
+    const playlistsLink = screen.getByRole("link", { name: "Playlists" })
+    expect(playlistsLink).toHaveAttribute("href", "/playlists")
+  })
+
   it("locks the viewport when requested", () => {
     renderShell(
       <AppShell viewportLock>
