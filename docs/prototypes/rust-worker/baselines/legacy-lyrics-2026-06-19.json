@@ -1,0 +1,645 @@
+{
+  "schemaVersion": 1,
+  "benchmark": "legacy-browser-lyrics",
+  "generatedAt": "2026-06-19T12:16:12.083Z",
+  "baseUrl": "https://song.opsec.rent",
+  "gitCommit": "6dcf2dcb7c11de1ef4187a14084edaab1e185d3d",
+  "browserVersion": "149.0.7827.155",
+  "corpusVersion": "task-01-v1",
+  "runCount": 1,
+  "timeoutMs": 20000,
+  "summary": {
+    "measuredRuns": 9,
+    "successfulRuns": 1,
+    "successRate": 0.1111111111111111,
+    "medianElapsedMs": 20550,
+    "p95ElapsedMs": 20754,
+    "medianApiCallCount": 7
+  },
+  "results": [
+    {
+      "caseId": "reference-Ktk_EDLDPeY",
+      "videoId": "Ktk_EDLDPeY",
+      "artist": "天音かなた",
+      "track": "別世界",
+      "language": "ja",
+      "run": 1,
+      "startedAt": "2026-06-19T12:14:06.683Z",
+      "elapsedMs": 20720,
+      "terminalState": "timeout",
+      "synchronized": null,
+      "renderedLineCount": 0,
+      "apiCallCount": 11,
+      "apiCallsByRoute": {
+        "/api/lyrics/musicbrainz/recording": 2,
+        "/api/metadata/deezer/search": 2,
+        "/api/metadata/itunes/search": 2,
+        "/api/metadata/spotify/search": 2,
+        "/api/youtube/music-search": 1,
+        "/api/youtube/oembed": 1,
+        "/api/youtube/search": 1
+      },
+      "apiCalls": [
+        {
+          "path": "/api/youtube/oembed",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/youtube/music-search",
+          "status": 502,
+          "durationMs": null
+        },
+        {
+          "path": "/api/youtube/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        }
+      ],
+      "qualityAssertions": {
+        "minimumLines": false,
+        "mustContain": true,
+        "mustNotContain": true
+      },
+      "expectationMet": false,
+      "timedOut": true,
+      "navigationError": null,
+      "browserErrors": []
+    },
+    {
+      "caseId": "reference-fJ9rUzIMcZQ",
+      "videoId": "fJ9rUzIMcZQ",
+      "artist": "Queen",
+      "track": "Bohemian Rhapsody",
+      "language": "en",
+      "run": 1,
+      "startedAt": "2026-06-19T12:14:27.518Z",
+      "elapsedMs": 20550,
+      "terminalState": "timeout",
+      "synchronized": null,
+      "renderedLineCount": 0,
+      "apiCallCount": 12,
+      "apiCallsByRoute": {
+        "/api/lyrics/musicbrainz/recording": 2,
+        "/api/metadata/deezer/search": 2,
+        "/api/metadata/itunes/search": 2,
+        "/api/metadata/spotify/search": 2,
+        "/api/youtube/music-search": 1,
+        "/api/youtube/oembed": 3
+      },
+      "apiCalls": [
+        {
+          "path": "/api/youtube/oembed",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/youtube/music-search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/youtube/oembed",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/youtube/oembed",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        }
+      ],
+      "qualityAssertions": {
+        "minimumLines": false,
+        "mustContain": false,
+        "mustNotContain": true
+      },
+      "expectationMet": false,
+      "timedOut": true,
+      "navigationError": null,
+      "browserErrors": []
+    },
+    {
+      "caseId": "reference-kXYiU_JCYtU",
+      "videoId": "kXYiU_JCYtU",
+      "artist": "Linkin Park",
+      "track": "Numb",
+      "language": "en",
+      "run": 1,
+      "startedAt": "2026-06-19T12:14:48.177Z",
+      "elapsedMs": 20606,
+      "terminalState": "timeout",
+      "synchronized": null,
+      "renderedLineCount": 0,
+      "apiCallCount": 7,
+      "apiCallsByRoute": {
+        "/api/lyrics/musicbrainz/recording": 1,
+        "/api/metadata/deezer/search": 1,
+        "/api/metadata/itunes/search": 1,
+        "/api/metadata/spotify/search": 1,
+        "/api/youtube/music-search": 1,
+        "/api/youtube/oembed": 1,
+        "/api/youtube/search": 1
+      },
+      "apiCalls": [
+        {
+          "path": "/api/youtube/oembed",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/youtube/music-search",
+          "status": 502,
+          "durationMs": null
+        },
+        {
+          "path": "/api/youtube/search",
+          "status": 503,
+          "durationMs": null
+        }
+      ],
+      "qualityAssertions": {
+        "minimumLines": false,
+        "mustContain": false,
+        "mustNotContain": true
+      },
+      "expectationMet": false,
+      "timedOut": true,
+      "navigationError": null,
+      "browserErrors": [
+        "Failed to fetch"
+      ]
+    },
+    {
+      "caseId": "reference-kJQP7kiw5Fk",
+      "videoId": "kJQP7kiw5Fk",
+      "artist": "Luis Fonsi",
+      "track": "Despacito",
+      "language": "es",
+      "run": 1,
+      "startedAt": "2026-06-19T12:15:08.879Z",
+      "elapsedMs": 20754,
+      "terminalState": "timeout",
+      "synchronized": null,
+      "renderedLineCount": 0,
+      "apiCallCount": 17,
+      "apiCallsByRoute": {
+        "/api/lyrics/musicbrainz/recording": 4,
+        "/api/metadata/deezer/search": 4,
+        "/api/metadata/itunes/search": 4,
+        "/api/metadata/spotify/search": 4,
+        "/api/youtube/oembed": 1
+      },
+      "apiCalls": [
+        {
+          "path": "/api/youtube/oembed",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        }
+      ],
+      "qualityAssertions": {
+        "minimumLines": false,
+        "mustContain": false,
+        "mustNotContain": true
+      },
+      "expectationMet": false,
+      "timedOut": true,
+      "navigationError": null,
+      "browserErrors": []
+    },
+    {
+      "caseId": "reference-9bZkp7q19f0",
+      "videoId": "9bZkp7q19f0",
+      "artist": "PSY",
+      "track": "Gangnam Style",
+      "language": "ko",
+      "run": 1,
+      "startedAt": "2026-06-19T12:15:29.740Z",
+      "elapsedMs": 20649,
+      "terminalState": "timeout",
+      "synchronized": null,
+      "renderedLineCount": 0,
+      "apiCallCount": 17,
+      "apiCallsByRoute": {
+        "/api/lyrics/musicbrainz/recording": 4,
+        "/api/metadata/deezer/search": 4,
+        "/api/metadata/itunes/search": 4,
+        "/api/metadata/spotify/search": 4,
+        "/api/youtube/oembed": 1
+      },
+      "apiCalls": [
+        {
+          "path": "/api/youtube/oembed",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        }
+      ],
+      "qualityAssertions": {
+        "minimumLines": false,
+        "mustContain": false,
+        "mustNotContain": true
+      },
+      "expectationMet": false,
+      "timedOut": true,
+      "navigationError": null,
+      "browserErrors": []
+    },
+    {
+      "caseId": "reference-dQw4w9WgXcQ",
+      "videoId": "dQw4w9WgXcQ",
+      "artist": "Rick Astley",
+      "track": "Never Gonna Give You Up",
+      "language": "en",
+      "run": 1,
+      "startedAt": "2026-06-19T12:15:50.459Z",
+      "elapsedMs": 20444,
+      "terminalState": "timeout",
+      "synchronized": null,
+      "renderedLineCount": 0,
+      "apiCallCount": 6,
+      "apiCallsByRoute": {
+        "/api/lyrics/musicbrainz/recording": 1,
+        "/api/metadata/deezer/search": 1,
+        "/api/metadata/itunes/search": 1,
+        "/api/metadata/spotify/search": 1,
+        "/api/youtube/music-search": 1,
+        "/api/youtube/oembed": 1
+      },
+      "apiCalls": [
+        {
+          "path": "/api/youtube/oembed",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/spotify/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/deezer/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/metadata/itunes/search",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/lyrics/musicbrainz/recording",
+          "status": 200,
+          "durationMs": null
+        },
+        {
+          "path": "/api/youtube/music-search",
+          "status": 503,
+          "durationMs": null
+        }
+      ],
+      "qualityAssertions": {
+        "minimumLines": false,
+        "mustContain": false,
+        "mustNotContain": true
+      },
+      "expectationMet": false,
+      "timedOut": true,
+      "navigationError": null,
+      "browserErrors": [
+        "signal is aborted without reason"
+      ]
+    },
+    {
+      "caseId": "unavailable-video",
+      "videoId": "deleted0001",
+      "artist": "Fixture",
+      "track": "Unavailable fixture video",
+      "run": 1,
+      "startedAt": "2026-06-19T12:16:10.974Z",
+      "elapsedMs": 325,
+      "terminalState": "error",
+      "synchronized": null,
+      "renderedLineCount": 0,
+      "apiCallCount": 0,
+      "apiCallsByRoute": {},
+      "apiCalls": [],
+      "qualityAssertions": {
+        "minimumLines": true,
+        "mustContain": true,
+        "mustNotContain": true
+      },
+      "expectationMet": true,
+      "timedOut": false,
+      "navigationError": null,
+      "browserErrors": []
+    },
+    {
+      "caseId": "no-lyrics",
+      "videoId": "nolyrics001",
+      "artist": "Fixture",
+      "track": "No lyrics fixture",
+      "run": 1,
+      "startedAt": "2026-06-19T12:16:11.368Z",
+      "elapsedMs": 282,
+      "terminalState": "error",
+      "synchronized": null,
+      "renderedLineCount": 0,
+      "apiCallCount": 0,
+      "apiCallsByRoute": {},
+      "apiCalls": [],
+      "qualityAssertions": {
+        "minimumLines": true,
+        "mustContain": true,
+        "mustNotContain": true
+      },
+      "expectationMet": false,
+      "timedOut": false,
+      "navigationError": null,
+      "browserErrors": []
+    },
+    {
+      "caseId": "instrumental",
+      "videoId": "instrumnt001",
+      "artist": "Fixture",
+      "track": "Instrumental fixture",
+      "run": 1,
+      "startedAt": "2026-06-19T12:16:11.721Z",
+      "elapsedMs": 300,
+      "terminalState": "error",
+      "synchronized": null,
+      "renderedLineCount": 0,
+      "apiCallCount": 0,
+      "apiCallsByRoute": {},
+      "apiCalls": [],
+      "qualityAssertions": {
+        "minimumLines": true,
+        "mustContain": true,
+        "mustNotContain": true
+      },
+      "expectationMet": false,
+      "timedOut": false,
+      "navigationError": null,
+      "browserErrors": []
+    }
+  ]
+}
