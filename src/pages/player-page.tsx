@@ -35,7 +35,6 @@ import { buildRomajiLines, type RomajiLyricsResult } from "@/lib/romaji-service"
 import { prepareLyricsText } from "@/lib/prepare-lyrics-text"
 import { translateLinesWithFallback } from "@/lib/translation-service"
 import { getPastedLyrics, savePastedLyrics } from "@/lib/pasted-lyrics"
-import { syncMkvExportFromUrl } from "@/lib/beta-features"
 import { parseTrackTitle } from "@/lib/parse-track-title"
 import {
   resolveCanonicalMusicVideo,
@@ -259,10 +258,6 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   useEffect(() => {
     bindControls({ play, pause, seek: seekTo, isPlaying })
   }, [bindControls, play, pause, seekTo, isPlaying])
-
-  useEffect(() => {
-    syncMkvExportFromUrl()
-  }, [])
 
   useEffect(() => {
     if (!videoId) return
