@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { getPlaylistById } from "@/lib/playlists"
 import {
   commitPlaylistLyricsImportRows,
+  applyPlaylistImportRowMetadataEdit,
   preparePlaylistLyricsImportRows,
   rowCanImport,
   rowNeedsAttention,
@@ -157,7 +158,7 @@ export function PlaylistLyricsImportDialog({
     setRows((prev) =>
       prev.map((row) =>
         row.selected && row.status !== "cached" && row.status !== "rejected"
-          ? { ...row, artist }
+          ? applyPlaylistImportRowMetadataEdit(row, { artist })
           : row,
       ),
     )
@@ -368,36 +369,26 @@ export function PlaylistLyricsImportDialog({
                       setRows((prev) => updateRow(prev, row.videoId, { selected }))
                     }
                     onArtistChange={(artist) =>
-                      setRows((prev) =>
-                        updateRow(prev, row.videoId, {
-                          artist,
-                          status: (() => {
-                            const current = prev.find((r) => r.videoId === row.videoId)?.status
-                            if (current === "cached" || current === "rejected") return current
-                            return artist.trim() && row.track.trim()
-                              ? row.selectedAlternate
-                                ? "ready"
-                                : row.status
-                              : "needs_metadata"
-                          })(),
-                        }),
-                      )
+                      setRows((prev) => {
+                        const current = prev.find((r) => r.videoId === row.videoId)
+                        if (!current) return prev
+                        return updateRow(
+                          prev,
+                          row.videoId,
+                          applyPlaylistImportRowMetadataEdit(current, { artist }),
+                        )
+                      })
                     }
                     onTrackChange={(track) =>
-                      setRows((prev) =>
-                        updateRow(prev, row.videoId, {
-                          track,
-                          status: (() => {
-                            const current = prev.find((r) => r.videoId === row.videoId)?.status
-                            if (current === "cached" || current === "rejected") return current
-                            return track.trim() && row.artist.trim()
-                              ? row.selectedAlternate
-                                ? "ready"
-                                : row.status
-                              : "needs_metadata"
-                          })(),
-                        }),
-                      )
+                      setRows((prev) => {
+                        const current = prev.find((r) => r.videoId === row.videoId)
+                        if (!current) return prev
+                        return updateRow(
+                          prev,
+                          row.videoId,
+                          applyPlaylistImportRowMetadataEdit(current, { track }),
+                        )
+                      })
                     }
                     onSelectAlternate={(alternateId) =>
                       handleSelectAlternate(row.videoId, alternateId)

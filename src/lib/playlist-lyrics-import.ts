@@ -79,6 +79,43 @@ async function resolveRowMetadata(
   oembedAuthor?: string
 }> {
   const normalized = normalizeTrackMetadata(toIndexTrack(row))
+  const manualArtist = row.artist.trim()
+  const manualTrack = row.track.trim()
+
+  if (manualArtist && manualTrack) {
+    let durationSec = row.durationSec || 0
+    let oembedAuthor = row.oembedAuthor
+
+    if (!durationSec && !oembedAuthor) {
+      try {
+        oembedAuthor = (await fetchYouTubeAuthor(row.videoId)) ?? undefined
+      } catch {
+        // Best-effort only
+      }
+    }
+
+    if (!durationSec) {
+      const resolved = await resolveTrackMetadata({
+        title: normalized.title,
+        durationSec: undefined,
+        oembedAuthor,
+        roughArtist: manualArtist,
+        roughTrack: manualTrack,
+      })
+      if (resolved.durationSec) {
+        durationSec = resolved.durationSec
+      }
+    }
+
+    return {
+      artist: manualArtist,
+      track: manualTrack,
+      title: normalized.title,
+      durationSec: durationSec || 0,
+      oembedAuthor,
+    }
+  }
+
   let durationSec = row.durationSec || 0
   let oembedAuthor = row.oembedAuthor
 
@@ -103,8 +140,8 @@ async function resolveRowMetadata(
   }
 
   return {
-    artist: row.artist.trim() || resolved.artist || normalized.artist,
-    track: row.track.trim() || resolved.track || normalized.track,
+    artist: manualArtist || resolved.artist || normalized.artist,
+    track: manualTrack || resolved.track || normalized.track,
     title: normalized.title,
     durationSec: durationSec || resolved.durationSec || 0,
     oembedAuthor,
@@ -136,6 +173,80 @@ function statusFromMetadata(artist: string, track: string): LyricsImportRowStatu
   if (!track.trim()) return "needs_metadata"
   if (!artist.trim()) return "needs_metadata"
   return null
+}
+
+function metadataEditMessage(artist: string, track: string): string | undefined {
+  if (!track.trim() && !artist.trim()) {
+    return "Artist or track title could not be parsed."
+  }
+  if (!track.trim()) return "Track title is missing."
+  if (!artist.trim()) return "Artist name is missing."
+  return undefined
+}
+
+export function applyPlaylistImportRowMetadataEdit(
+  row: PlaylistLyricsImportRow,
+  patch: { artist?: string; track?: string },
+): PlaylistLyricsImportRow {
+  if (row.status === "cached" || row.status === "rejected") {
+    return row
+  }
+
+  const artist = patch.artist ?? row.artist
+  const track = patch.track ?? row.track
+  const metadataChanged =
+    (patch.artist !== undefined && patch.artist !== row.artist) ||
+    (patch.track !== undefined && patch.track !== row.track)
+
+  if (!metadataChanged) {
+    return { ...row, artist, track }
+  }
+
+  const hadSearchResults =
+    row.status === "ready" ||
+    row.status === "no_match" ||
+    row.status === "error" ||
+    row.status === "pasted" ||
+    row.status === "transcribed" ||
+    row.selectedAlternate != null ||
+    row.alternates.length > 0
+
+  const missingMetadata = statusFromMetadata(artist, track)
+  if (missingMetadata) {
+    return {
+      ...row,
+      artist,
+      track,
+      status: "needs_metadata",
+      selectedAlternate: undefined,
+      alternates: [],
+      pastedLyrics: undefined,
+      transcribedResult: undefined,
+      message: metadataEditMessage(artist, track),
+    }
+  }
+
+  if (hadSearchResults) {
+    return {
+      ...row,
+      artist,
+      track,
+      status: "pending",
+      selectedAlternate: undefined,
+      alternates: [],
+      pastedLyrics: undefined,
+      transcribedResult: undefined,
+      message: "Metadata changed — retry auto-match",
+    }
+  }
+
+  return {
+    ...row,
+    artist,
+    track,
+    status: row.status === "needs_metadata" ? "pending" : row.status,
+    message: undefined,
+  }
 }
 
 export function preparePlaylistLyricsImportRows(

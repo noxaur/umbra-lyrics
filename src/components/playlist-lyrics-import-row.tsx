@@ -100,18 +100,24 @@ export function PlaylistLyricsImportRowView({
       <Input
         value={row.artist}
         onChange={(e) => onArtistChange(e.target.value)}
+        onFocus={() => {
+          if (!row.selected && !busy && !isCached && !isRejected) onSelect(true)
+        }}
         placeholder="Artist"
         aria-label={`Artist for ${row.title}`}
-        disabled={busy || isCached || isRejected || !row.selected}
+        disabled={busy || isCached || isRejected}
         className={cn("h-9 text-sm", needsArtist && requiredFieldClass)}
       />
 
       <Input
         value={row.track}
         onChange={(e) => onTrackChange(e.target.value)}
+        onFocus={() => {
+          if (!row.selected && !busy && !isCached && !isRejected) onSelect(true)
+        }}
         placeholder="Track"
         aria-label={`Track for ${row.title}`}
-        disabled={busy || isCached || isRejected || !row.selected}
+        disabled={busy || isCached || isRejected}
         className={cn("h-9 text-sm", needsTrack && requiredFieldClass)}
       />
 
@@ -122,7 +128,7 @@ export function PlaylistLyricsImportRowView({
               type="button"
               variant="outline"
               size="sm"
-              disabled={busy || isCached || isRejected || !row.selected}
+              disabled={busy || isCached || isRejected}
               className={cn(
                 "h-9 min-w-0 justify-between truncate text-xs font-normal",
                 needsSource && requiredFieldClass,
