@@ -20,9 +20,11 @@ export function AppShell({
 }) {
   const focusMode = usePlayerStore((s) => s.focusMode)
   const stageFullscreen = usePlayerStore((s) => s.stageFullscreen)
+  const [monsterGeneration, setMonsterGeneration] = useState(0)
   const [monsterActive, setMonsterActive] = useState(false)
 
   const triggerMonster = useCallback(() => {
+    setMonsterGeneration((generation) => generation + 1)
     setMonsterActive(true)
   }, [])
 
@@ -110,7 +112,11 @@ export function AppShell({
       >
         {children}
       </main>
-      <MonsterEasterEgg active={monsterActive} onFinished={handleMonsterFinished} />
+      <MonsterEasterEgg
+        active={monsterActive}
+        generation={monsterGeneration}
+        onFinished={handleMonsterFinished}
+      />
     </div>
   )
 }

@@ -114,9 +114,11 @@ function phaseMotion(phase: MonsterPhase, reduceMotion: boolean) {
 
 export function MonsterEasterEgg({
   active,
+  generation,
   onFinished,
 }: {
   active: boolean
+  generation: number
   onFinished: () => void
 }) {
   const reduceMotion = useReducedMotion()
@@ -146,7 +148,7 @@ export function MonsterEasterEgg({
       window.clearTimeout(fallTimer)
       window.clearTimeout(doneTimer)
     }
-  }, [active, onFinished, reduceMotion])
+  }, [active, generation, onFinished, reduceMotion])
 
   const motionProps = phaseMotion(phase, Boolean(reduceMotion))
 

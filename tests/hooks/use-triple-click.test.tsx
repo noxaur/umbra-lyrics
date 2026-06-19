@@ -1,6 +1,6 @@
 import { createEvent, fireEvent, render } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
-import { useTripleClick } from "@/hooks/use-triple-click"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { resetTripleClickDetectionForTests, useTripleClick } from "@/hooks/use-triple-click"
 
 function TripleClickProbe({ onTripleClick }: { onTripleClick: () => void }) {
   const handleClick = useTripleClick(onTripleClick)
@@ -13,6 +13,10 @@ function TripleClickProbe({ onTripleClick }: { onTripleClick: () => void }) {
 }
 
 describe("useTripleClick", () => {
+  beforeEach(() => {
+    resetTripleClickDetectionForTests()
+  })
+
   it("fires after three quick clicks", () => {
     const onTripleClick = vi.fn()
     const { getByRole } = render(<TripleClickProbe onTripleClick={onTripleClick} />)
@@ -38,6 +42,22 @@ describe("useTripleClick", () => {
     fireEvent(link, event)
 
     expect(event.defaultPrevented).toBe(true)
+    expect(onTripleClick).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps counting across probe remounts", () => {
+    const onTripleClick = vi.fn()
+    const { getByRole, unmount } = render(<TripleClickProbe onTripleClick={onTripleClick} />)
+
+    fireEvent.click(getByRole("link", { name: "tap" }))
+    unmount()
+
+    const { getByRole: getRemountedRole } = render(<TripleClickProbe onTripleClick={onTripleClick} />)
+    const remountedLink = getRemountedRole("link", { name: "tap" })
+
+    fireEvent.click(remountedLink)
+    fireEvent.click(remountedLink)
+
     expect(onTripleClick).toHaveBeenCalledTimes(1)
   })
 })
