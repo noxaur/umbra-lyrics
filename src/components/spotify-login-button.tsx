@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -9,6 +9,8 @@ import {
 import { useSpotifyAuth } from "@/hooks/use-spotify-auth"
 import { pushQueueNotification } from "@/lib/queue-notifications"
 
+const CLICK_WINDOW_MS = 4000
+
 function showSpotifyDisabledNotice(): void {
   pushQueueNotification({
     kind: "info",
@@ -18,19 +20,40 @@ function showSpotifyDisabledNotice(): void {
   })
 }
 
-export function SpotifyLoginButton() {
+type SpotifyLoginButtonProps = {
+  /** Shorter label for tight mobile headers. */
+  compact?: boolean
+}
+
+export function SpotifyLoginButton({ compact = false }: SpotifyLoginButtonProps) {
   const { session, isLoggedIn, logout } = useSpotifyAuth()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const clickCountRef = useRef(0)
+  const lastClickAtRef = useRef(0)
   const [easterEggAnchor, setEasterEggAnchor] = useState<AnchorRect | null>(null)
 
-  const handleDisabledClick = useCallback(() => {
+  useEffect(() => {
+    if (!easterEggAnchor) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [easterEggAnchor])
+
+  const registerTap = useCallback(() => {
     if (easterEggAnchor) return
+
+    const now = Date.now()
+    if (now - lastClickAtRef.current > CLICK_WINDOW_MS) {
+      clickCountRef.current = 0
+    }
+    lastClickAtRef.current = now
 
     clickCountRef.current += 1
     if (clickCountRef.current >= SPOTIFY_EASTER_EGG_CLICKS) {
       const rect = buttonRef.current?.getBoundingClientRect()
-      if (rect) {
+      if (rect && rect.width > 0 && rect.height > 0) {
         setEasterEggAnchor({
           top: rect.top,
           left: rect.left,
@@ -42,7 +65,9 @@ export function SpotifyLoginButton() {
       return
     }
 
-    showSpotifyDisabledNotice()
+    if (clickCountRef.current === 1) {
+      showSpotifyDisabledNotice()
+    }
   }, [easterEggAnchor])
 
   const handleEasterEggComplete = useCallback(() => {
@@ -72,6 +97,8 @@ export function SpotifyLoginButton() {
     )
   }
 
+  const label = compact ? "Spotify" : "Log in with Spotify"
+
   return (
     <>
       <Button
@@ -81,13 +108,13 @@ export function SpotifyLoginButton() {
         type="button"
         aria-label="Log in with Spotify (unavailable — click for details)"
         title="Spotify login is currently disabled — click for details"
-        onClick={handleDisabledClick}
+        onClick={registerTap}
         className={cn(
-          "cursor-not-allowed border-border/60 text-muted-foreground opacity-60 hover:bg-transparent hover:text-muted-foreground",
+          "touch-manipulation cursor-not-allowed border-border/60 text-muted-foreground opacity-60 hover:bg-transparent hover:text-muted-foreground",
           easterEggAnchor && "invisible",
         )}
       >
-        Log in with Spotify
+        {label}
       </Button>
       {easterEggAnchor ? (
         <SpotifyLoginEasterEgg anchor={easterEggAnchor} onComplete={handleEasterEggComplete} />

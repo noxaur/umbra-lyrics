@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties } from "react"
+import { useEffect, useMemo, useState, type CSSProperties } from "react"
+import { createPortal } from "react-dom"
 import { useReducedMotion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { SpotifyAngryLogo } from "@/components/spotify-angry-logo"
@@ -27,9 +28,24 @@ const PHASE_MS: Record<Phase, number> = {
   exit: 900,
 }
 
+function useViewportWidth(): number {
+  const [width, setWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 0,
+  )
+
+  useEffect(() => {
+    const onResize = () => setWidth(window.innerWidth)
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [])
+
+  return width
+}
+
 export function SpotifyLoginEasterEgg({ anchor, onComplete }: SpotifyLoginEasterEggProps) {
   const [phase, setPhase] = useState<Phase>("explode")
   const reducedMotion = useReducedMotion()
+  const viewportWidth = useViewportWidth()
 
   useEffect(() => {
     const order: Phase[] = ["explode", "angry", "drag", "exit"]
@@ -50,18 +66,25 @@ export function SpotifyLoginEasterEgg({ anchor, onComplete }: SpotifyLoginEaster
   const centerX = anchor.left + anchor.width / 2
   const centerY = anchor.top + anchor.height / 2
 
-  return (
+  const motionVars = useMemo(
+    () => ({
+      "--spotify-egg-x": `${centerX}px`,
+      "--spotify-egg-y": `${centerY}px`,
+      "--spotify-egg-btn-w": `${anchor.width}px`,
+      "--spotify-egg-btn-h": `${anchor.height}px`,
+      "--spotify-shift-right": `${Math.max(viewportWidth, centerX) + 48 - centerX}px`,
+      "--spotify-shift-left": "-5.5rem",
+      "--spotify-shift-exit": `${-80 - centerX}px`,
+      "--spotify-btn-shift-start": `${Math.max(viewportWidth, centerX) + 128 - centerX}px`,
+    }),
+    [anchor.height, anchor.width, centerX, viewportWidth],
+  )
+
+  const overlay = (
     <div
       className="spotify-easter-egg-overlay"
       data-phase={phase}
-      style={
-        {
-          "--spotify-egg-x": `${centerX}px`,
-          "--spotify-egg-y": `${centerY}px`,
-          "--spotify-egg-btn-w": `${anchor.width}px`,
-          "--spotify-egg-btn-h": `${anchor.height}px`,
-        } as CSSProperties
-      }
+      style={motionVars as CSSProperties}
     >
       {phase === "explode" ? (
         <>
@@ -104,4 +127,6 @@ export function SpotifyLoginEasterEgg({ anchor, onComplete }: SpotifyLoginEaster
       ) : null}
     </div>
   )
+
+  return createPortal(overlay, document.body)
 }

@@ -54,6 +54,7 @@ export function AppShell({
               ← Home
             </HomeBrandLink>
             <div className="flex items-center gap-1">
+              <SpotifyLoginButton compact />
               <SettingsMenu />
             </div>
           </header>

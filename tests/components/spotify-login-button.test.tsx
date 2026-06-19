@@ -16,6 +16,7 @@ describe("SpotifyLoginButton", () => {
   beforeEach(() => {
     clearQueueNotifications()
     mockUseSpotifyAuth.mockReset()
+    document.body.querySelector(".spotify-easter-egg-overlay")?.remove()
   })
 
   it("shows a greyed-out login button when logged out", () => {
@@ -59,6 +60,26 @@ describe("SpotifyLoginButton", () => {
     })
   })
 
+  it("only notifies once while tapping toward the easter egg", () => {
+    mockUseSpotifyAuth.mockReturnValue({
+      session: null,
+      isLoggedIn: false,
+      logout: vi.fn(),
+    })
+
+    render(<SpotifyLoginButton />)
+
+    const button = screen.getByRole("button", {
+      name: "Log in with Spotify (unavailable — click for details)",
+    })
+
+    for (let i = 0; i < 5; i += 1) {
+      fireEvent.click(button)
+    }
+
+    expect(listQueueNotifications()).toHaveLength(1)
+  })
+
   it("triggers the easter egg overlay after ten clicks", () => {
     mockUseSpotifyAuth.mockReturnValue({
       session: null,
@@ -66,20 +87,32 @@ describe("SpotifyLoginButton", () => {
       logout: vi.fn(),
     })
 
-    const { container } = render(<SpotifyLoginButton />)
+    render(<SpotifyLoginButton />)
 
     const button = screen.getByRole("button", {
       name: "Log in with Spotify (unavailable — click for details)",
     })
+    button.getBoundingClientRect = () =>
+      ({
+        top: 12,
+        left: 200,
+        width: 160,
+        height: 36,
+        right: 360,
+        bottom: 48,
+        x: 200,
+        y: 12,
+        toJSON: () => ({}),
+      }) as DOMRect
 
     for (let i = 0; i < 9; i += 1) {
       fireEvent.click(button)
     }
-    expect(container.querySelector(".spotify-easter-egg-overlay")).toBeNull()
+    expect(document.body.querySelector(".spotify-easter-egg-overlay")).toBeNull()
     const notificationsBeforeTenth = listQueueNotifications().length
 
     fireEvent.click(button)
-    expect(container.querySelector(".spotify-easter-egg-overlay")).not.toBeNull()
+    expect(document.body.querySelector(".spotify-easter-egg-overlay")).not.toBeNull()
     expect(listQueueNotifications()).toHaveLength(notificationsBeforeTenth)
   })
 
