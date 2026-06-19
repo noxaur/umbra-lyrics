@@ -34,14 +34,13 @@ type LyricLineProps = {
   onSeek?: () => void
 }
 
-const LINE_SIZE =
-  "w-full max-w-xl text-[clamp(1.15rem,3.2vw,2.25rem)] leading-snug"
+const LINE_SIZE = "w-full max-w-xl lyrics-primary-size leading-snug"
 const TV_LINE_SIZE =
-  "max-w-full text-[clamp(1.75rem,4.5vw,3.25rem)] leading-snug lg:text-[clamp(2.5rem,6vw,5rem)] lg:leading-tight"
+  "max-w-full lyrics-tv-primary-size lyrics-tv-primary-lg-size leading-snug"
 const LINE_TEXT =
   "block w-full max-w-full break-words [overflow-wrap:anywhere] text-balance hyphens-auto"
 const SECTION_LABEL_CLASS =
-  "block py-1 text-center text-[0.7rem] font-medium tracking-wide text-muted-foreground"
+  "block py-1 text-center lyrics-section-label-size font-medium tracking-wide text-muted-foreground"
 
 function WordProgressText({
   text,
@@ -238,7 +237,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
         <time
           dateTime={`PT${Math.max(0, startMs!) / 1000}S`}
           className={cn(
-            "self-center font-mono text-[0.6875rem] tabular-nums leading-none sm:text-xs",
+            "self-center font-mono lyrics-timestamp-size lyrics-timestamp-sm-size tabular-nums leading-none",
             active ? "text-karaoke-highlight/80" : "text-muted-foreground",
           )}
         >
@@ -261,8 +260,8 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
               romajiIsPrimary
                 ? cn("font-semibold", lineSize)
                 : tvMode
-                  ? "mt-1 text-[clamp(1rem,2vw,2rem)] text-karaoke-ink/80"
-                  : "mt-1 text-sm text-karaoke-ink/80",
+                  ? "mt-1 lyrics-secondary-tv-size text-karaoke-ink/80"
+                  : "mt-1 lyrics-secondary-size text-karaoke-ink/80",
               !romajiIsPrimary && active && synced && "text-karaoke-highlight/80",
             )}
           >
@@ -280,8 +279,8 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
               englishIsPrimary
                 ? cn("font-semibold", lineSize)
                 : tvMode
-                  ? "mt-1 text-[clamp(1rem,2vw,2rem)] text-muted-foreground"
-                  : "mt-1 text-sm text-muted-foreground",
+                  ? "mt-1 lyrics-secondary-tv-size text-muted-foreground"
+                  : "mt-1 lyrics-secondary-size text-muted-foreground",
               !englishIsPrimary && active && synced && "text-karaoke-highlight/80",
             )}
           >
