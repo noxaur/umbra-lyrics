@@ -2,7 +2,7 @@ import { chromium } from "playwright"
 import { mkdir } from "node:fs/promises"
 import path from "node:path"
 
-const BASE = process.env.DEMO_URL ?? "https://umbra.nox-heights.workers.dev"
+const BASE = process.env.DEMO_URL ?? "https://song.opsec.rent"
 const VIDEO_ID = process.env.VIDEO_ID ?? "H58vbez_m4E"
 const OUT_DIR = path.resolve(process.env.ARTIFACTS_DIR ?? "/opt/cursor/artifacts")
 

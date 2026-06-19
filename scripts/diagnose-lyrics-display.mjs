@@ -1,6 +1,6 @@
 import { chromium } from "playwright"
 
-const BASE = process.env.DEMO_URL ?? "https://umbra.nox-heights.workers.dev"
+const BASE = process.env.DEMO_URL ?? "https://song.opsec.rent"
 const VIDEO_ID = process.env.VIDEO_ID ?? "dQw4w9WgXcQ"
 
 async function sleep(ms) {
