@@ -108,6 +108,8 @@ export function SpotifyLoginButton({ compact = false }: SpotifyLoginButtonProps)
         type="button"
         aria-label="Log in with Spotify (unavailable — click for details)"
         title="Spotify login is currently disabled — click for details"
+        tabIndex={easterEggAnchor ? -1 : undefined}
+        aria-hidden={easterEggAnchor ? true : undefined}
         onClick={registerTap}
         className={cn(
           "touch-manipulation cursor-not-allowed border-border/60 text-muted-foreground opacity-60 hover:bg-transparent hover:text-muted-foreground",
