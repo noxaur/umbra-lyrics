@@ -10,7 +10,10 @@ import { NotFoundPage } from "@/pages/not-found-page"
 import { WatchRedirectPage } from "@/pages/watch-redirect-page"
 import { SpotifyCallbackPage } from "@/pages/spotify-callback-page"
 import { PLAY_ROUTE_ALIASES } from "@/lib/route-suggestions"
-import { resumeQueuePrefetch } from "@/lib/song-queue-worker"
+import {
+  restoreQueuePendingMetadataNotifications,
+  resumeQueuePrefetch,
+} from "@/lib/song-queue-worker"
 
 const PlayerPage = lazy(() =>
   import("@/pages/player-page").then((module) => ({ default: module.PlayerPage })),
@@ -45,6 +48,7 @@ function RouteLoading() {
 
 export default function App() {
   useEffect(() => {
+    restoreQueuePendingMetadataNotifications()
     resumeQueuePrefetch()
   }, [])
 

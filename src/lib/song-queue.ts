@@ -9,6 +9,7 @@ export type QueueTrackStatus = "prefetching" | "ready" | "error"
 export type QueueTrack = TrackMetadata & {
   addedAt: number
   status: QueueTrackStatus
+  durationSec?: number
   seedMetadata?: SeedMetadata
 }
 
@@ -44,6 +45,10 @@ function normalizeQueueTrack(track: QueueTrack): QueueTrack {
     ...normalizeTrackMetadata(track),
     addedAt: track.addedAt,
     status: track.status,
+    durationSec:
+      typeof track.durationSec === "number" && track.durationSec > 0
+        ? track.durationSec
+        : undefined,
     seedMetadata: track.seedMetadata,
   }
 }

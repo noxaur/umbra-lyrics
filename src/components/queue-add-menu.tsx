@@ -167,7 +167,11 @@ export function QueueAddMenu({ className }: { className?: string }) {
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) setAutoApprove(readQueueSettings().autoApproveMetadata)
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"

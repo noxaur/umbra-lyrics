@@ -82,7 +82,13 @@ export function QueueMenu({ className }: { className?: string }) {
   }
 
   return (
-    <DropdownMenu onOpenChange={(open) => open && setQueue(readSongQueue())}>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (!open) return
+        setQueue(readSongQueue())
+        setAutoApprove(readQueueSettings().autoApproveMetadata)
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
