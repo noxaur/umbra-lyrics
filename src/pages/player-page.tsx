@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { Minimize2, Pause, Play } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { MisroutedRouteView } from "@/components/misrouted-route-view"
 import { LyricsMetadataConfirm } from "@/components/lyrics-metadata-confirm"
@@ -10,6 +10,7 @@ import { PlayerError } from "@/components/player-error"
 import { TransportControls } from "@/components/transport-controls"
 import { YouTubePanel } from "@/components/youtube-panel"
 import { Button } from "@/components/ui/button"
+import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { cn } from "@/lib/utils"
 import { useYouTubePlayer } from "@/hooks/use-youtube-player"
 import { useLyricsSync } from "@/hooks/use-lyrics-sync"
@@ -1672,7 +1673,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
               aria-label="Exit fullscreen"
               title="Exit fullscreen (Esc)"
             >
-              <LottieIcon name="minimize-2" hover className="size-4" aria-hidden />
+              <Minimize2 className="size-4" aria-hidden />
             </Button>
           )}
 
@@ -1687,13 +1688,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
                 aria-label={isPlaying ? "Pause" : "Play"}
                 title={isPlaying ? "Pause (Space)" : "Play (Space)"}
               >
-                <LottieIcon
-                  name={isPlaying ? "pause" : "play"}
-                  hover
-                  active={isPlaying}
-                  className="size-5"
-                  aria-hidden
-                />
+                <AnimatedIcon icon={isPlaying ? Pause : Play} active={isPlaying} />
               </Button>
             </div>
           )}

@@ -1,5 +1,5 @@
+import { Check, Pencil, Trash2 } from "lucide-react"
 import { Link } from "react-router-dom"
-import { LottieIcon } from "@/components/icons/lottie-icon"
 import { ThemePreviewMini } from "@/components/theme-preview-mini"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -49,7 +49,7 @@ export function ThemePreviewCard({ theme, selected, onSelect, onDelete }: ThemeP
           </div>
           {selected && (
             <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <LottieIcon name="check" className="size-3" aria-hidden />
+              <Check className="size-3" aria-hidden />
             </span>
           )}
         </div>
@@ -69,7 +69,7 @@ export function ThemePreviewCard({ theme, selected, onSelect, onDelete }: ThemeP
         <div className="flex gap-2 border-t border-border/60 pt-2">
           <Button variant="outline" size="sm" className="flex-1 gap-1" asChild>
             <Link to={`/themes/build?edit=${theme.id}`} aria-label={`Edit ${theme.name}`}>
-              <LottieIcon name="pencil" className="size-3.5" aria-hidden />
+              <Pencil className="size-3.5" aria-hidden />
               Edit
             </Link>
           </Button>
@@ -81,7 +81,7 @@ export function ThemePreviewCard({ theme, selected, onSelect, onDelete }: ThemeP
               onClick={() => onDelete(theme.id)}
               aria-label={`Delete ${theme.name}`}
             >
-              <LottieIcon name="trash-2" className="size-3.5" aria-hidden />
+              <Trash2 className="size-3.5" aria-hidden />
               Delete
             </Button>
           )}

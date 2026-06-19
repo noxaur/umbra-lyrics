@@ -1,5 +1,6 @@
+import { MoreHorizontal, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { LottieIcon } from "@/components/icons/lottie-icon"
+import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -41,7 +42,7 @@ export function PlayerViewMenu({
           aria-label="View"
           title="View options"
         >
-          <LottieIcon name="more-horizontal" className="size-3.5" aria-hidden />
+          <MoreHorizontal className="size-3.5" aria-hidden />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
@@ -54,7 +55,10 @@ export function PlayerViewMenu({
                 onRefreshLyrics()
               }}
             >
-              <LottieIcon name="refresh" className="size-4" aria-hidden  spin/>
+              <RefreshCw
+                className={cn("size-4", lyricsRefreshing && "motion-safe:animate-spin")}
+                aria-hidden
+              />
               {lyricsRefreshing ? "Searching for lyrics…" : "Re-search lyrics"}
             </DropdownMenuItem>
             <DropdownMenuSeparator />

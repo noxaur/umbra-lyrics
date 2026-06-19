@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { LottieIcon } from "@/components/icons/lottie-icon"
+import { ListMusic, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -74,7 +74,7 @@ export function AddToPlaylistMenu({
             aria-label={size === "icon" ? "Add to playlist" : undefined}
             title={size === "icon" ? "Add to playlist" : undefined}
           >
-            <LottieIcon name="list-music" className="size-4" aria-hidden />
+            <ListMusic className="size-4" aria-hidden />
             {size !== "icon" ? <span>Add to playlist</span> : null}
           </Button>
         </DropdownMenuTrigger>
@@ -106,7 +106,7 @@ export function AddToPlaylistMenu({
               setCreateOpen(true)
             }}
           >
-            <LottieIcon name="plus" className="size-4" aria-hidden />
+            <Plus className="size-4" aria-hidden />
             New playlist
           </DropdownMenuItem>
         </DropdownMenuContent>

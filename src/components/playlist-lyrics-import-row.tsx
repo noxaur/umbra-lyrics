@@ -1,5 +1,5 @@
+import { AlertCircle, Ban, CheckCircle2, MoreHorizontal, Music2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
@@ -99,7 +99,7 @@ export function PlaylistLyricsImportRowView({
               title="Swapped to Music YouTube"
               aria-label="Swapped to Music YouTube"
             >
-              <LottieIcon name="music-2" className="size-2" aria-hidden />
+              <Music2 className="size-2" aria-hidden />
               Music
             </span>
           ) : null}
@@ -191,13 +191,13 @@ export function PlaylistLyricsImportRowView({
 
       <div className="flex items-center justify-end gap-1">
         {isCached ? (
-          <LottieIcon name="check-circle-2" className="size-4 text-emerald-600" aria-label="Already indexed" />
+          <CheckCircle2 className="size-4 text-emerald-600" aria-label="Already indexed" />
         ) : isRejected ? (
-          <LottieIcon name="x-circle" className="size-4 text-muted-foreground" aria-label="Lyrics rejected" />
+          <Ban className="size-4 text-muted-foreground" aria-label="Lyrics rejected" />
         ) : needsAttention ? (
-          <LottieIcon name="alert-circle" className="size-4 text-destructive" aria-label="Needs attention" />
+          <AlertCircle className="size-4 text-destructive" aria-label="Needs attention" />
         ) : canImport ? (
-          <LottieIcon name="check-circle-2" className="size-4 text-emerald-600" aria-label="Ready to import" />
+          <CheckCircle2 className="size-4 text-emerald-600" aria-label="Ready to import" />
         ) : null}
 
         {!isCached ? (
@@ -211,7 +211,7 @@ export function PlaylistLyricsImportRowView({
                 disabled={busy}
                 aria-label={`Actions for ${row.title}`}
               >
-                <LottieIcon name="more-horizontal" className="size-4" aria-hidden />
+                <MoreHorizontal className="size-4" aria-hidden />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -247,7 +247,7 @@ export function PlaylistLyricsImportRowView({
                 disabled={busy}
                 aria-label={`Actions for ${row.title}`}
               >
-                <LottieIcon name="more-horizontal" className="size-4" aria-hidden />
+                <MoreHorizontal className="size-4" aria-hidden />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

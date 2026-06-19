@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { LottieIcon } from "@/components/icons/lottie-icon"
+import { ArrowLeft } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import type { ChangelogChangeType } from "@/lib/content-types"
 import { getChangelogEntries } from "@/lib/site-content"
@@ -38,7 +38,7 @@ export function ChangelogPage() {
           to="/"
           className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
         >
-          <LottieIcon name="arrow-left" className="size-4" aria-hidden />
+          <ArrowLeft className="size-4" aria-hidden />
           Back home
         </Link>
 

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { LottieIcon } from "@/components/icons/lottie-icon"
+import { ChevronDown, ChevronUp, Flag, GripVertical, Music2, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getLyricsCache } from "@/lib/lyrics-cache"
 import { isLyricsRejected } from "@/lib/lyrics-rejection"
@@ -80,7 +80,7 @@ export function PlaylistTrackRow({
           className="flex shrink-0 cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
           aria-hidden
         >
-          <LottieIcon name="grip-vertical" className="size-4" />
+          <GripVertical className="size-4" />
         </span>
       ) : null}
       <span className="relative shrink-0">
@@ -100,7 +100,7 @@ export function PlaylistTrackRow({
             title="Swapped to Music YouTube"
             aria-label="Swapped to Music YouTube"
           >
-            <LottieIcon name="music-2" className="size-2.5" aria-hidden />
+            <Music2 className="size-2.5" aria-hidden />
             Music
           </span>
         ) : null}
@@ -161,7 +161,7 @@ export function PlaylistTrackRow({
               onClick={onMoveUp}
               aria-label="Move track up"
             >
-              <LottieIcon name="chevron-up" className="size-4" aria-hidden />
+              <ChevronUp className="size-4" aria-hidden />
             </Button>
           ) : null}
           {onMoveDown ? (
@@ -172,7 +172,7 @@ export function PlaylistTrackRow({
               onClick={onMoveDown}
               aria-label="Move track down"
             >
-              <LottieIcon name="chevron-down" className="size-4" aria-hidden />
+              <ChevronDown className="size-4" aria-hidden />
             </Button>
           ) : null}
           {canRejectLyrics ? (
@@ -184,7 +184,7 @@ export function PlaylistTrackRow({
               aria-label="Reject lyrics"
               title="Reject lyrics for this track"
             >
-              <LottieIcon name="flag" className="size-4" aria-hidden />
+              <Flag className="size-4" aria-hidden />
             </Button>
           ) : null}
           {onRemove ? (
@@ -195,7 +195,7 @@ export function PlaylistTrackRow({
               onClick={onRemove}
               aria-label="Remove track from playlist"
             >
-              <LottieIcon name="trash-2" className="size-4" aria-hidden />
+              <Trash2 className="size-4" aria-hidden />
             </Button>
           ) : null}
         </div>

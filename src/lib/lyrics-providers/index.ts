@@ -292,6 +292,7 @@ export async function searchProvidersStaged(
   const statuses: ProviderSearchStatus[] = []
 
   let firstPending = 0
+  const pendingFirstStage = new Set<LyricsProviderId>()
   let fallbackPending = 0
   let fallbackFoundCandidates = false
   let fallbackStarted = false
@@ -321,14 +322,16 @@ export async function searchProvidersStaged(
       ) {
         return
       }
-      if (preferredProviderGraceMs <= 0) {
+      // Never cut LRCLIB short — wait for its request to finish or time out.
+      if (pendingFirstStage.has("lrclib")) {
+        return
+      }
+      const graceMs = preferredProviderGraceMs
+      if (graceMs <= 0) {
         settle(resolve)
         return
       }
-      preferredProviderGraceTimer = setTimeout(
-        () => settle(resolve),
-        preferredProviderGraceMs,
-      )
+      preferredProviderGraceTimer = setTimeout(() => settle(resolve), graceMs)
     }
 
     const finish = () => {
@@ -374,13 +377,17 @@ export async function searchProvidersStaged(
         }
       } else {
         firstPending = ids.length
+        pendingFirstStage.clear()
+        for (const id of ids) pendingFirstStage.add(id)
       }
 
       for (const id of ids) {
         const provider = providersById.get(id)
         if (!provider) {
-          if (stage === "first") firstPending -= 1
-          else fallbackPending -= 1
+          if (stage === "first") {
+            firstPending -= 1
+            pendingFirstStage.delete(id)
+          } else fallbackPending -= 1
           continue
         }
 
@@ -412,8 +419,10 @@ export async function searchProvidersStaged(
               message: error instanceof Error ? error.message : "Unknown error",
             })
           } finally {
-            if (stage === "first") firstPending -= 1
-            else {
+            if (stage === "first") {
+              firstPending -= 1
+              pendingFirstStage.delete(id)
+            } else {
               fallbackPending -= 1
               fallbackDone = fallbackPending === 0
             }

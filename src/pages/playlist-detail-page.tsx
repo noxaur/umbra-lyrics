@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
-import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Link, useNavigate, useParams } from "react-router-dom"
+import { ArrowLeft, ChevronDown, Download, FileMusic, Pencil, Play, Trash2 } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { NotFoundPage } from "@/pages/not-found-page"
 import { PlaylistFormDialog } from "@/components/playlist-form-dialog"
@@ -196,7 +196,7 @@ function PlaylistDetailContent({
           to="/playlists"
           className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
         >
-          <LottieIcon name="arrow-left" className="size-4" aria-hidden />
+          <ArrowLeft className="size-4" aria-hidden />
           All playlists
         </Link>
 
@@ -224,7 +224,7 @@ function PlaylistDetailContent({
               className="gap-1.5"
               onClick={() => setImportOpen(true)}
             >
-              <LottieIcon name="download" className="size-3.5" aria-hidden />
+              <Download className="size-3.5" aria-hidden />
               Import
             </Button>
             <DropdownMenu>
@@ -235,9 +235,9 @@ function PlaylistDetailContent({
                   className="gap-1.5"
                   disabled={playlist.tracks.length === 0 || fetchBusy}
                 >
-                  <LottieIcon name="file-music" className="size-3.5" aria-hidden />
+                  <FileMusic className="size-3.5" aria-hidden />
                   Fetch lyrics
-                  <LottieIcon name="chevron-down" className="size-3 opacity-60" aria-hidden />
+                  <ChevronDown className="size-3 opacity-60" aria-hidden />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -261,7 +261,7 @@ function PlaylistDetailContent({
               className="gap-1.5"
               onClick={() => setRenameOpen(true)}
             >
-              <LottieIcon name="pencil" className="size-3.5" aria-hidden />
+              <Pencil className="size-3.5" aria-hidden />
               Rename
             </Button>
             <Button
@@ -270,7 +270,7 @@ function PlaylistDetailContent({
               className="gap-1.5 text-destructive hover:text-destructive"
               onClick={handleDelete}
             >
-              <LottieIcon name="trash-2" className="size-3.5" aria-hidden />
+              <Trash2 className="size-3.5" aria-hidden />
               Delete
             </Button>
             <Button
@@ -278,7 +278,7 @@ function PlaylistDetailContent({
               onClick={handlePlay}
               disabled={playlist.tracks.length === 0}
             >
-              <LottieIcon name="play" className="size-4" aria-hidden />
+              <Play className="size-4" aria-hidden />
               Play
             </Button>
           </div>
@@ -299,7 +299,7 @@ function PlaylistDetailContent({
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <Button className="gap-1.5" onClick={() => setImportOpen(true)}>
-                <LottieIcon name="download" className="size-4" aria-hidden />
+                <Download className="size-4" aria-hidden />
                 Import from YouTube
               </Button>
               <Button asChild variant="outline">

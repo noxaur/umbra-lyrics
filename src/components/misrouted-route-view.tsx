@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
-import { LottieIcon } from "@/components/icons/lottie-icon"
 import { motion, useReducedMotion } from "motion/react"
+import { Home, Mic2, Sparkles } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { RouteSuggestionList } from "@/components/route-suggestion-list"
 import { Button } from "@/components/ui/button"
@@ -84,7 +84,7 @@ export function MisroutedRouteView({ issue }: MisroutedRouteViewProps) {
             transition={{ duration: 0.45, ease: "easeOut" }}
             className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-lg shadow-primary/10"
           >
-            <LottieIcon name="mic-2" className="size-8" aria-hidden />
+            <Mic2 className="size-8" aria-hidden />
           </motion.div>
 
           <motion.p
@@ -139,7 +139,7 @@ export function MisroutedRouteView({ issue }: MisroutedRouteViewProps) {
               className="mt-8 space-y-3 text-left"
             >
               <p className="flex items-center justify-center gap-1.5 text-sm font-medium text-foreground">
-                <LottieIcon name="sparkles" className="size-4 text-primary" aria-hidden />
+                <Sparkles className="size-4 text-primary" aria-hidden />
                 Maybe you meant
               </p>
               <RouteSuggestionList suggestions={issue.suggestions} />
@@ -193,7 +193,7 @@ export function MisroutedRouteView({ issue }: MisroutedRouteViewProps) {
           >
             <Button asChild className="gap-2">
               <Link to="/">
-                <LottieIcon name="home" className="size-4" aria-hidden />
+                <Home className="size-4" aria-hidden />
                 Back to home
               </Link>
             </Button>

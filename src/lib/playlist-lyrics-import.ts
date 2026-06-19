@@ -39,6 +39,8 @@ export type PlaylistLyricsImportRow = {
   transcribedResult?: LyricsResult
   oembedAuthor?: string
   message?: string
+  /** Set when the user edits artist/track in the import dialog; skips auto-resolution. */
+  metadataEdited?: boolean
 }
 
 export type PrepareRowsOptions = {
@@ -83,7 +85,7 @@ async function resolveRowMetadata(
   const manualArtist = row.artist.trim()
   const manualTrack = row.track.trim()
 
-  if (manualArtist && manualTrack) {
+  if (row.metadataEdited && manualArtist && manualTrack) {
     let durationSec = row.durationSec || 0
     let oembedAuthor = row.oembedAuthor
 
@@ -141,8 +143,8 @@ async function resolveRowMetadata(
   }
 
   return {
-    artist: manualArtist || resolved.artist || normalized.artist,
-    track: manualTrack || resolved.track || normalized.track,
+    artist: resolved.artist || manualArtist || normalized.artist,
+    track: resolved.track || manualTrack || normalized.track,
     title: normalized.title,
     durationSec: durationSec || resolved.durationSec || 0,
     oembedAuthor,
@@ -203,6 +205,8 @@ export function applyPlaylistImportRowMetadataEdit(
     return { ...row, artist, track }
   }
 
+  const metadataEdited = true
+
   const hadSearchResults =
     row.status === "ready" ||
     row.status === "no_match" ||
@@ -218,6 +222,7 @@ export function applyPlaylistImportRowMetadataEdit(
       ...row,
       artist,
       track,
+      metadataEdited,
       status: "needs_metadata",
       selectedAlternate: undefined,
       alternates: [],
@@ -232,6 +237,7 @@ export function applyPlaylistImportRowMetadataEdit(
       ...row,
       artist,
       track,
+      metadataEdited,
       status: "pending",
       selectedAlternate: undefined,
       alternates: [],
@@ -245,6 +251,7 @@ export function applyPlaylistImportRowMetadataEdit(
     ...row,
     artist,
     track,
+    metadataEdited,
     status: row.status === "needs_metadata" ? "pending" : row.status,
     message: undefined,
   }

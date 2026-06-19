@@ -1,7 +1,7 @@
 import { useState } from "react"
-import type { IconName } from "@/components/icons/icon-names"
-import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Link } from "react-router-dom"
+import { FileMusic, Mic2, Music2, WifiOff } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { LyricsPasteModal } from "@/components/lyrics-paste-modal"
@@ -55,14 +55,16 @@ export function LyricsRetry({ onRetry, onPaste, onTranscribe, variant = "not_fou
       ? `Auto-retry attempted ${networkRetryCount} time${networkRetryCount === 1 ? "" : "s"}`
       : null
 
-  const variantIcon: IconName =
+  const variantIcon: LucideIcon =
     variant === "network_error"
-      ? "wifi-off"
+      ? WifiOff
       : variant === "instrumental"
-        ? "mic-2"
+        ? Mic2
         : variant === "partial"
-          ? "file-music"
-          : "music-2"
+          ? FileMusic
+          : Music2
+
+  const VariantIcon = variantIcon
 
   return (
     <>
@@ -72,7 +74,7 @@ export function LyricsRetry({ onRetry, onPaste, onTranscribe, variant = "not_fou
       >
         <div className="max-w-md text-center">
           <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-muted/35">
-            <LottieIcon name={variantIcon} className="size-8 text-muted-foreground/85" aria-hidden />
+            <VariantIcon className="size-8 text-muted-foreground/85" aria-hidden />
           </div>
           <p className="font-medium text-foreground">{headline}</p>
           <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
