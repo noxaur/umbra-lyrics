@@ -11,6 +11,8 @@ export type UseSongSearchOptions = {
   enabled?: boolean
   emptyMessage?: string
   errorMessage?: string
+  /** When true, skip the search because the query was handled externally (e.g. URL resolve). */
+  beforeSearch?: (query: string) => Promise<boolean>
 }
 
 type ActiveSearch = {
@@ -30,6 +32,7 @@ export function useSongSearch(options: UseSongSearchOptions = {}) {
     enabled = true,
     emptyMessage = "No songs found",
     errorMessage = "Search unavailable",
+    beforeSearch,
   } = options
 
   const [query, setQuery] = useState("")
@@ -53,6 +56,13 @@ export function useSongSearch(options: UseSongSearchOptions = {}) {
     setStatus("idle")
   }, [cancelActiveSearch])
 
+  const clearSearchState = useCallback(() => {
+    cancelActiveSearch()
+    setResults([])
+    setError(null)
+    setStatus("idle")
+  }, [cancelActiveSearch])
+
   const runSearch = useCallback(
     async (value: string) => {
       const trimmed = value.trim()
@@ -60,6 +70,14 @@ export function useSongSearch(options: UseSongSearchOptions = {}) {
       if (trimmed.length < minQueryLen) {
         resetSearch()
         return
+      }
+
+      const generationAtStart = generationRef.current
+
+      if (beforeSearch) {
+        const handled = await beforeSearch(trimmed)
+        if (handled) return
+        if (generationRef.current !== generationAtStart) return
       }
 
       cancelActiveSearch()
@@ -100,7 +118,7 @@ export function useSongSearch(options: UseSongSearchOptions = {}) {
         }
       }
     },
-    [cancelActiveSearch, emptyMessage, errorMessage, limit, minQueryLen, resetSearch],
+    [beforeSearch, cancelActiveSearch, emptyMessage, errorMessage, limit, minQueryLen, resetSearch],
   )
 
   useEffect(() => {
@@ -149,5 +167,6 @@ export function useSongSearch(options: UseSongSearchOptions = {}) {
     submitSearch,
     clearResults,
     resetSearch,
+    clearSearchState,
   }
 }

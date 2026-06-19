@@ -96,6 +96,26 @@ describe("useSongSearch", () => {
     expect(result.current.status).toBe("error")
   })
 
+  it("skips search when beforeSearch handles the query", async () => {
+    vi.useFakeTimers()
+    const beforeSearch = vi.fn(async () => true)
+
+    const { result } = renderHook(() => useSongSearch({ debounceMs: 100, beforeSearch }))
+
+    act(() => {
+      result.current.setQuery("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100)
+      await Promise.resolve()
+    })
+
+    expect(beforeSearch).toHaveBeenCalledWith("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    expect(mockSearchSongs).not.toHaveBeenCalled()
+    expect(result.current.status).toBe("idle")
+  })
+
   it("does not fall into a permanent searching state after aborting", async () => {
     vi.useFakeTimers()
     mockSearchSongs.mockImplementation(

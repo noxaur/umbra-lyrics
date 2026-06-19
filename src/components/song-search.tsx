@@ -17,9 +17,10 @@ import { useSongSearch } from "@/hooks/use-song-search"
 import { parseTrackTitle } from "@/lib/parse-track-title"
 import { formatSongDuration, formatViewCount, type SongSearchHit } from "@/lib/youtube-search"
 import { mediaResolveErrorMessage, resolveMediaInput } from "@/lib/media-url"
+import { extractSpotifyTrackId } from "@/lib/spotify-url"
 import { buildPlayerNavigationState, type SeedMetadata } from "@/lib/player-navigation"
 import { youtubeThumbnailUrl } from "@/lib/youtube-thumbnail"
-import { youTubePlaybackEmbedUrl } from "@/lib/youtube-url"
+import { extractYouTubeVideoId, youTubePlaybackEmbedUrl } from "@/lib/youtube-url"
 
 function formatResultLabel(hit: SongSearchHit): string {
   const { artist, track } = parseTrackTitle(hit.title)
@@ -129,43 +130,26 @@ export function SongSearch() {
   const navigate = useNavigate()
   const listId = useId()
   const optionIdPrefix = useId()
+  const resetSearchRef = useRef<() => void>(() => {})
+  const clearSearchStateRef = useRef<() => void>(() => {})
 
-  const {
-    query,
-    setQuery,
-    results,
-    status,
-    error: searchError,
-    isSearching,
-    submitSearch,
-    resetSearch,
-  } = useSongSearch({
-    limit: 10,
-    enabled: !opening,
-    emptyMessage:
-      "No songs found. Try different keywords or paste a YouTube or Spotify link below.",
-    errorMessage:
-      "Search unavailable right now. Paste a YouTube or Spotify link below instead.",
-  })
-
-  const optionId = (index: number) => `${optionIdPrefix}-option-${index}`
-
-  const goToPlayer = (videoId: string, seedMetadata?: SeedMetadata) => {
+  const goToPlayer = useCallback((videoId: string, seedMetadata?: SeedMetadata) => {
     setOpening(true)
     navigate(`/play/${videoId}`, {
       state: buildPlayerNavigationState(true, seedMetadata, {
         canonicalChecked: seedMetadata ? videoId : undefined,
       }),
     })
-  }
+  }, [navigate])
 
-  const resolveMediaLink = async (value: string): Promise<boolean> => {
+  const resolveMediaLink = useCallback(async (value: string): Promise<boolean> => {
     const trimmed = value.trim()
     if (!trimmed) return false
+    if (!extractYouTubeVideoId(trimmed) && !extractSpotifyTrackId(trimmed)) return false
 
     setResolving(true)
     setResolveError(null)
-    resetSearch()
+    clearSearchStateRef.current()
 
     try {
       const resolved = await resolveMediaInput(trimmed)
@@ -180,7 +164,32 @@ export function SongSearch() {
     } finally {
       setResolving(false)
     }
-  }
+  }, [goToPlayer])
+
+  const {
+    query,
+    setQuery,
+    results,
+    status,
+    error: searchError,
+    isSearching,
+    submitSearch,
+    resetSearch,
+    clearSearchState,
+  } = useSongSearch({
+    limit: 10,
+    enabled: !opening,
+    beforeSearch: resolveMediaLink,
+    emptyMessage:
+      "No songs found. Try different keywords or paste a YouTube or Spotify link below.",
+    errorMessage:
+      "Search unavailable right now. Paste a YouTube or Spotify link below instead.",
+  })
+
+  resetSearchRef.current = resetSearch
+  clearSearchStateRef.current = clearSearchState
+
+  const optionId = (index: number) => `${optionIdPrefix}-option-${index}`
 
   useEffect(() => {
     setPreviewHit(null)

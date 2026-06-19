@@ -280,6 +280,30 @@ describe("SongSearch", () => {
     })
   })
 
+  it("resolves pasted YouTube links on debounce without searching", async () => {
+    vi.useFakeTimers()
+
+    render(
+      <MemoryRouter>
+        <SongSearch />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText(/search songs/i), {
+      target: { value: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+    })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+      await Promise.resolve()
+    })
+
+    expect(mockSearchSongs).not.toHaveBeenCalled()
+    expect(mockNavigate).toHaveBeenCalledWith("/play/dQw4w9WgXcQ", {
+      state: { fromHome: true },
+    })
+  })
+
   it("clears searching state after replacing an in-flight query", async () => {
     vi.useFakeTimers()
     let abortSignal: AbortSignal | undefined
