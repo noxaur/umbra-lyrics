@@ -19,12 +19,19 @@ describe("prepare-wrangler-deploy.mjs", () => {
     delete process.env.DEPLOY_CONTAINERS
   })
 
-  function runPrepare(config: Record<string, unknown>) {
+  function runPrepare(
+    config: Record<string, unknown>,
+    extraEnv: NodeJS.ProcessEnv = {},
+  ) {
     const configPath = path.join(tempDir, "wrangler.json")
     fs.writeFileSync(configPath, JSON.stringify(config))
+    const env = { ...process.env, ...extraEnv }
+    delete env.STRIP_ZONE_ROUTES
+    delete env.DEPLOY_CONTAINERS
+    Object.assign(env, extraEnv)
     execFileSync("node", [scriptPath, configPath], {
       cwd: process.cwd(),
-      env: { ...process.env },
+      env,
       stdio: "pipe",
     })
     return JSON.parse(fs.readFileSync(configPath, "utf8")) as {
@@ -47,12 +54,13 @@ describe("prepare-wrangler-deploy.mjs", () => {
   })
 
   it("strips routes only when STRIP_ZONE_ROUTES=true", () => {
-    process.env.STRIP_ZONE_ROUTES = "true"
-
-    const result = runPrepare({
-      name: "umbra",
-      routes: [{ pattern: "song.opsec.rent/*", zone_name: "opsec.rent" }],
-    })
+    const result = runPrepare(
+      {
+        name: "umbra",
+        routes: [{ pattern: "song.opsec.rent/*", zone_name: "opsec.rent" }],
+      },
+      { STRIP_ZONE_ROUTES: "true" },
+    )
 
     expect(result.routes).toBeUndefined()
   })
