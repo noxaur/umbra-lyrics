@@ -6,7 +6,7 @@ function showSpotifyDisabledNotice(): void {
   pushQueueNotification({
     kind: "info",
     title: "Spotify login unavailable",
-    message: "Spotify login is disabled currently.",
+    message: "Spotify login is currently disabled.",
     dismissAfterMs: 3000,
   })
 }
@@ -42,6 +42,7 @@ export function SpotifyLoginButton() {
       size="sm"
       type="button"
       aria-label="Log in with Spotify (unavailable — click for details)"
+      title="Spotify login is currently disabled — click for details"
       onClick={showSpotifyDisabledNotice}
       className="cursor-not-allowed border-border/60 text-muted-foreground opacity-60 hover:bg-transparent hover:text-muted-foreground"
     >

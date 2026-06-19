@@ -54,7 +54,7 @@ describe("SpotifyLoginButton", () => {
     expect(notifications[0]).toMatchObject({
       kind: "info",
       title: "Spotify login unavailable",
-      message: "Spotify login is disabled currently.",
+      message: "Spotify login is currently disabled.",
       dismissAfterMs: 3000,
     })
   })
