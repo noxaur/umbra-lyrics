@@ -81,4 +81,44 @@ describe("buildLyricsRejectionUrl", () => {
     expect(body).toContain("**Timing:** Auto-timed")
     expect(body).toContain("Fallback line")
   })
+
+  it("keeps issue URLs within a browser-safe length for long lyrics", () => {
+    const longLine = "あ".repeat(120)
+    const longLyrics = Array.from({ length: 120 }, () => longLine).join("\n")
+    const alternates = Array.from({ length: 6 }, (_, index) => ({
+      providerId: "genius" as const,
+      id: `genius-${index}`,
+      synced: false,
+      lineCount: 120,
+      rankScore: 1,
+      lyricsResult: {
+        providerId: "genius" as const,
+        id: `genius-${index}`,
+        plainLyrics: longLyrics,
+        syncedLyrics: null,
+      },
+    }))
+
+    const href = buildLyricsRejectionUrl({
+      videoId: "abc_123",
+      title: "Long track",
+      artist: "Artist",
+      track: "Track",
+      providerId: "lrclib",
+      synced: true,
+      autoTimed: false,
+      aligned: false,
+      currentLyrics: {
+        plainLyrics: longLyrics,
+        syncedLyrics: null,
+      },
+      alternates,
+      providersSearched: ["lrclib", "genius"],
+      attempts: ["lrclib:exact"],
+    })
+
+    expect(href.length).toBeLessThanOrEqual(7500)
+    const body = new URL(href).searchParams.get("body") ?? ""
+    expect(body).toMatch(/truncated|Omitted/)
+  })
 })

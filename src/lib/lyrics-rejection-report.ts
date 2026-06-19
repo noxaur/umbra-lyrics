@@ -5,6 +5,9 @@ import {
 } from "@/types/lyrics"
 
 const ISSUE_URL = "https://github.com/noxaur/umbra-lyrics/issues/new"
+const MAX_ISSUE_URL_LENGTH = 7500
+const MAX_LYRICS_BLOCK_CHARS = 2000
+const MAX_ALTERNATES = 3
 
 type RawLyrics = {
   plainLyrics: string | null
@@ -31,13 +34,19 @@ function providerLabel(providerId: LyricsProviderId): string {
   return LYRICS_PROVIDER_LABELS[providerId] ?? providerId
 }
 
+function truncateText(text: string, maxChars: number): string {
+  const trimmed = text.trim()
+  if (trimmed.length <= maxChars) return trimmed
+  return `${trimmed.slice(0, maxChars)}\n\n… (truncated)`
+}
+
 function rawLyricsText(lyrics: RawLyrics | undefined, displayedLines: string[] = []): string {
-  return (
+  const text =
     lyrics?.syncedLyrics?.trim() ||
     lyrics?.plainLyrics?.trim() ||
     displayedLines.join("\n").trim() ||
     "No lyrics text available."
-  )
+  return truncateText(text, MAX_LYRICS_BLOCK_CHARS)
 }
 
 function timingLabel(report: LyricsRejectionReport): string {
@@ -61,9 +70,11 @@ export function buildLyricsRejectionUrl(report: LyricsRejectionReport): string {
   const attempts = report.attempts.length
     ? report.attempts.map((attempt) => `- ${attempt}`).join("\n")
     : "- None recorded"
-  const alternates = report.alternates.length
-    ? report.alternates
-        .map((alternate) => {
+  const includedAlternates = report.alternates.slice(0, MAX_ALTERNATES)
+  const omittedAlternateCount = report.alternates.length - includedAlternates.length
+  const alternates = includedAlternates.length
+    ? [
+        ...includedAlternates.map((alternate) => {
           const text = rawLyricsText(alternate.lyricsResult)
           return [
             `### ${providerLabel(alternate.providerId)} (\`${alternate.providerId}\`)`,
@@ -72,8 +83,11 @@ export function buildLyricsRejectionUrl(report: LyricsRejectionReport): string {
             "",
             lyricsBlock(text),
           ].join("\n")
-        })
-        .join("\n\n")
+        }),
+        ...(omittedAlternateCount > 0
+          ? [`_(${omittedAlternateCount} more alternate${omittedAlternateCount === 1 ? "" : "s"} omitted — use Re-search diagnostics or paste in Additional details.)_`]
+          : []),
+      ].join("\n\n")
     : "No alternate lyrics recorded."
 
   const body = [
@@ -109,5 +123,34 @@ export function buildLyricsRejectionUrl(report: LyricsRejectionReport): string {
   const url = new URL(ISSUE_URL)
   url.searchParams.set("title", `Reject lyrics: ${issueTrack}`)
   url.searchParams.set("body", body)
+  return fitIssueUrl(url)
+}
+
+function fitIssueUrl(url: URL): string {
+  let href = url.toString()
+  if (href.length <= MAX_ISSUE_URL_LENGTH) return href
+
+  const body = url.searchParams.get("body") ?? ""
+  const withoutAlternates = body.replace(
+    /\n## Alternate scraped lyrics[\s\S]*/,
+    "\n## Alternate scraped lyrics\n\n_Omitted — issue URL would exceed browser limits. Paste alternates in Additional details if needed._",
+  )
+  url.searchParams.set("body", withoutAlternates)
+  href = url.toString()
+  if (href.length <= MAX_ISSUE_URL_LENGTH) return href
+
+  const currentLyricsMarker = "\n## Current lyrics\n\n"
+  const currentStart = withoutAlternates.indexOf(currentLyricsMarker)
+  if (currentStart >= 0) {
+    const nextSection = withoutAlternates.indexOf("\n## ", currentStart + currentLyricsMarker.length)
+    const head = withoutAlternates.slice(0, currentStart + currentLyricsMarker.length)
+    const tail = nextSection >= 0 ? withoutAlternates.slice(nextSection) : ""
+    const shortened = truncateText(
+      rawLyricsText(undefined, ["See displayed lyrics in the app — URL trimmed for length."]),
+      400,
+    )
+    url.searchParams.set("body", `${head}${lyricsBlock(shortened)}${tail}`)
+  }
+
   return url.toString()
 }
