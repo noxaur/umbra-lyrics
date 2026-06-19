@@ -190,6 +190,52 @@ describe("playlist lyrics import", () => {
     expect(result.selectedAlternate?.providerId).toBe("lrclib")
   })
 
+  it("prefers resolved metadata over rough playlist labels when scanning", async () => {
+    const { resolveTrackMetadata } = await import("@/lib/track-metadata-resolver")
+    vi.mocked(resolveTrackMetadata).mockResolvedValueOnce({
+      artist: "Canonical Artist",
+      track: "Canonical Track",
+      source: "spotify",
+      confidence: 0.9,
+      alternates: [],
+    })
+
+    mockOrchestrate.mockResolvedValue({
+      status: "found",
+      strategy: "lrclib",
+      providerId: "lrclib",
+      attempts: [],
+      providersTried: ["lrclib"],
+      message: "Found",
+      synced: true,
+      lyrics: {
+        id: 1,
+        providerId: "lrclib",
+        plainLyrics: "Hello",
+        syncedLyrics: "[00:00.00]Hello",
+      },
+      alternates: [],
+    })
+
+    await scanPlaylistLyricsImportRow({
+      videoId: "abc123def45",
+      title: "Wrong Artist - Wrong Track",
+      artist: "Wrong Artist",
+      track: "Wrong Track",
+      durationSec: 200,
+      selected: true,
+      status: "pending",
+      alternates: [],
+    })
+
+    expect(mockOrchestrate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artist: "Canonical Artist",
+        track: "Canonical Track",
+      }),
+    )
+  })
+
   it("maps scan results to needs_metadata when artist is missing", async () => {
     const { resolveTrackMetadata } = await import("@/lib/track-metadata-resolver")
     vi.mocked(resolveTrackMetadata).mockResolvedValueOnce({
@@ -330,6 +376,7 @@ describe("playlist lyrics import", () => {
       title: "Wrong - Parsed",
       artist: "Manual Artist",
       track: "Manual Track",
+      metadataEdited: true,
       durationSec: 200,
       selected: true,
       status: "pending",
@@ -375,6 +422,7 @@ describe("playlist lyrics import", () => {
     )
 
     expect(next.artist).toBe("New Artist")
+    expect(next.metadataEdited).toBe(true)
     expect(next.status).toBe("pending")
     expect(next.selectedAlternate).toBeUndefined()
     expect(next.alternates).toEqual([])
