@@ -5,17 +5,17 @@ import {
 } from "../../scripts/deploy-wrangler-logic.mjs"
 
 const routeFailureLog = `
-Uploaded umbra (3.69 sec)
-Deployed umbra triggers (1.09 sec)
-  https://umbra.nox-heights.workers.dev
+Uploaded song-kara (3.69 sec)
+Deployed song-kara triggers (1.09 sec)
+  https://song-kara.nox-heights.workers.dev
 
-✘ [ERROR] Some triggers failed to deploy for umbra:
+✘ [ERROR] Some triggers failed to deploy for song-kara:
     - A request to the Cloudflare API (/zones/.../workers/routes) failed.
 `
 
 describe("classifyWranglerDeployOutput", () => {
   it("treats a clean deploy as success", () => {
-    expect(classifyWranglerDeployOutput(0, "Uploaded umbra\nDeployed umbra triggers")).toBe(
+    expect(classifyWranglerDeployOutput(0, "Uploaded song-kara\nDeployed song-kara triggers")).toBe(
       "success",
     )
   })
@@ -26,7 +26,7 @@ describe("classifyWranglerDeployOutput", () => {
 
   it("fails when the worker never uploaded", () => {
     expect(
-      classifyWranglerDeployOutput(1, "✘ [ERROR] Some triggers failed to deploy for umbra:"),
+      classifyWranglerDeployOutput(1, "✘ [ERROR] Some triggers failed to deploy for song-kara:"),
     ).toBe("failure")
   })
 

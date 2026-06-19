@@ -48,7 +48,9 @@ npm run deploy
 
 The app deploys as a Cloudflare Worker with static assets (`@cloudflare/vite-plugin`) and lyrics API routes on `/api/*`.
 
-**Deploy token permissions:** `CLOUDFLARE_API_TOKEN` needs **Workers Scripts:Edit** plus **Workers Routes:Edit** and **Zone:Read** on the `opsec.rent` zone so `song.opsec.rent` routes attach to the `umbra` worker. If route attachment fails, CI still publishes the worker to `*.workers.dev` and emits a warning; widen the token to attach the custom domain. For a workers.dev-only deploy, run `STRIP_ZONE_ROUTES=true npm run deploy` and attach the route in the Cloudflare dashboard.
+**Deploy token permissions:** `CLOUDFLARE_API_TOKEN` needs **Workers Scripts:Edit** plus **Workers Routes:Edit** and **Zone:Read** on the `opsec.rent` zone so `song.opsec.rent` routes attach to the `song-kara` worker. If route attachment fails, CI still publishes the worker to `*.workers.dev` and emits a warning; widen the token to attach the custom domain. For a workers.dev-only deploy, run `STRIP_ZONE_ROUTES=true npm run deploy` and attach the route in the Cloudflare dashboard.
+
+The Cloudflare Worker is still named `song-kara` (legacy) so deploys update the worker that owns `song.opsec.rent`. The app UI brands as **umbra**.
 
 Auto-transcription downloads a quantized Whisper Base model on first use, then caches it in the browser. WebGPU is used when available, with a slower WebAssembly fallback. Desktop browsers are recommended; longer tracks may use substantial memory.
 
@@ -57,7 +59,7 @@ Auto-transcription downloads a quantized Whisper Base model on first use, then c
 | URL | Notes |
 |-----|-------|
 | https://song.opsec.rent | Primary production URL |
-| https://umbra.nox-heights.workers.dev | Workers.dev fallback |
+| https://song-kara.nox-heights.workers.dev | Workers.dev fallback |
 
 If `song.opsec.rent` shows "Server Not Found" in your browser, your local DNS resolver may have a stale cache. Try:
 

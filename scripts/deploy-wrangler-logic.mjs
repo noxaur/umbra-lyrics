@@ -6,7 +6,7 @@
 export function classifyWranglerDeployOutput(status, output) {
   if (status === 0) return "success"
 
-  const workerUploaded = /Uploaded umbra\b/.test(output)
+  const workerUploaded = /Uploaded song-kara\b/.test(output)
   const routeTriggerFailed = /Some triggers failed to deploy/.test(output)
 
   if (workerUploaded && routeTriggerFailed) return "route_only_failure"

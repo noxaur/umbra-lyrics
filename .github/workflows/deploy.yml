@@ -26,10 +26,10 @@ jobs:
       - run: npx vp build
 
       - name: Prepare wrangler config for production deploy
-        run: node scripts/prepare-wrangler-deploy.mjs dist/umbra/wrangler.json
+        run: node scripts/prepare-wrangler-deploy.mjs dist/song_kara/wrangler.json
 
       - name: Deploy Worker to song.opsec.rent
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: node scripts/deploy-wrangler.mjs dist/umbra/wrangler.json
+        run: node scripts/deploy-wrangler.mjs dist/song_kara/wrangler.json
