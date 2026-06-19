@@ -24,7 +24,7 @@ import { mediaResolveErrorMessage, resolveMediaInput } from "@/lib/media-url"
 import { buildPlayerNavigationState, type SeedMetadata } from "@/lib/player-navigation"
 import { youtubeThumbnailUrl } from "@/lib/youtube-thumbnail"
 
-const DEBOUNCE_MS = 300
+const DEBOUNCE_MS = 600
 const MIN_QUERY_LEN = 2
 
 function formatResultLabel(hit: SongSearchHit): string {
@@ -140,6 +140,11 @@ export function SongSearch() {
   const optionIdPrefix = useId()
   const requestId = useRef(0)
 
+  const invalidateSearch = useCallback(() => {
+    requestId.current += 1
+    setLoading(false)
+  }, [])
+
   const optionId = (index: number) => `${optionIdPrefix}-option-${index}`
 
   const goToPlayer = (videoId: string, seedMetadata?: SeedMetadata) => {
@@ -226,9 +231,9 @@ export function SongSearch() {
 
     const trimmed = query.trim()
     if (trimmed.length < MIN_QUERY_LEN) {
+      invalidateSearch()
       setResults([])
       setError(null)
-      setLoading(false)
       setActiveIndex(-1)
       return
     }
@@ -239,10 +244,11 @@ export function SongSearch() {
     }, DEBOUNCE_MS)
 
     return () => {
+      invalidateSearch()
       window.clearTimeout(timer)
       controller.abort()
     }
-  }, [query, opening])
+  }, [query, opening, invalidateSearch])
 
   const submit = (e?: FormEvent) => {
     e?.preventDefault()

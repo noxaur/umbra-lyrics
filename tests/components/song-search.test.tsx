@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import { SongSearch } from "@/components/song-search"
 
@@ -34,6 +34,10 @@ describe("SongSearch", () => {
   beforeEach(() => {
     mockNavigate.mockReset()
     mockSearchSongs.mockReset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it("searches on submit and navigates on result click", async () => {
@@ -243,5 +247,73 @@ describe("SongSearch", () => {
     })
 
     vi.useRealTimers()
+  })
+
+  it("waits longer before auto-searching typed queries", async () => {
+    vi.useFakeTimers()
+    mockSearchSongs.mockResolvedValue([searchHit])
+
+    render(
+      <MemoryRouter>
+        <SongSearch />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText(/search songs/i), {
+      target: { value: "queen bohemian" },
+    })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+    expect(mockSearchSongs).not.toHaveBeenCalled()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+    expect(mockSearchSongs).toHaveBeenCalledWith("queen bohemian", {
+      limit: 10,
+      signal: expect.any(AbortSignal),
+    })
+  })
+
+  it("clears searching state after replacing an in-flight query", async () => {
+    vi.useFakeTimers()
+    let abortSignal: AbortSignal | undefined
+    mockSearchSongs
+      .mockImplementationOnce(
+        (_query: string, options?: { limit?: number; signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            abortSignal = options?.signal
+            options?.signal?.addEventListener("abort", () => {
+              reject(new DOMException("Aborted", "AbortError"))
+            })
+          }),
+      )
+      .mockResolvedValueOnce([])
+
+    render(
+      <MemoryRouter>
+        <SongSearch />
+      </MemoryRouter>,
+    )
+
+    const input = screen.getByPlaceholderText(/search songs/i)
+    fireEvent.change(input, { target: { value: "queen bohemian" } })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+
+    expect(screen.getAllByText("Searching…")).not.toHaveLength(0)
+
+    fireEvent.change(input, { target: { value: "queen bohemian live" } })
+    expect(abortSignal?.aborted).toBe(true)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+      await Promise.resolve()
+    })
+
+    expect(screen.queryByText("Searching…")).not.toBeInTheDocument()
   })
 })
