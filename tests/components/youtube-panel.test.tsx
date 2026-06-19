@@ -30,6 +30,12 @@ describe("YouTubePanel", () => {
     )
 
     const panel = container.firstChild as HTMLElement
-    expect(panel).toHaveClass("h-[100px]", "lg:aspect-video", "lg:flex-1")
+    expect(panel).toHaveClass(
+      "h-[100px]",
+      "lg:aspect-video",
+      "lg:h-full",
+      "lg:max-h-full",
+      "lg:flex-none",
+    )
   })
 })
