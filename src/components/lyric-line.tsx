@@ -35,8 +35,7 @@ type LyricLineProps = {
 }
 
 const LINE_SIZE = "w-full max-w-xl lyrics-primary-size leading-snug"
-const TV_LINE_SIZE =
-  "max-w-full lyrics-tv-primary-size lyrics-tv-primary-lg-size leading-snug"
+const TV_LINE_SIZE = "max-w-full lyrics-tv-primary-size lyrics-tv-primary-lg-size"
 const LINE_TEXT =
   "block w-full max-w-full break-words [overflow-wrap:anywhere] text-balance hyphens-auto"
 const SECTION_LABEL_CLASS =
