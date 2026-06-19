@@ -32,28 +32,18 @@ export function getDistanceFromActive(lineIndex: number, activeIndex: number): n
 }
 
 export function getLineHandoffDurationMs(
-  prefersReducedMotion: boolean,
-  msSinceLastLineChange?: number,
+  _prefersReducedMotion: boolean,
+  _msSinceLastLineChange?: number,
 ): number {
-  if (prefersReducedMotion) return 0
-  if (
-    msSinceLastLineChange != null &&
-    msSinceLastLineChange > 0 &&
-    msSinceLastLineChange < FAST_LINE_CHANGE_MS
-  ) {
-    return FAST_LINE_HANDOFF_MS
-  }
-  return LYRICS_HANDOFF_MS
+  return 0
 }
 
-/** @deprecated Use getLineHandoffDurationMs — kept for compatibility. */
+/** @deprecated Use instant scroll — kept for compatibility. */
 export function getScrollBehavior(
-  prefersReducedMotion: boolean,
-  msSinceLastLineChange?: number,
+  _prefersReducedMotion?: boolean,
+  _msSinceLastLineChange?: number,
 ): ScrollBehavior {
-  return getLineHandoffDurationMs(prefersReducedMotion, msSinceLastLineChange) > 0
-    ? "smooth"
-    : "auto"
+  return "auto"
 }
 
 function clampScrollTop(container: HTMLElement, nextTop: number): number {

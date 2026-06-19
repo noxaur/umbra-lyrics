@@ -1,13 +1,11 @@
 import { describe, it, expect, vi } from "vitest"
 import {
   FAST_LINE_CHANGE_MS,
-  FAST_LINE_HANDOFF_MS,
   getDistanceFromActive,
   getLineHandoffDurationMs,
   getScrollBehavior,
   IDLE_DISTANCE_FROM_ACTIVE,
   isOutsideCenterThird,
-  LINE_HANDOFF_MS,
   scrollLineToCenter,
   scrollLineToCenterEase,
 } from "@/lib/lyric-scroll"
@@ -47,34 +45,19 @@ describe("isOutsideCenterThird", () => {
 })
 
 describe("getLineHandoffDurationMs", () => {
-  it("returns 0 when reduced motion preferred", () => {
+  it("always returns 0 for instant lyric scroll", () => {
     expect(getLineHandoffDurationMs(true)).toBe(0)
-    expect(getLineHandoffDurationMs(true, 0)).toBe(0)
-  })
-
-  it("returns full handoff when motion allowed", () => {
-    expect(getLineHandoffDurationMs(false)).toBe(LINE_HANDOFF_MS)
-    expect(getLineHandoffDurationMs(false, FAST_LINE_CHANGE_MS)).toBe(LINE_HANDOFF_MS)
-    expect(getLineHandoffDurationMs(false, FAST_LINE_CHANGE_MS + 1)).toBe(LINE_HANDOFF_MS)
-    expect(getLineHandoffDurationMs(false, 1000)).toBe(LINE_HANDOFF_MS)
-  })
-
-  it("returns shorter handoff when lines change quickly", () => {
-    expect(getLineHandoffDurationMs(false, FAST_LINE_CHANGE_MS - 1)).toBe(FAST_LINE_HANDOFF_MS)
-    expect(getLineHandoffDurationMs(false, 100)).toBe(FAST_LINE_HANDOFF_MS)
+    expect(getLineHandoffDurationMs(false)).toBe(0)
+    expect(getLineHandoffDurationMs(false, FAST_LINE_CHANGE_MS - 1)).toBe(0)
+    expect(getLineHandoffDurationMs(false, 1000)).toBe(0)
   })
 })
 
 describe("getScrollBehavior", () => {
-  it("returns auto when reduced motion preferred", () => {
+  it("always returns auto for instant lyric scroll", () => {
     expect(getScrollBehavior(true)).toBe("auto")
-    expect(getScrollBehavior(true, 0)).toBe("auto")
-  })
-
-  it("returns smooth when motion allowed", () => {
-    expect(getScrollBehavior(false)).toBe("smooth")
-    expect(getScrollBehavior(false, FAST_LINE_CHANGE_MS)).toBe("smooth")
-    expect(getScrollBehavior(false, FAST_LINE_CHANGE_MS - 1)).toBe("smooth")
+    expect(getScrollBehavior(false)).toBe("auto")
+    expect(getScrollBehavior(false, FAST_LINE_CHANGE_MS - 1)).toBe("auto")
   })
 })
 

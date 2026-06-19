@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react"
 import { motion, MotionConfig, useReducedMotion } from "motion/react"
 import { Pause, SkipBack, SkipForward } from "lucide-react"
 import { KaraokeWordProgress } from "@/components/karaoke-word-progress"
@@ -12,8 +11,8 @@ const PREVIEW_LINES = [
   { native: "心のままに歌おう", english: "Sing from the heart" },
 ]
 
-function PreviewWordProgress({ text, progress }: { text: string; progress: number }) {
-  return <KaraokeWordProgress text={text} progress={progress} />
+function PreviewWordProgress({ text }: { text: string }) {
+  return <KaraokeWordProgress text={text} progress={1} />
 }
 
 function PreviewTransport() {
@@ -41,17 +40,8 @@ type ThemePreviewMiniProps = {
   className?: string
 }
 
-export function ThemePreviewMini({ tokens, animate = true, className }: ThemePreviewMiniProps) {
+export function ThemePreviewMini({ tokens, className }: ThemePreviewMiniProps) {
   const reducedMotion = useReducedMotion()
-  const [progress, setProgress] = useState(0.35)
-
-  useEffect(() => {
-    if (!animate || reducedMotion) return
-    const id = window.setInterval(() => {
-      setProgress((p) => (p >= 0.95 ? 0.15 : p + 0.08))
-    }, 600)
-    return () => window.clearInterval(id)
-  }, [animate, reducedMotion])
 
   return (
     <MotionConfig reducedMotion="user">
@@ -82,7 +72,7 @@ export function ThemePreviewMini({ tokens, animate = true, className }: ThemePre
                         animate={reducedMotion ? undefined : { opacity: [0.85, 1, 0.85] }}
                         transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                       >
-                        <PreviewWordProgress text={line.native} progress={progress} />
+                        <PreviewWordProgress text={line.native} />
                       </motion.span>
                     ) : (
                       line.native

@@ -108,7 +108,7 @@ describe("LyricsStage initial sync", () => {
   })
 
   it("centers active lyric when its ref becomes available after initial layout", async () => {
-    const easeSpy = vi.spyOn(lyricScroll, "scrollLineToCenterEase")
+    const scrollSpy = vi.spyOn(lyricScroll, "scrollLineToCenter")
 
     render(
       <div className="flex h-96 min-h-0 flex-col">
@@ -120,8 +120,8 @@ describe("LyricsStage initial sync", () => {
       await flushFrames(8)
     })
 
-    expect(easeSpy).toHaveBeenCalled()
-    const lastCall = easeSpy.mock.calls.at(-1)
+    expect(scrollSpy).toHaveBeenCalled()
+    const lastCall = scrollSpy.mock.calls.at(-1)
     expect(lastCall?.[3]).toMatchObject({ force: true })
     expect(usePlayerStore.getState().lyricsFollowMode).toBe("follow")
   })

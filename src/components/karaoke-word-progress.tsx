@@ -10,7 +10,7 @@ type KaraokeWordProgressProps = {
 }
 
 /**
- * Dual-layer clip reveal for synced lyric highlight (no gradient text).
+ * Instant synced lyric highlight (no sliding clip reveal).
  */
 export function KaraokeWordProgress({
   text,
@@ -18,21 +18,12 @@ export function KaraokeWordProgress({
   className,
   tone = "default",
 }: KaraokeWordProgressProps) {
-  const clamped = Math.max(0, Math.min(1, progress))
-  const clipRight = (1 - clamped) * 100
   const baseClass = tone === "active-line" ? "text-karaoke-ink" : "text-karaoke-unsung"
   const sungClass = tone === "active-line" ? "text-karaoke-active-line" : "text-karaoke-highlight"
 
   return (
-    <span className={cn("relative block w-full", className)}>
-      <span className={cn("block", baseClass)}>{text}</span>
-      <span
-        className={cn("pointer-events-none absolute inset-0 block", sungClass)}
-        style={{ clipPath: `inset(0 ${clipRight}% 0 0)` }}
-        aria-hidden
-      >
-        {text}
-      </span>
+    <span className={cn("block w-full", progress > 0 ? sungClass : baseClass, className)}>
+      {text}
     </span>
   )
 }

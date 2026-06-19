@@ -1,21 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { MotionConfig, useReducedMotion } from "motion/react"
+import { MotionConfig } from "motion/react"
 import { LyricLine } from "@/components/lyric-line"
 import { LyricsEmptyState } from "@/components/lyrics-empty-state"
 import { LyricsRetry } from "@/components/lyrics-retry"
 import { LyricsSearchProgress } from "@/components/lyrics-search-progress"
 import { Button } from "@/components/ui/button"
 import {
-  getLineHandoffDurationMs,
   isOutsideCenterThird,
   scrollLineToCenter,
-  scrollLineToCenterEase,
 } from "@/lib/lyric-scroll"
 import {
   decideLyricsResync,
   findNearestLineIndexToCenter,
   isElementCenteredInContainer,
-  LYRICS_RESYNC_SNAP_MS,
   wasActiveNearestOnScrollEnd,
 } from "@/lib/lyrics-follow-scroll"
 import { createRafThrottle } from "@/lib/lyric-viewport-depth"
@@ -97,7 +94,6 @@ export function LyricsStage({
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef<HTMLButtonElement>(null)
   const lineRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
-  const lastLineChangeRef = useRef(0)
   const prevDisplayModeRef = useRef(displayMode)
   const programmaticScrollRef = useRef(false)
   const programmaticScrollTimerRef = useRef<number | null>(null)
@@ -110,7 +106,6 @@ export function LyricsStage({
   >({})
   const [edgeSpacerPx, setEdgeSpacerPx] = useState(120)
   const prevEdgeSpacerRef = useRef(120)
-  const reducedMotion = useReducedMotion()
 
   const timeMs = currentTime * 1000
   const stage = getLyricStageState(lyrics, timeMs, syncOffsetMs, durationMs)
@@ -177,26 +172,15 @@ export function LyricsStage({
     [finishProgrammaticScroll],
   )
 
-  const snapActiveToCenter = useCallback(
-    (ease = false) => {
-      const element = activeRef.current
-      const container = scrollRef.current
-      if (!element || !container || activeIndex < 0) return
+  const snapActiveToCenter = useCallback(() => {
+    const element = activeRef.current
+    const container = scrollRef.current
+    if (!element || !container || activeIndex < 0) return
 
-      if (ease && !reducedMotion) {
-        beginProgrammaticScroll(LYRICS_RESYNC_SNAP_MS)
-        scrollLineToCenterEase(element, container, LYRICS_RESYNC_SNAP_MS, {
-          force: true,
-          onTick: measureCenterLineIndex,
-        })
-        return
-      }
-
-      beginProgrammaticScroll(0)
-      scrollLineToCenter(element, container, "auto", { force: true })
-    },
-    [activeIndex, beginProgrammaticScroll, measureCenterLineIndex, reducedMotion],
-  )
+    beginProgrammaticScroll(0)
+    scrollLineToCenter(element, container, "auto", { force: true })
+    measureCenterLineIndex()
+  }, [activeIndex, beginProgrammaticScroll, measureCenterLineIndex])
 
   const handleScrollEnd = useCallback(() => {
     const container = scrollRef.current
@@ -230,7 +214,7 @@ export function LyricsStage({
 
     if (decision.action === "resync") {
       setLyricsFollowMode("follow")
-      snapActiveToCenter(true)
+      snapActiveToCenter()
     }
   }, [activeIndex, setLyricsFollowMode, snapActiveToCenter])
 
@@ -249,24 +233,15 @@ export function LyricsStage({
   }, [activeIndex, stage.wordProgress, setActive])
 
   const scrollActiveLine = useCallback(
-    (force = false, lineChangeIntervalMs?: number) => {
+    (force = false) => {
       if (lyricsFollowMode !== "follow") return
       const element = activeRef.current
       const container = scrollRef.current
       if (!element || !container || activeIndex < 0) return
 
-      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      const durationMs = getLineHandoffDurationMs(prefersReducedMotion, lineChangeIntervalMs)
-      beginProgrammaticScroll(durationMs)
-      if (durationMs > 0) {
-        scrollLineToCenterEase(element, container, durationMs, {
-          force,
-          onTick: measureCenterLineIndex,
-        })
-      } else {
-        scrollLineToCenter(element, container, "auto", { force })
-        measureCenterLineIndex()
-      }
+      beginProgrammaticScroll(0)
+      scrollLineToCenter(element, container, "auto", { force })
+      measureCenterLineIndex()
     },
     [activeIndex, beginProgrammaticScroll, lyricsFollowMode, measureCenterLineIndex],
   )
@@ -358,16 +333,11 @@ export function LyricsStage({
 
   useEffect(() => {
     if (lyricsScrollSyncRequest === 0) return
-    snapActiveToCenter(true)
+    snapActiveToCenter()
   }, [lyricsScrollSyncRequest, snapActiveToCenter])
 
   useEffect(() => {
     if (activeIndex < 0 || lyricsFollowMode !== "follow") return
-
-    const now = performance.now()
-    const lineChangeIntervalMs =
-      lastLineChangeRef.current > 0 ? now - lastLineChangeRef.current : undefined
-    lastLineChangeRef.current = now
 
     let frame = 0
     let cancelled = false
@@ -375,7 +345,7 @@ export function LyricsStage({
     const tryScrollActiveLine = () => {
       if (cancelled) return
       if (activeRef.current && scrollRef.current) {
-        scrollActiveLine(true, lineChangeIntervalMs)
+        scrollActiveLine(true)
         return
       }
       attempts += 1
