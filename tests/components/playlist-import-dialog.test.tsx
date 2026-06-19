@@ -82,4 +82,34 @@ describe("PlaylistImportDialog", () => {
 
     expect(readPlaylists()[0]?.name).toBe("Friday Karaoke")
   })
+
+  it("falls back to the YouTube playlist title when the field is left blank", async () => {
+    const onImported = vi.fn()
+
+    render(
+      <PlaylistImportDialog
+        open
+        mode="new"
+        onImported={onImported}
+        onClose={() => {}}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText(/playlist url/i), {
+      target: { value: "https://music.youtube.com/playlist?list=PLtest123" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /load playlist/i }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/playlist title/i)).toHaveValue("YouTube Mix")
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: /import/i }))
+
+    await waitFor(() => {
+      expect(onImported).toHaveBeenCalled()
+    })
+
+    expect(readPlaylists()[0]?.name).toBe("YouTube Mix")
+  })
 })
