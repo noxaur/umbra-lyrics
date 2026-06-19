@@ -2,7 +2,7 @@ import { chromium } from "playwright"
 import { mkdir, copyFile } from "node:fs/promises"
 import path from "node:path"
 
-const BASE = process.env.DEMO_URL ?? "https://umbra.nox-heights.workers.dev"
+const BASE = process.env.DEMO_URL ?? "https://song.opsec.rent"
 const OUT_DIR = path.resolve("/opt/cursor/artifacts")
 const DEMO_VIDEO = path.join(OUT_DIR, "lyrics-pipeline-fix-demo.webm")
 
