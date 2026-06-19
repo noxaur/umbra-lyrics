@@ -25,6 +25,7 @@ describe("TransportControls", () => {
       syncOffsetMs: 0,
       videoHidden: false,
       focusMode: false,
+      stageFullscreen: false,
       tvMode: false,
       displayMode: "native",
       languageCode: "ja",
@@ -147,5 +148,22 @@ describe("TransportControls", () => {
   it("includes View menu when refresh handler provided", () => {
     renderControls({ onRefreshLyrics: vi.fn() })
     expect(screen.getByRole("button", { name: "View" })).toBeInTheDocument()
+  })
+
+  it("renders fullscreen toggle when handler provided", () => {
+    const onToggleStageFullscreen = vi.fn()
+    renderControls({ onToggleStageFullscreen })
+
+    fireEvent.click(screen.getByRole("button", { name: "Fullscreen lyrics and video" }))
+    expect(onToggleStageFullscreen).toHaveBeenCalledTimes(1)
+  })
+
+  it("shows exit fullscreen label when active", () => {
+    renderControls({
+      onToggleStageFullscreen: vi.fn(),
+      stageFullscreen: true,
+    })
+
+    expect(screen.getByRole("button", { name: "Exit fullscreen" })).toBeInTheDocument()
   })
 })

@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { HelpCircle, Pause, Play, RotateCcw, SkipBack, SkipForward } from "lucide-react"
+import { HelpCircle, Maximize2, Minimize2, Pause, Play, RotateCcw, SkipBack, SkipForward } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { formatDuration } from "@/lib/format-time"
@@ -19,6 +19,8 @@ type TransportControlsProps = {
   onPause: () => void
   onSeek: (seconds: number) => void
   onRefreshLyrics?: () => void
+  onToggleStageFullscreen?: () => void
+  stageFullscreen?: boolean
 }
 
 const ICON_BTN = "size-8 min-h-8 min-w-8 shrink-0"
@@ -31,6 +33,8 @@ export function TransportControls({
   onPause,
   onSeek,
   onRefreshLyrics,
+  onToggleStageFullscreen,
+  stageFullscreen = false,
 }: TransportControlsProps) {
   const syncOffsetMs = usePlayerStore((s) => s.syncOffsetMs)
   const adjustOffset = usePlayerStore((s) => s.adjustOffset)
@@ -256,7 +260,28 @@ export function TransportControls({
           </div>
 
           <div className="ml-auto flex items-center gap-0.5">
-            <PlayerViewMenu onRefreshLyrics={onRefreshLyrics} lyricsRefreshing={lyricsRefreshing} />
+            {onToggleStageFullscreen ? (
+              <Button
+                variant="outline"
+                size="icon"
+                className={ICON_BTN}
+                onClick={onToggleStageFullscreen}
+                aria-label={stageFullscreen ? "Exit fullscreen" : "Fullscreen lyrics and video"}
+                title={stageFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen lyrics and video (F)"}
+              >
+                {stageFullscreen ? (
+                  <Minimize2 className="size-3.5" aria-hidden />
+                ) : (
+                  <Maximize2 className="size-3.5" aria-hidden />
+                )}
+              </Button>
+            ) : null}
+            <PlayerViewMenu
+              onRefreshLyrics={onRefreshLyrics}
+              lyricsRefreshing={lyricsRefreshing}
+              onToggleStageFullscreen={onToggleStageFullscreen}
+              stageFullscreen={stageFullscreen}
+            />
             <ShortcutsHelp>
               <Button variant="ghost" size="icon" className={ICON_BTN} aria-label="Keyboard shortcuts">
                 <HelpCircle className="size-3.5" />

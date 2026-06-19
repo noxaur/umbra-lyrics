@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { Minimize2 } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { MisroutedRouteView } from "@/components/misrouted-route-view"
 import { LyricsMetadataConfirm } from "@/components/lyrics-metadata-confirm"
@@ -8,10 +9,12 @@ import { NowPlayingHeader } from "@/components/now-playing-header"
 import { PlayerError } from "@/components/player-error"
 import { TransportControls } from "@/components/transport-controls"
 import { YouTubePanel } from "@/components/youtube-panel"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useYouTubePlayer } from "@/hooks/use-youtube-player"
 import { useLyricsSync } from "@/hooks/use-lyrics-sync"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import { useStageFullscreen } from "@/hooks/use-stage-fullscreen"
 import { useTranslation } from "@/hooks/use-translation"
 import { parseLrc, parsePlainLyrics } from "@/lib/lrc-parser"
 import { resolveTrackMetadata } from "@/lib/track-metadata-resolver"
@@ -182,6 +185,14 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const setContentWarning = usePlayerStore((s) => s.setContentWarning)
   const setVerificationScore = usePlayerStore((s) => s.setVerificationScore)
   const focusMode = usePlayerStore((s) => s.focusMode)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const {
+    stageFullscreen,
+    nativeFullscreen,
+    toggle: toggleStageFullscreen,
+    exit: exitStageFullscreen,
+  } = useStageFullscreen(stageRef)
+  const showVideoInStage = stageFullscreen || !videoHidden
   const resolvedMetadataRef = useRef<Awaited<ReturnType<typeof resolveTrackMetadata>> | null>(null)
 
   const navigateToPlaylistTrack = useCallback(
@@ -252,7 +263,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
   const getTime = useCallback(() => currentTime, [currentTime])
   useLyricsSync(getTime)
-  useKeyboardShortcuts()
+  useKeyboardShortcuts({ onToggleStageFullscreen: toggleStageFullscreen })
 
   useEffect(() => {
     bindControls({ play, pause, seek: seekTo, isPlaying })
@@ -1471,10 +1482,12 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       <div
         className={cn(
           "flex min-h-0 flex-col overflow-hidden",
-          focusMode ? "h-dvh" : "h-[calc(100dvh-3.25rem)]",
+          stageFullscreen && !nativeFullscreen && "fixed inset-0 z-40 h-dvh bg-background",
+          !stageFullscreen && focusMode && "h-dvh",
+          !stageFullscreen && !focusMode && "h-[calc(100dvh-3.25rem)]",
         )}
       >
-        {focusMode && (
+        {focusMode && !stageFullscreen && (
           <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5 text-sm">
             <Link to="/" className="text-muted-foreground hover:text-foreground">
               ← Home
@@ -1492,31 +1505,50 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           </div>
         )}
 
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <div
+          ref={stageRef}
+          className={cn(
+            "stage-fullscreen relative flex min-h-0 flex-1 flex-col bg-background lg:flex-row",
+          )}
+        >
+          {stageFullscreen && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className="absolute top-[max(0.75rem,env(safe-area-inset-top))] right-[max(0.75rem,env(safe-area-inset-right))] z-10 size-9 bg-background/80 opacity-80 backdrop-blur-sm hover:opacity-100"
+              onClick={() => void exitStageFullscreen()}
+              aria-label="Exit fullscreen"
+              title="Exit fullscreen (Esc)"
+            >
+              <Minimize2 className="size-4" aria-hidden />
+            </Button>
+          )}
+
           <div
             className={cn(
-              "flex shrink-0 flex-col lg:w-[42%] lg:min-h-0",
-              videoHidden &&
+              "stage-video-column flex shrink-0 flex-col lg:w-[42%] lg:min-h-0",
+              !showVideoInStage &&
                 `pointer-events-none fixed top-0 overflow-hidden opacity-0 -left-[9999px] ${HIDDEN_EMBED_CLASS}`,
-              !videoHidden && "px-4 py-2 lg:border-r lg:border-border lg:p-4",
+              showVideoInStage && "px-4 py-2 lg:border-r lg:border-border lg:p-4",
             )}
-            aria-hidden={videoHidden}
+            aria-hidden={!showVideoInStage}
           >
             <div
               className={cn(
-                !videoHidden && "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:justify-center",
+                showVideoInStage && "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:justify-center",
               )}
             >
               <YouTubePanel
                 containerRef={containerRef}
-                hidden={videoHidden}
+                hidden={!showVideoInStage}
                 layout="split"
               />
             </div>
           </div>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            {!focusMode && (
+            {!focusMode && !stageFullscreen && (
               <NowPlayingHeader
                 onSelectAlternate={handleSelectAlternate}
                 onTranslate={() => void handleTranslate()}
@@ -1558,15 +1590,19 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           </div>
         </div>
 
-        <TransportControls
-          duration={duration}
-          currentTime={currentTime}
-          isPlaying={isPlaying}
-          onPlay={play}
-          onPause={pause}
-          onSeek={seekTo}
-          onRefreshLyrics={() => void handleRefreshLyrics()}
-        />
+        {!stageFullscreen && (
+          <TransportControls
+            duration={duration}
+            currentTime={currentTime}
+            isPlaying={isPlaying}
+            onPlay={play}
+            onPause={pause}
+            onSeek={seekTo}
+            onRefreshLyrics={() => void handleRefreshLyrics()}
+            onToggleStageFullscreen={toggleStageFullscreen}
+            stageFullscreen={stageFullscreen}
+          />
+        )}
       </div>
     </AppShell>
   )

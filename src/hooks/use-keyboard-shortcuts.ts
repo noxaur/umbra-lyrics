@@ -1,7 +1,12 @@
 import { useEffect } from "react"
 import { usePlayerStore } from "@/stores/player-store"
 
-export function useKeyboardShortcuts() {
+type KeyboardShortcutOptions = {
+  onToggleStageFullscreen?: () => void
+}
+
+export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
+  const { onToggleStageFullscreen } = options
   const togglePlay = usePlayerStore((s) => s.togglePlay)
   const seekBy = usePlayerStore((s) => s.seekBy)
   const adjustOffset = usePlayerStore((s) => s.adjustOffset)
@@ -38,10 +43,25 @@ export function useKeyboardShortcuts() {
         case "-":
           adjustOffset(-500)
           break
+        case "f":
+        case "F":
+          if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+            e.preventDefault()
+            onToggleStageFullscreen?.()
+          }
+          break
       }
     }
 
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [togglePlay, seekBy, adjustOffset, playlistContext, goToNextPlaylistTrack, goToPrevPlaylistTrack])
+  }, [
+    togglePlay,
+    seekBy,
+    adjustOffset,
+    playlistContext,
+    goToNextPlaylistTrack,
+    goToPrevPlaylistTrack,
+    onToggleStageFullscreen,
+  ])
 }

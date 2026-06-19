@@ -14,9 +14,13 @@ import { usePlayerStore } from "@/stores/player-store"
 export function PlayerViewMenu({
   onRefreshLyrics,
   lyricsRefreshing = false,
+  onToggleStageFullscreen,
+  stageFullscreen = false,
 }: {
   onRefreshLyrics?: () => void
   lyricsRefreshing?: boolean
+  onToggleStageFullscreen?: () => void
+  stageFullscreen?: boolean
 }) {
   const videoHidden = usePlayerStore((s) => s.videoHidden)
   const setVideoHidden = usePlayerStore((s) => s.setVideoHidden)
@@ -57,6 +61,15 @@ export function PlayerViewMenu({
           </>
         ) : null}
         <DropdownMenuLabel>Display</DropdownMenuLabel>
+        {onToggleStageFullscreen ? (
+          <DropdownMenuCheckboxItem
+            checked={stageFullscreen}
+            onCheckedChange={() => onToggleStageFullscreen()}
+            onSelect={(e) => e.preventDefault()}
+          >
+            Fullscreen
+          </DropdownMenuCheckboxItem>
+        ) : null}
         <DropdownMenuCheckboxItem
           checked={tvMode}
           onCheckedChange={(checked) => setTvMode(checked === true)}

@@ -6,6 +6,7 @@ import { usePlayerStore } from "@/stores/player-store"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const focusMode = usePlayerStore((s) => s.focusMode)
+  const stageFullscreen = usePlayerStore((s) => s.stageFullscreen)
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -19,7 +20,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         Skip to content
       </a>
-      {!focusMode && (
+      {!focusMode && !stageFullscreen && (
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-4">
             <Link
