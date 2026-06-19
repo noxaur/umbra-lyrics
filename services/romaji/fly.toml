@@ -3,6 +3,8 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
+# Set API_KEY before first deploy: fly secrets set API_KEY=<value>
+# Worker must use the same value via ROMAJI_SERVICE_API_KEY.
 app = 'song-kara-romaji'
 primary_region = 'nrt'
 

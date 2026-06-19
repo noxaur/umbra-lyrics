@@ -38,6 +38,8 @@ def get_cutlet(system: str) -> cutlet.Cutlet:
 def require_auth(authorization: str | None) -> None:
     api_key = os.environ.get("API_KEY", "").strip()
     if not api_key:
+        if os.environ.get("FLY_APP_NAME"):
+            raise HTTPException(status_code=503, detail="API_KEY not configured")
         return
     if authorization != f"Bearer {api_key}":
         raise HTTPException(status_code=401, detail="Unauthorized")
