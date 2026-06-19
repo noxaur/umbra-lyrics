@@ -1,8 +1,3 @@
-import { LYRICS_HANDOFF_MS } from "@/lib/lyric-scroll"
-
-/** Re-sync snap uses the same duration as lyric line handoffs. */
-export const LYRICS_RESYNC_SNAP_MS = LYRICS_HANDOFF_MS
-
 /** Active line center within this many px of stage center counts as exactly centered. */
 export const LYRICS_CENTER_THRESHOLD_PX = 24
 

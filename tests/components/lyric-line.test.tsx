@@ -17,6 +17,25 @@ describe("LyricLine", () => {
     expect(screen.getByRole("button", { name: "Hello world" })).toBeInTheDocument()
     expect(container.querySelector(".bg-clip-text")).toBeNull()
     expect(container.querySelector("[style*='clip-path']")).toBeNull()
+    expect(container.querySelector(".font-semibold > span.block.w-full")?.className).toContain(
+      "text-karaoke-active-line",
+    )
+  })
+
+  it("keeps unsung styling until lyric progress starts", () => {
+    const { container } = render(
+      <LyricLine
+        text="Hello world"
+        active
+        distanceFromCenter={0}
+        synced
+        progress={0}
+        displayMode="native"
+      />,
+    )
+    const progressText = container.querySelector(".font-semibold > span.block.w-full")
+    expect(progressText?.className).toContain("text-karaoke-ink")
+    expect(progressText?.className).not.toContain("text-karaoke-active-line")
   })
 
   it("skips word-progress wipe when unsynced", () => {

@@ -172,18 +172,15 @@ export function LyricsStage({
     [finishProgrammaticScroll],
   )
 
-  const snapActiveToCenter = useCallback(
-    (_ease = false) => {
-      const element = activeRef.current
-      const container = scrollRef.current
-      if (!element || !container || activeIndex < 0) return
+  const snapActiveToCenter = useCallback(() => {
+    const element = activeRef.current
+    const container = scrollRef.current
+    if (!element || !container || activeIndex < 0) return
 
-      beginProgrammaticScroll(0)
-      scrollLineToCenter(element, container, "auto", { force: true })
-      measureCenterLineIndex()
-    },
-    [activeIndex, beginProgrammaticScroll, measureCenterLineIndex],
-  )
+    beginProgrammaticScroll(0)
+    scrollLineToCenter(element, container, "auto", { force: true })
+    measureCenterLineIndex()
+  }, [activeIndex, beginProgrammaticScroll, measureCenterLineIndex])
 
   const handleScrollEnd = useCallback(() => {
     const container = scrollRef.current
@@ -217,7 +214,7 @@ export function LyricsStage({
 
     if (decision.action === "resync") {
       setLyricsFollowMode("follow")
-      snapActiveToCenter(true)
+      snapActiveToCenter()
     }
   }, [activeIndex, setLyricsFollowMode, snapActiveToCenter])
 
@@ -336,7 +333,7 @@ export function LyricsStage({
 
   useEffect(() => {
     if (lyricsScrollSyncRequest === 0) return
-    snapActiveToCenter(true)
+    snapActiveToCenter()
   }, [lyricsScrollSyncRequest, snapActiveToCenter])
 
   useEffect(() => {
