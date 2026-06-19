@@ -418,6 +418,10 @@ export function resumeQueuePrefetch(): void {
 export function restoreQueuePendingMetadataNotifications(): void {
   const active = listQueueNotifications()
   for (const item of listQueuePendingMetadata()) {
+    if (isVideoInQueue(item.videoId)) {
+      clearQueuePendingMetadata(item.videoId)
+      continue
+    }
     if (active.some((n) => n.kind === "metadata" && n.videoId === item.videoId)) continue
     pushQueueNotification({
       kind: "metadata",
