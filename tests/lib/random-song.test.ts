@@ -114,6 +114,22 @@ describe("random-song", () => {
     expect(song?.videoId).toBe("other")
   })
 
+  it("rethrows abort errors instead of falling back", async () => {
+    const controller = new AbortController()
+    controller.abort()
+    mockSearchSongs.mockRejectedValue(new DOMException("Aborted", "AbortError"))
+    addRecentSong({
+      videoId: "local1",
+      title: "Local - Track",
+      artist: "Local",
+      track: "Track",
+    })
+
+    await expect(resolveRandomSong({ signal: controller.signal })).rejects.toMatchObject({
+      name: "AbortError",
+    })
+  })
+
   it("falls back to local candidates when search fails", async () => {
     mockSearchSongs.mockRejectedValue(new Error("search down"))
     addRecentSong({
