@@ -1,7 +1,10 @@
 import { renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useYTEmbed } from "@bogdanrn/yt-embed/react"
-import { useYouTubePlayer } from "@/hooks/use-youtube-player"
+import {
+  PLAYBACK_TIME_POLL_INTERVAL_MS,
+  useYouTubePlayer,
+} from "@/hooks/use-youtube-player"
 
 vi.mock("@bogdanrn/yt-embed/react", () => ({
   useYTEmbed: vi.fn(),
@@ -26,7 +29,7 @@ describe("useYouTubePlayer", () => {
 
     expect(useYTEmbed).toHaveBeenCalledWith(
       "video-id",
-      expect.objectContaining({ pollingIntervalMs: 50 }),
+      expect.objectContaining({ pollingIntervalMs: PLAYBACK_TIME_POLL_INTERVAL_MS }),
     )
   })
 })
