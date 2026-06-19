@@ -116,6 +116,8 @@ describe("SpotifyLoginButton", () => {
     expect(document.body.querySelector(".spotify-easter-egg-overlay")).toBeNull()
     const notificationsBeforeTenth = listQueueNotifications().length
 
+    button.focus()
+    expect(button).toHaveFocus()
     fireEvent.click(button)
     expect(document.body.querySelector(".spotify-easter-egg-overlay")).not.toBeNull()
     expect(listQueueNotifications()).toHaveLength(notificationsBeforeTenth)
