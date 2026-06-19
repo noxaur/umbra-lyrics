@@ -11,6 +11,7 @@ import {
   rowsFromIndexIssues,
   scanPlaylistLyricsImportRow,
 } from "@/lib/playlist-lyrics-import"
+import { rejectLyrics } from "@/lib/lyrics-rejection"
 
 vi.mock("@/lib/cache-lyrics-from-pipeline", () => ({
   cacheLyricsFromPipeline: vi.fn(() => true),
@@ -18,6 +19,7 @@ vi.mock("@/lib/cache-lyrics-from-pipeline", () => ({
 
 vi.mock("@/lib/lyrics-cache", () => ({
   getLyricsCache: vi.fn(() => null),
+  clearLyricsCache: vi.fn(),
 }))
 
 vi.mock("@/lib/lyrics-orchestrator", () => ({
@@ -50,6 +52,7 @@ describe("playlist lyrics import", () => {
   beforeEach(() => {
     clearPlaylists()
     clearPlaylistIndexIssues()
+    localStorage.clear()
     vi.clearAllMocks()
     mockGetCache.mockReturnValue(null)
     mockCacheFromPipeline.mockReturnValue(true)
@@ -68,6 +71,42 @@ describe("playlist lyrics import", () => {
     expect(rows).toHaveLength(1)
     expect(rows[0].status).toBe("pending")
     expect(rows[0].selected).toBe(true)
+  })
+
+  it("prepares rejected tracks as unselected with rejected status", () => {
+    rejectLyrics("abc123def45")
+
+    const rows = preparePlaylistLyricsImportRows([
+      {
+        videoId: "abc123def45",
+        title: "Artist - Song",
+        artist: "Artist",
+        track: "Song",
+      },
+    ])
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].status).toBe("rejected")
+    expect(rows[0].selected).toBe(false)
+  })
+
+  it("scan skips orchestrator for rejected tracks", async () => {
+    rejectLyrics("abc123def45")
+
+    const result = await scanPlaylistLyricsImportRow({
+      videoId: "abc123def45",
+      title: "Artist - Song",
+      artist: "Artist",
+      track: "Song",
+      durationSec: 200,
+      selected: true,
+      status: "pending",
+      alternates: [],
+    })
+
+    expect(result.status).toBe("rejected")
+    expect(result.selected).toBe(false)
+    expect(mockOrchestrate).not.toHaveBeenCalled()
   })
 
   it("excludes cached tracks by default", () => {
