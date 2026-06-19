@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { ChevronDown, ChevronUp, Flag, GripVertical, Trash2 } from "lucide-react"
+import { ChevronDown, ChevronUp, Flag, GripVertical, Music2, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getLyricsCache } from "@/lib/lyrics-cache"
 import { isLyricsRejected } from "@/lib/lyrics-rejection"
@@ -83,16 +83,28 @@ export function PlaylistTrackRow({
           <GripVertical className="size-4" />
         </span>
       ) : null}
-      <img
-        src={youtubeThumbnailUrl(track.videoId)}
-        alt=""
-        width={68}
-        height={38}
-        loading="lazy"
-        decoding="async"
-        className="h-[2.375rem] w-[4.25rem] shrink-0 rounded-md border border-border/60 bg-muted object-cover"
-        aria-hidden
-      />
+      <span className="relative shrink-0">
+        <img
+          src={youtubeThumbnailUrl(track.videoId)}
+          alt=""
+          width={68}
+          height={38}
+          loading="lazy"
+          decoding="async"
+          className="h-[2.375rem] w-[4.25rem] rounded-md border border-border/60 bg-muted object-cover"
+          aria-hidden
+        />
+        {track.mediaSource === "music.youtube" ? (
+          <span
+            className="absolute -bottom-1 -right-1 inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500 px-1.5 py-0.5 text-[10px] font-medium text-white shadow-sm"
+            title="Swapped to Music YouTube"
+            aria-label="Swapped to Music YouTube"
+          >
+            <Music2 className="size-2.5" aria-hidden />
+            Music
+          </span>
+        ) : null}
+      </span>
       <span
         className={cn("size-2 shrink-0 rounded-full", status.className)}
         title={status.label}

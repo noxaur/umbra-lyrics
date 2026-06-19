@@ -1,4 +1,4 @@
-import { AlertCircle, Ban, CheckCircle2, MoreHorizontal } from "lucide-react"
+import { AlertCircle, Ban, CheckCircle2, MoreHorizontal, Music2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -84,14 +84,26 @@ export function PlaylistLyricsImportRowView({
       />
 
       <div className="col-span-1 flex min-w-0 items-center gap-2 sm:col-span-1">
-        <img
-          src={youtubeThumbnailUrl(row.videoId)}
-          alt=""
-          width={52}
-          height={29}
-          className="hidden h-[1.8rem] w-[3.25rem] shrink-0 rounded border border-border/60 bg-muted object-cover sm:block"
-          aria-hidden
-        />
+        <span className="relative hidden shrink-0 sm:block">
+          <img
+            src={youtubeThumbnailUrl(row.videoId)}
+            alt=""
+            width={52}
+            height={29}
+            className="h-[1.8rem] w-[3.25rem] rounded border border-border/60 bg-muted object-cover"
+            aria-hidden
+          />
+          {row.mediaSource === "music.youtube" ? (
+            <span
+              className="absolute -bottom-1 -right-1 inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500 px-1 py-0.5 text-[9px] font-medium text-white shadow-sm"
+              title="Swapped to Music YouTube"
+              aria-label="Swapped to Music YouTube"
+            >
+              <Music2 className="size-2" aria-hidden />
+              Music
+            </span>
+          ) : null}
+        </span>
         <span className="min-w-0 truncate text-sm" title={row.title}>
           {row.title}
         </span>

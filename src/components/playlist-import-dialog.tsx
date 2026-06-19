@@ -7,9 +7,10 @@ import {
   createPlaylistFromImport,
   MAX_TRACKS_PER_PLAYLIST,
 } from "@/lib/playlists"
+import { pushQueueNotification } from "@/lib/queue-notifications"
 import {
   fetchYouTubePlaylist,
-  playlistItemsToTracks,
+  playlistItemsToCanonicalTracks,
   type PlaylistImportResponse,
 } from "@/lib/youtube-playlist"
 import { enqueuePlaylistLyricsIndexing } from "@/lib/playlist-lyrics-indexer"
@@ -129,9 +130,13 @@ export function PlaylistImportDialog({
       return
     }
 
-    const tracks = playlistItemsToTracks(preview.items)
     setStep("importing")
     setError(null)
+    setStatus("Finding Music YouTube versions…")
+
+    const tracks = await playlistItemsToCanonicalTracks(preview.items, { signal: fetchAbortRef.current?.signal })
+    const swappedCount = tracks.filter((track, index) => track.videoId !== preview.items[index]?.videoId).length
+
     setStatus("Adding songs to playlist…")
 
     const result =
@@ -155,13 +160,20 @@ export function PlaylistImportDialog({
     }
 
     setStatus(parts.join(". ") + ".")
+    if (swappedCount > 0) {
+      pushQueueNotification({
+        kind: "success",
+        title: "Music YouTube match found",
+        message: `Upgraded ${swappedCount} ${swappedCount === 1 ? "song" : "songs"} to a Music YouTube version.`,
+      })
+    }
     const playlistId =
       mode === "existing" && targetPlaylistId ? targetPlaylistId : result.playlist?.id
     if (playlistId && lyricsMode !== "skip") {
-      const indexTracks = preview.items.map((item) => {
-        const [track] = playlistItemsToTracks([item])
-        return { ...track, durationSec: item.durationSec }
-      })
+      const indexTracks = tracks.map((track, index) => ({
+        ...track,
+        durationSec: preview.items[index]?.durationSec,
+      }))
       if (lyricsMode === "interactive") {
         openPlaylistLyricsImport({
           playlistId,

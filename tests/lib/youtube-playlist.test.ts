@@ -1,19 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { fetchYouTubePlaylist } from "@/lib/youtube-playlist"
+import {
+  fetchYouTubePlaylist,
+  playlistItemsToCanonicalTracks,
+  playlistItemsToTracks,
+} from "@/lib/youtube-playlist"
 
 vi.mock("@/lib/lyrics-providers/api-base", () => ({
   proxyFetch: vi.fn(),
+}))
+
+vi.mock("@/lib/canonical-music-video", () => ({
+  resolveCanonicalMusicVideo: vi.fn(),
 }))
 
 vi.mock("@/lib/youtube-playlist-browser", () => ({
   fetchPlaylistInBrowser: vi.fn(),
 }))
 
+import { resolveCanonicalMusicVideo } from "@/lib/canonical-music-video"
 import { proxyFetch } from "@/lib/lyrics-providers/api-base"
 import { fetchPlaylistInBrowser } from "@/lib/youtube-playlist-browser"
 
 const mockProxyFetch = vi.mocked(proxyFetch)
 const mockBrowserFetch = vi.mocked(fetchPlaylistInBrowser)
+const mockResolveCanonical = vi.mocked(resolveCanonicalMusicVideo)
 
 const PL = "PLrAXtmRdnEQy6nuLMH8zzRaJfGBFXHm"
 const URL = `https://www.youtube.com/playlist?list=${PL}`
@@ -22,6 +32,7 @@ describe("fetchYouTubePlaylist", () => {
   beforeEach(() => {
     mockProxyFetch.mockReset()
     mockBrowserFetch.mockReset()
+    mockResolveCanonical.mockReset()
   })
 
   it("returns worker results when the API succeeds", async () => {
@@ -146,5 +157,65 @@ describe("fetchYouTubePlaylist", () => {
     await expect(fetchYouTubePlaylist(URL)).rejects.toThrow(
       "This playlist returned no importable videos. It may be private or require YouTube sign-in.",
     )
+  })
+})
+
+describe("playlistItemsToCanonicalTracks", () => {
+  beforeEach(() => {
+    mockResolveCanonical.mockReset()
+  })
+
+  it("replaces playlist media with the canonical YouTube Music video when matched", async () => {
+    mockResolveCanonical.mockResolvedValue({
+      ok: true,
+      videoId: "canonical01",
+      seedMetadata: {
+        artist: "Artist Name",
+        track: "Track Name",
+        durationSec: 240,
+        source: "music-api",
+      },
+    })
+
+    const tracks = await playlistItemsToCanonicalTracks([
+      {
+        videoId: "original01",
+        title: "Track Name - Artist Name",
+        channel: "Artist Name - Topic",
+        durationSec: 240,
+      },
+    ])
+
+    expect(tracks).toEqual([
+      {
+        videoId: "canonical01",
+        title: "Track Name - Artist Name",
+        artist: "Artist Name",
+        track: "Track Name",
+        mediaSource: "music.youtube",
+      },
+    ])
+  })
+
+  it("keeps the original video when canonical search has no confirmed match", async () => {
+    mockResolveCanonical.mockResolvedValue({ ok: false, reason: "metadata_unconfirmed" })
+
+    const tracks = await playlistItemsToCanonicalTracks([
+      {
+        videoId: "original01",
+        title: "Track Name - Artist Name",
+        channel: "Artist Name - Topic",
+        durationSec: 240,
+      },
+    ])
+
+    expect(tracks).toEqual(playlistItemsToTracks([
+      {
+        videoId: "original01",
+        title: "Track Name - Artist Name",
+        channel: "Artist Name - Topic",
+        durationSec: 240,
+      },
+    ]))
   })
 })
