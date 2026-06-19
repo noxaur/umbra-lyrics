@@ -48,7 +48,7 @@ const SOURCES = {
   pencil: { lib: "edit", source: USEANIM_SOURCE },
   play: { lib: "playPause", source: USEANIM_SOURCE },
   plus: { lib: "plusToX", source: USEANIM_SOURCE },
-  refresh: { lib: "loading", source: USEANIM_SOURCE },
+  refresh: { lib: "loading2", source: USEANIM_SOURCE },
   "rotate-ccw": { lib: "loading3", source: USEANIM_SOURCE },
   search: { lib: "searchToX", source: USEANIM_SOURCE },
   settings: { lib: "settings2", source: USEANIM_SOURCE },
