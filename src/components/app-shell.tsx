@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom"
+import { RandomSongButton } from "@/components/random-song-button"
 import { SettingsMenu } from "@/components/settings-menu"
 import { SpotifyLoginButton } from "@/components/spotify-login-button"
 import { cn } from "@/lib/utils"
@@ -43,6 +44,7 @@ export function AppShell({
             </Link>
           </div>
           <div className="flex items-center gap-2">
+            <RandomSongButton />
             <SpotifyLoginButton />
             <SettingsMenu />
           </div>
