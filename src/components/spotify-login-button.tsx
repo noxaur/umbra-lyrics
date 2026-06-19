@@ -52,8 +52,10 @@ export function SpotifyLoginButton({ compact = false }: SpotifyLoginButtonProps)
 
     clickCountRef.current += 1
     if (clickCountRef.current >= SPOTIFY_EASTER_EGG_CLICKS) {
-      const rect = buttonRef.current?.getBoundingClientRect()
+      const button = buttonRef.current
+      const rect = button?.getBoundingClientRect()
       if (rect && rect.width > 0 && rect.height > 0) {
+        button?.blur()
         setEasterEggAnchor({
           top: rect.top,
           left: rect.left,
