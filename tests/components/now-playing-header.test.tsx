@@ -56,7 +56,7 @@ describe("NowPlayingHeader lyrics rejection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Report lyrics" }))
     expect(screen.getByRole("dialog")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: "Wrong lyrics" }))
+    fireEvent.click(screen.getByRole("button", { name: /wrong lyrics/i }))
     fireEvent.click(screen.getByRole("button", { name: "Open GitHub issue" }))
 
     expect(openSpy).toHaveBeenCalledTimes(1)

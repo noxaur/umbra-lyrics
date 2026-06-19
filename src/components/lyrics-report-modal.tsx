@@ -21,9 +21,19 @@ export function LyricsReportModal({ open, onClose, onSubmit }: LyricsReportModal
     if (!dialog) return
     if (open) {
       setSelectedIssue(null)
-      if (!dialog.open) dialog.showModal()
+      if (!dialog.open) {
+        if (typeof dialog.showModal === "function") {
+          dialog.showModal()
+        } else {
+          dialog.setAttribute("open", "")
+        }
+      }
     } else if (dialog.open) {
-      dialog.close()
+      if (typeof dialog.close === "function") {
+        dialog.close()
+      } else {
+        dialog.removeAttribute("open")
+      }
     }
   }, [open])
 

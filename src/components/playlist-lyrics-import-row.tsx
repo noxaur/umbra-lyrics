@@ -28,7 +28,7 @@ type PlaylistLyricsImportRowProps = {
   onTranscribe: () => void
   onSkip: () => void
   onReject: () => void
-  rejectionUrl?: string | null
+  onReportLyrics?: () => void
   busy?: boolean
 }
 
@@ -52,7 +52,7 @@ export function PlaylistLyricsImportRowView({
   onTranscribe,
   onSkip,
   onReject,
-  rejectionUrl,
+  onReportLyrics,
   busy = false,
 }: PlaylistLyricsImportRowProps) {
   const isCached = row.status === "cached"
@@ -210,16 +210,9 @@ export function PlaylistLyricsImportRowView({
                   <DropdownMenuItem onSelect={onTranscribe}>Transcribe</DropdownMenuItem>
                   <DropdownMenuItem onSelect={onSkip}>Skip</DropdownMenuItem>
                   <DropdownMenuItem onSelect={onReject}>Reject lyrics</DropdownMenuItem>
-                  {rejectionUrl ? (
-                    <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
-                      <a
-                        href={rejectionUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2"
-                      >
-                        Report on GitHub
-                      </a>
+                  {onReportLyrics ? (
+                    <DropdownMenuItem onClick={onReportLyrics}>
+                      Report on GitHub
                     </DropdownMenuItem>
                   ) : null}
                 </>

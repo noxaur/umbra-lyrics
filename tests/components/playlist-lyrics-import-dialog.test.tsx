@@ -176,4 +176,54 @@ describe("PlaylistLyricsImportDialog", () => {
     expect(artistInput).toHaveValue("Correct Artist")
     expect(screen.getByLabelText(/track for wrong - parsed/i)).toHaveValue("Correct Track")
   })
+
+  it("opens the shared report modal from a row action", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null)
+    const { playlist } = createPlaylist("Report modal")
+    const track = {
+      videoId: "abc123def45",
+      title: "Artist - Song",
+      artist: "Artist",
+      track: "Song",
+      addedAt: Date.now(),
+    }
+    const playlists = JSON.parse(localStorage.getItem("umbra-playlists") ?? "[]") as Array<{
+      id: string
+      tracks: typeof track[]
+    }>
+    playlists[0].tracks = [track]
+    localStorage.setItem("umbra-playlists", JSON.stringify(playlists))
+
+    render(
+      <PlaylistLyricsImportDialog
+        open
+        playlistId={playlist.id}
+        onClose={() => {}}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /actions for artist - song/i })).toBeInTheDocument()
+    })
+
+    const actionsButton = screen.getByRole("button", { name: /actions for artist - song/i })
+    fireEvent.pointerDown(actionsButton, { button: 0, ctrlKey: false })
+    fireEvent.pointerUp(actionsButton, { button: 0, ctrlKey: false })
+    fireEvent.click(screen.getByRole("menuitem", { name: /report on github/i }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("dialog", { name: /what kind of lyrics issue is this\?/i }),
+      ).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole("button", { name: /slight sync mismatch/i }))
+    fireEvent.click(screen.getByRole("button", { name: /open github issue/i }))
+
+    expect(openSpy).toHaveBeenCalledTimes(1)
+    const url = new URL(openSpy.mock.calls[0][0] as string)
+    expect(url.searchParams.get("body")).toContain("## Issue type")
+    expect(url.searchParams.get("body")).toContain("Slight sync mismatch")
+
+    openSpy.mockRestore()
+  })
 })

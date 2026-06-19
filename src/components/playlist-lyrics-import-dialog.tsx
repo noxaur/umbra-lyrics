@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react"
 import { Loader2, X } from "lucide-react"
+import { LyricsReportModal } from "@/components/lyrics-report-modal"
 import { LyricsPasteModal } from "@/components/lyrics-paste-modal"
 import { PlaylistLyricsImportRowView } from "@/components/playlist-lyrics-import-row"
 import { Button } from "@/components/ui/button"
@@ -18,7 +19,10 @@ import {
   transcribePlaylistImportRow,
   type PlaylistLyricsImportRow,
 } from "@/lib/playlist-lyrics-import"
-import { buildPlaylistImportRejectionUrl } from "@/lib/lyrics-rejection-report"
+import {
+  buildPlaylistImportRejectionUrl,
+  type LyricsReportIssueType,
+} from "@/lib/lyrics-rejection-report"
 import { clearLyricsRejection, rejectLyrics } from "@/lib/lyrics-rejection"
 import { listPlaylistIndexIssues } from "@/lib/playlist-index-issues"
 
@@ -80,6 +84,7 @@ export function PlaylistLyricsImportDialog({
   const [bulkArtist, setBulkArtist] = useState("")
   const [includeCached, setIncludeCached] = useState(false)
   const [pasteVideoId, setPasteVideoId] = useState<string | null>(null)
+  const [reportVideoId, setReportVideoId] = useState<string | null>(null)
   const scanAbortRef = useRef<AbortController | null>(null)
   const transcribeAbortRef = useRef<AbortController | null>(null)
 
@@ -199,6 +204,22 @@ export function PlaylistLyricsImportDialog({
       selectedAlternate: undefined,
     })
     setRows((prev) => updateRow(prev, videoId, result))
+  }
+
+  const handleReportRow = (videoId: string) => {
+    setReportVideoId(videoId)
+  }
+
+  const openReportForRow = (videoId: string, issueType: LyricsReportIssueType) => {
+    const row = rows.find((candidate) => candidate.videoId === videoId)
+    if (!row) return
+
+    const href = buildPlaylistImportRejectionUrl({
+      ...row,
+      issueType,
+    })
+    if (!href) return
+    window.open(href, "_blank", "noopener,noreferrer")
   }
 
   const handleTranscribeRow = async (videoId: string) => {
@@ -400,7 +421,11 @@ export function PlaylistLyricsImportDialog({
                       setRows((prev) => updateRow(prev, row.videoId, { selected: false }))
                     }
                     onReject={() => handleRejectRow(row.videoId)}
-                    rejectionUrl={buildPlaylistImportRejectionUrl(row)}
+                    onReportLyrics={
+                      buildPlaylistImportRejectionUrl(row)
+                        ? () => handleReportRow(row.videoId)
+                        : undefined
+                    }
                   />
                 ))}
               </ul>
@@ -522,6 +547,15 @@ export function PlaylistLyricsImportDialog({
             }),
           )
           setPasteVideoId(null)
+        }}
+      />
+      <LyricsReportModal
+        open={reportVideoId != null}
+        onClose={() => setReportVideoId(null)}
+        onSubmit={(issueType) => {
+          if (!reportVideoId) return
+          openReportForRow(reportVideoId, issueType)
+          setReportVideoId(null)
         }}
       />
     </>

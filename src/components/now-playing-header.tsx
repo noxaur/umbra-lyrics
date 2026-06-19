@@ -157,7 +157,10 @@ export function NowPlayingHeader({
       title,
       artist,
       track,
-      providerId: lyricsSource,
+      providerId:
+        lyricsSource && lyricsSource !== "pasted" && lyricsSource !== "translated"
+          ? lyricsSource
+          : null,
       synced: lyricsSynced,
       autoTimed: lyricsAutoTimed,
       aligned: lyricsAligned,

@@ -113,6 +113,7 @@ export function buildPlaylistImportRejectionUrl(input: {
   alternates: LyricsAlternate[]
   pastedLyrics?: string
   transcribedResult?: LyricsResult
+  issueType?: LyricsReportIssueType
 }): string | null {
   if (input.pastedLyrics?.trim()) return null
 
@@ -137,11 +138,12 @@ export function buildPlaylistImportRejectionUrl(input: {
       ? {
           plainLyrics: currentLyrics.plainLyrics,
           syncedLyrics: currentLyrics.syncedLyrics,
-        }
+    }
       : undefined,
     alternates: input.alternates,
     providersSearched: [...new Set(input.alternates.map((alt) => alt.providerId))],
     attempts: [],
+    issueType: input.issueType,
   })
 }
 
