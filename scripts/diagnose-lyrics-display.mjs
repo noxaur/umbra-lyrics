@@ -1,6 +1,6 @@
 import { chromium } from "playwright"
 
-const BASE = process.env.DEMO_URL ?? "https://song-kara.nox-heights.workers.dev"
+const BASE = process.env.DEMO_URL ?? "https://umbra.nox-heights.workers.dev"
 const VIDEO_ID = process.env.VIDEO_ID ?? "dQw4w9WgXcQ"
 
 async function sleep(ms) {
@@ -13,7 +13,7 @@ async function main() {
   await context.addInitScript(() => {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i)
-      if (key?.startsWith("song-kara-")) localStorage.removeItem(key)
+      if (key?.startsWith("umbra-")) localStorage.removeItem(key)
     }
   })
   const page = await context.newPage()

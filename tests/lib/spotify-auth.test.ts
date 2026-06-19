@@ -23,7 +23,7 @@ describe("spotify auth client", () => {
 
   it("stores and clears session", () => {
     localStorage.setItem(
-      "song-kara:spotify-auth",
+      "umbra:spotify-auth",
       JSON.stringify({
         accessToken: "access",
         refreshToken: "refresh",
@@ -42,7 +42,7 @@ describe("spotify auth client", () => {
 
   it("completes login from callback", async () => {
     sessionStorage.setItem(
-      "song-kara:spotify-pkce",
+      "umbra:spotify-pkce",
       JSON.stringify({
         codeVerifier: "verifier",
         state: "state-1",

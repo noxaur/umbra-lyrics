@@ -2,7 +2,7 @@ import { jsonResponse } from "../cors"
 import { decodeHtml } from "../lib/normalize"
 
 const SM_HOST = "https://www.songmeanings.com"
-const USER_AGENT = "Mozilla/5.0 (compatible; song-kara/1.0.0)"
+const USER_AGENT = "Mozilla/5.0 (compatible; umbra/1.0.0)"
 
 export type SongMeaningsHit = {
   id: string

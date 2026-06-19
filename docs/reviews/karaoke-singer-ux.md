@@ -152,7 +152,7 @@ Before first timestamp: `activeIndex === -1` — correct for intro, but no "♪ 
 ```
 
 **Still visible when video hidden:**
-- App header (`song-kara` + theme toggle)
+- App header (`umbra` + theme toggle)
 - `← Home` sub-nav
 - Full transport bar (seek, offset, help)
 - Mobile: video column still `w-full` with `border-b` — wasted vertical slice

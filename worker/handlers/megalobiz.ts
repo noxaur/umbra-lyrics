@@ -1,7 +1,7 @@
 import { jsonResponse } from "../cors"
 
 const MEGALOBIZ_HOST = "https://www.megalobiz.com"
-const USER_AGENT = "Mozilla/5.0 (compatible; song-kara/1.0.0)"
+const USER_AGENT = "Mozilla/5.0 (compatible; umbra/1.0.0)"
 
 type MegalobizHit = {
   id: string

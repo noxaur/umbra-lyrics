@@ -125,10 +125,10 @@ type PlayerState = {
   goToPrevQueueTrack: () => void
 }
 
-const VIDEO_HIDDEN_KEY = "song-kara-video-hidden"
-const SHOW_TIMESTAMPS_KEY = "song-kara-show-timestamps"
-const FOCUS_MODE_KEY = "song-kara-focus-mode"
-const TV_MODE_KEY = "song-kara-tv-mode"
+const VIDEO_HIDDEN_KEY = "umbra-video-hidden"
+const SHOW_TIMESTAMPS_KEY = "umbra-show-timestamps"
+const FOCUS_MODE_KEY = "umbra-focus-mode"
+const TV_MODE_KEY = "umbra-tv-mode"
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   videoId: null,

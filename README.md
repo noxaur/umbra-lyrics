@@ -1,4 +1,4 @@
-# song-kara
+# umbra
 
 A client-side karaoke player: paste a YouTube or Spotify track link, sing along with synced lyrics from [LRCLIB](https://lrclib.net), with optional bilingual display and theme switching.
 
@@ -54,7 +54,7 @@ Auto-transcription downloads a quantized Whisper Base model on first use, then c
 
 | URL | Notes |
 |-----|-------|
-| https://song-kara.nox-heights.workers.dev | Always works; primary fallback |
+| https://umbra.nox-heights.workers.dev | Always works; primary fallback |
 | https://song.opsec.rent | Custom domain on `opsec.rent` zone |
 
 If `song.opsec.rent` shows "Server Not Found" in your browser, your local DNS resolver may have a stale cache. Try:

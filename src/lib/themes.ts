@@ -1,8 +1,8 @@
 import { generatedTintedThemes } from "@/lib/generated-tinted-themes"
 
-export const THEME_STORAGE_KEY = "song-kara-theme-id"
-export const LEGACY_THEME_STORAGE_KEY = "song-kara-theme"
-export const THEME_CACHE_KEY = "song-kara-theme-cache"
+export const THEME_STORAGE_KEY = "umbra-theme-id"
+export const LEGACY_THEME_STORAGE_KEY = "umbra-theme"
+export const THEME_CACHE_KEY = "umbra-theme-cache"
 export const THEME_CATALOG_VERSION = 2
 
 export type ThemeCategory = "dark" | "light"

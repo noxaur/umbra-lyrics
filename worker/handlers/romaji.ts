@@ -1,7 +1,7 @@
 import { jsonResponse } from "../cors"
 
 const USER_AGENT =
-  "Mozilla/5.0 (compatible; song-kara/1.0.0; +https://github.com/song-kara)"
+  "Mozilla/5.0 (compatible; umbra/1.0.0; +https://github.com/noxaur/umbra-lyrics)"
 
 export type RomajiEnv = {
   ROMAJI_SERVICE_URL?: string

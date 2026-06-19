@@ -1,7 +1,7 @@
 import { jsonResponse } from "../cors"
 
 const USER_AGENT =
-  "Mozilla/5.0 (compatible; song-kara/1.0.0; +https://github.com/song-kara)"
+  "Mozilla/5.0 (compatible; umbra/1.0.0; +https://github.com/noxaur/umbra-lyrics)"
 const MYMEMORY_URL = "https://api.mymemory.translated.net/get"
 const GOOGLE_TRANSLATE_URL = "https://translate.googleapis.com/translate_a/single"
 const DEFAULT_LIBRETRANSLATE_URL = "https://libretranslate.com/translate"

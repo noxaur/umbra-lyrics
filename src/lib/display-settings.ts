@@ -14,7 +14,7 @@ export const TEXT_SIZE_LABELS: Record<TextSizePreset, string> = {
   large: "Large",
 }
 
-export const DISPLAY_SETTINGS_STORAGE_KEY = "song-kara-display-settings"
+export const DISPLAY_SETTINGS_STORAGE_KEY = "umbra-display-settings"
 
 export type DisplaySettings = {
   lyricsTextSize: TextSizePreset

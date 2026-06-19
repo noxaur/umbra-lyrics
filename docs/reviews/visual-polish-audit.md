@@ -1,4 +1,4 @@
-# Visual & Micro-Interaction Polish Audit — song-kara
+# Visual & Micro-Interaction Polish Audit — umbra
 
 **Date:** 2026-06-15  
 **Scope:** `index.css`, theme tokens, `lyrics-stage`, `lyric-line`, `transport-controls`, `app-shell`, `animated-icon`, home + player (both themes)  

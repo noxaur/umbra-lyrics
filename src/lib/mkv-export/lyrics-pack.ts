@@ -41,7 +41,7 @@ export function buildLyricsPackFiles(input: MkvExportInput): Array<{ name: strin
     content: [
       `${input.artist} - ${input.track || input.title}`,
       "",
-      "Synced lyrics export from song-kara (beta).",
+      "Synced lyrics export from umbra (beta).",
       "",
       "Files:",
       "- native.srt — original language subtitles",

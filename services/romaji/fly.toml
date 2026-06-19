@@ -1,11 +1,11 @@
-# fly.toml app configuration file generated for song-kara-romaji on 2026-06-19T07:30:55+02:00
+# fly.toml app configuration file generated for umbra-romaji on 2026-06-19T07:30:55+02:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
 # Set API_KEY before first deploy: fly secrets set API_KEY=<value>
 # Worker must use the same value via ROMAJI_SERVICE_API_KEY.
-app = 'song-kara-romaji'
+app = 'umbra-romaji'
 primary_region = 'nrt'
 
 [build]

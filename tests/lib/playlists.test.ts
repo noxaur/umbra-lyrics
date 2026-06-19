@@ -126,7 +126,7 @@ describe("playlists", () => {
 
   it("recovers from corrupt storage", () => {
     localStorage.setItem(
-      "song-kara-playlists",
+      "umbra-playlists",
       JSON.stringify([
         { id: "playlist-bad", name: "Bad", createdAt: "x", updatedAt: "x", tracks: "nope" },
         {

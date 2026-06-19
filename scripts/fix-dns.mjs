@@ -86,7 +86,7 @@ async function main() {
     content: "192.0.2.0",
     proxied: true,
     ttl: 1,
-    comment: "song-kara worker route",
+    comment: "umbra worker route",
   });
   log.push({
     created: {

@@ -1,6 +1,6 @@
 import type { TranslationBackend } from "@/lib/translation-service"
 
-const STORAGE_PREFIX = "song-kara-translate:"
+const STORAGE_PREFIX = "umbra-translate:"
 const CACHE_VERSION = 1
 const MIN_REQUEST_GAP_MS = 2000
 

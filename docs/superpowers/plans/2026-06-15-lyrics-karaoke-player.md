@@ -63,7 +63,7 @@ flowchart LR
 ## File Structure
 
 ```
-song-kara/                         # main worktree (integration branch: main)
+umbra/                         # main worktree (integration branch: main)
 ├── .git/
 ├── .gitignore                     # includes .worktrees/, node_modules/, dist/
 ├── .worktrees/                    # gitignored — linked worktrees for subagents
@@ -440,7 +440,7 @@ If a bonus feature fails review twice, move it to `rejected.md` with reason and 
 - [ ] **Step 1:** Initialize repo
 
 ```bash
-cd /home/arch/Documents/Projects/ai/song-kara
+cd /home/arch/Documents/Projects/ai/umbra
 git init -b main
 ```
 
@@ -461,7 +461,7 @@ dist/
 ```bash
 mkdir -p docs/superpowers/backlog/proposals
 touch docs/superpowers/backlog/approved.md docs/superpowers/backlog/rejected.md
-echo "# song-kara" > README.md
+echo "# umbra" > README.md
 ```
 
 - [ ] **Step 4:** Verify worktrees dir is ignored: `git check-ignore -q .worktrees && echo OK`
@@ -514,7 +514,7 @@ npx shadcn@latest init -y
 
 ```jsonc
 {
-  "name": "song-kara",
+  "name": "umbra",
   "compatibility_date": "2025-06-15",
   "assets": {
     "directory": "./dist",
@@ -759,7 +759,7 @@ const BASE = "https://lrclib.net/api"
 ```
 
 - **Step 2:** Implement `fetchLyrics({ track, artist, album, durationSec })` returning `{ plainLyrics, syncedLyrics, id }`
-- **Step 3:** Set header `Lrclib-Client: song-kara/1.0.0 (https://github.com/...)`
+- **Step 3:** Set header `Lrclib-Client: umbra/1.0.0 (https://github.com/...)`
 - **Step 4:** Handle 404 → return null with typed error
 - **Step 5:** Tests PASS → Commit
 
@@ -799,7 +799,7 @@ const BASE = "https://lrclib.net/api"
 **Files:** Create `[src/components/theme-provider.tsx](src/components/theme-provider.tsx)`, `[src/components/mode-toggle.tsx](src/components/mode-toggle.tsx)`
 
 - **Step 1:** Add shadcn `button`, `dropdown-menu` components
-- **Step 2:** Implement ThemeProvider (light/dark/system, `localStorage` key `song-kara-theme`)
+- **Step 2:** Implement ThemeProvider (light/dark/system, `localStorage` key `umbra-theme`)
 - **Step 3:** Wire ModeToggle into app shell header
 - **Step 4:** Commit: `feat: add theme switcher`
 

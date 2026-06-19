@@ -20,7 +20,7 @@ describe("AppShell", () => {
       </AppShell>,
     )
 
-    const brand = screen.getByRole("link", { name: "song-kara" })
+    const brand = screen.getByRole("link", { name: "umbra" })
     expect(brand).toHaveAttribute("href", "/")
     expect(brand.tagName).toBe("A")
   })
@@ -64,7 +64,7 @@ describe("AppShell", () => {
     )
 
     expect(screen.getByRole("link", { name: "← Home" })).toHaveAttribute("href", "/")
-    const desktopHeader = screen.getByRole("link", { name: "song-kara" }).closest("header")
+    const desktopHeader = screen.getByRole("link", { name: "umbra" }).closest("header")
     expect(desktopHeader).toHaveClass("hidden")
   })
 

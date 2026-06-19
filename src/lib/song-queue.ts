@@ -1,7 +1,7 @@
 import { normalizeTrackMetadata, type TrackMetadata } from "@/lib/track-label"
 import type { SeedMetadata } from "@/lib/player-navigation"
 
-export const SONG_QUEUE_STORAGE_KEY = "song-kara-queue"
+export const SONG_QUEUE_STORAGE_KEY = "umbra-queue"
 export const MAX_QUEUE_TRACKS = 100
 
 export type QueueTrackStatus = "prefetching" | "ready" | "error"

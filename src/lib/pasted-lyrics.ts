@@ -1,4 +1,4 @@
-const STORAGE_KEY = "song-kara-pasted-lyrics"
+const STORAGE_KEY = "umbra-pasted-lyrics"
 
 type PastedLyricsStore = Record<string, { text: string; savedAt: number }>
 

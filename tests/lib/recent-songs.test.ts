@@ -27,7 +27,7 @@ describe("recent-songs", () => {
 
   it("parses legacy entries without artist/track fields", () => {
     localStorage.setItem(
-      "song-kara-recent",
+      "umbra-recent",
       JSON.stringify([
         {
           videoId: "abc",

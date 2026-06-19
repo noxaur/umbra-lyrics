@@ -1,7 +1,7 @@
 import { assertAllowedUrl } from "./allowlist"
 
 const USER_AGENTS = [
-  "Mozilla/5.0 (compatible; song-kara/1.0.0; +https://github.com/song-kara)",
+  "Mozilla/5.0 (compatible; umbra/1.0.0; +https://github.com/noxaur/umbra-lyrics)",
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",

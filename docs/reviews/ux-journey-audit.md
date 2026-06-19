@@ -1,4 +1,4 @@
-# UX Journey Audit — song-kara
+# UX Journey Audit — umbra
 
 **Date:** 2026-06-15  
 **Method:** Code review (all pages, components, stores) + live browser walkthrough on `http://127.0.0.1:5175`  
@@ -9,7 +9,7 @@
 
 ## Executive summary
 
-song-kara delivers a focused, low-clutter karaoke flow: paste → player → lyrics stage. Core mechanics work. Skeleton loading, keyboard shortcuts, video hide persistence, and bilingual controls show thoughtful craft.
+umbra delivers a focused, low-clutter karaoke flow: paste → player → lyrics stage. Core mechanics work. Skeleton loading, keyboard shortcuts, video hide persistence, and bilingual controls show thoughtful craft.
 
 The largest gaps are **distance readability** (active line too small/dim for a 2 m TV), **context on the player** (no visible title/artist to verify LRCLIB match), and **state continuity** (re-visits re-fetch lyrics; idle copy wrong on player route). Several fine details (icon state, scroll behavior, validation layering) erode trust in a category where timing and correctness are everything.
 
@@ -50,7 +50,7 @@ flowchart LR
 ### 1. First visit (Home `/`)
 
 **What user sees/feels**
-- Dark-first shell: header `song-kara` + theme toggle, centered hero "Sing along", single URL field + pink **Start** button.
+- Dark-first shell: header `umbra` + theme toggle, centered hero "Sing along", single URL field + pink **Start** button.
 - Cognitive load is **very low**. One obvious action. Feels like a tool, not marketing fluff.
 - No sample link, no "how it works", no indication that paste auto-starts.
 
@@ -293,7 +293,7 @@ flowchart LR
 
 **What user sees/feels**
 - Toggle collapses video panel; lyrics expand to full width.
-- Preference **persists** via `localStorage` (`song-kara-video-hidden`) — excellent for repeat karaoke use.
+- Preference **persists** via `localStorage` (`umbra-video-hidden`) — excellent for repeat karaoke use.
 - `aria-pressed` state updates correctly.
 
 **Missing feedback**
@@ -317,7 +317,7 @@ flowchart LR
 
 **What user sees/feels**
 - Header dropdown: Light / Dark / System.
-- Persists to `localStorage` (`song-kara-theme`).
+- Persists to `localStorage` (`umbra-theme`).
 - Dark default matches design spec ("dim venue, screen glow").
 - Light mode: higher contrast stage bg; karaoke tokens adjust.
 

@@ -26,11 +26,11 @@ jobs:
       - run: npx vp build
 
       - name: Strip zone routes for CI deploy
-        run: node scripts/prepare-wrangler-deploy.mjs dist/song_kara/wrangler.json
+        run: node scripts/prepare-wrangler-deploy.mjs dist/umbra/wrangler.json
 
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config dist/song_kara/wrangler.json
+          command: deploy --config dist/umbra/wrangler.json

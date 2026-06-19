@@ -1,6 +1,6 @@
 import type { Theme, ThemeCategory, ThemeTokens } from "@/lib/themes"
 
-export const CUSTOM_THEMES_STORAGE_KEY = "song-kara-custom-themes"
+export const CUSTOM_THEMES_STORAGE_KEY = "umbra-custom-themes"
 export const MAX_CUSTOM_THEMES = 10
 export const CUSTOM_THEME_ID_PREFIX = "custom-"
 

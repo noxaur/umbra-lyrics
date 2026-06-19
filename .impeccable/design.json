@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-06-15T17:20:00.000Z",
-  "title": "Design System: song-kara",
+  "title": "Design System: umbra",
   "extensions": {
     "colorMeta": {
       "stage-violet": {
@@ -133,7 +133,7 @@
   ],
   "narrative": {
     "northStar": "The Dimmed Venue",
-    "overview": "song-kara is a product UI for singing along, not a marketing site. Chrome stays quiet; the lyric stage carries the room. Surfaces read like a karaoke booth after lights-down: tinted neutrals, one violet accent, legible type at arm's length.",
+    "overview": "umbra is a product UI for singing along, not a marketing site. Chrome stays quiet; the lyric stage carries the room. Surfaces read like a karaoke booth after lights-down: tinted neutrals, one violet accent, legible type at arm's length.",
     "keyCharacteristics": [
       "Lyrics-first hierarchy on the player route",
       "OKLCH tokens with per-theme palettes",

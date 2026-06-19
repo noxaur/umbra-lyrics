@@ -1,7 +1,7 @@
 import { CORS_HEADERS } from "../cors"
 
 const LRCLIB_BASE = "https://lrclib.net/api"
-const CLIENT_HEADER = "song-kara/1.0.0 (https://github.com/song-kara)"
+const CLIENT_HEADER = "umbra/1.0.0 (https://github.com/noxaur/umbra-lyrics)"
 
 export async function handleLrclib(pathname: string, search: string): Promise<Response> {
   const suffix = pathname.slice("/api/lyrics/lrclib".length)

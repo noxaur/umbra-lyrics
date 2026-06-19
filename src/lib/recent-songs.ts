@@ -7,7 +7,7 @@ import {
 } from "@/lib/track-label"
 import { translateLinesWithFallback } from "@/lib/translation-service"
 
-const STORAGE_KEY = "song-kara-recent"
+const STORAGE_KEY = "umbra-recent"
 const MAX_RECENT = 10
 
 export type RecentSong = TrackMetadata & {

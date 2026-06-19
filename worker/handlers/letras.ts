@@ -2,7 +2,7 @@ import { jsonResponse } from "../cors"
 import { decodeHtml } from "../lib/normalize"
 
 const LETRAS_HOST = "https://www.letras.mus.br"
-const USER_AGENT = "Mozilla/5.0 (compatible; song-kara/1.0.0)"
+const USER_AGENT = "Mozilla/5.0 (compatible; umbra/1.0.0)"
 
 export type LetrasHit = {
   id: string

@@ -1,4 +1,4 @@
-# Feature Completeness Audit — song-kara
+# Feature Completeness Audit — umbra
 
 **Date:** 2026-06-15  
 **Compared against:** `docs/superpowers/plans/2026-06-15-lyrics-karaoke-player.md`, `docs/superpowers/backlog/approved.md`  
@@ -32,14 +32,14 @@ Main gaps vs plan: **lucide-animated** (substituted with Motion + lucide-react),
 | **Task 5: LRCLIB lyrics service** | **Full** (+) | `src/lib/lyrics-service.ts`, `tests/lib/lyrics-service.test.ts` | Multi-strategy search beyond plan |
 | **Task 6: Sync engine** | **Full** | `src/lib/sync-engine.ts`, `tests/lib/sync-engine.test.ts` | — |
 | **Task 7: Design tokens + spec** | **Full** | `src/index.css`, `docs/superpowers/specs/2026-06-15-lyrics-karaoke-design.md` | — |
-| **Task 8: Theme provider + toggle** | **Full** | `src/components/theme-provider.tsx`, `mode-toggle.tsx` | Light/dark/system + `song-kara-theme` persistence |
+| **Task 8: Theme provider + toggle** | **Full** | `src/components/theme-provider.tsx`, `mode-toggle.tsx` | Light/dark/system + `umbra-theme` persistence |
 | **Task 9: lucide-animated icons** | **Partial** | `src/components/icons/animated-icon.tsx` | Plan requires lucide-animated.com via shadcn CLI; app uses **Motion-wrapped lucide-react** |
 | **Task 10: Lyrics stage** | **Partial** | `src/components/lyrics-stage.tsx`, `lyric-line.tsx` | No virtualization; loading skeleton present |
 | **Task 10: Auto-scroll active line** | **Full** | `lyrics-stage.tsx` `scrollIntoView({ block: "center" })` | — |
 | **Task 10: Empty/loading/error states** | **Full** | `lyrics-stage.tsx`, `lyrics-retry.tsx` | Editable artist/track retry on error |
 | **Task 11: Transport controls** | **Full** | `src/components/transport-controls.tsx` | Play/pause, seek, ±0.5s offset, display mode |
 | **Task 11: Hide video toggle** | **Full** | `youtube-panel.tsx`, `player-store.ts` | Collapses to `h-0`; audio continues (iframe not paused) |
-| **Task 11: videoHidden persistence** | **Full** | `player-store.ts` `song-kara-video-hidden` | — |
+| **Task 11: videoHidden persistence** | **Full** | `player-store.ts` `umbra-video-hidden` | — |
 | **Task 12: Language detection (franc)** | **Full** | `src/lib/language-service.ts` | — |
 | **Task 12: LRCLIB English search** | **Full** | `lyrics-service.ts` `searchEnglishLyrics` | — |
 | **Task 12: Chrome Translator fallback** | **Partial** | `src/hooks/use-translation.ts`, `player-page.tsx` | Button when available; **no notice when unavailable**; franc ISO 639-3 (`jpn`) may not match Translator BCP-47 (`ja`) |

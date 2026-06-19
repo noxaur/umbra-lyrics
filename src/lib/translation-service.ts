@@ -28,8 +28,8 @@ type TranslatorInstance = {
 }
 
 /** Unlikely to appear in song lyrics; keeps line boundaries through bulk APIs. */
-export const LINE_BREAK_SENTINEL = "\n[[[SONG_KARA_LINE]]]\n"
-const SENTINEL_SPLIT_RE = /\[\[\[SONG_KARA_LINE\]\]\]/
+export const LINE_BREAK_SENTINEL = "\n[[[UMBRA_LINE]]]\n"
+const SENTINEL_SPLIT_RE = /\[\[\[UMBRA_LINE\]\]\]/
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
   return Promise.race([
@@ -107,7 +107,7 @@ async function translateLinesIndividually(
 }
 
 function splitTranslatedLines(translated: string, expectedCount: number): string[] | null {
-  if (translated.includes("[[[SONG_KARA_LINE]]]")) {
+  if (translated.includes("[[[UMBRA_LINE]]]")) {
     const sentinelParts = translated.split(SENTINEL_SPLIT_RE).map((part) => part.trim())
     if (sentinelParts.length === expectedCount) return sentinelParts
   }

@@ -1,4 +1,4 @@
-export const QUEUE_SETTINGS_STORAGE_KEY = "song-kara-queue-settings"
+export const QUEUE_SETTINGS_STORAGE_KEY = "umbra-queue-settings"
 
 export type QueueSettings = {
   autoApproveMetadata: boolean

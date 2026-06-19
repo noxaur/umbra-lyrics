@@ -3,7 +3,7 @@ import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
 import { parseLrc } from "@/lib/lrc-parser"
 
 const runLive = process.env.RUN_LIVE_LYRICS === "1"
-const API_BASE = process.env.VITE_LYRICS_API_BASE ?? "https://song-kara.nox-heights.workers.dev"
+const API_BASE = process.env.VITE_LYRICS_API_BASE ?? "https://umbra.nox-heights.workers.dev"
 
 describe.runIf(runLive)("Not Like Us sync on production", () => {
   const youtubeDurationSec = 354 // H58vbez_m4E official MV ~5:54
