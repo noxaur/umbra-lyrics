@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, MoreHorizontal } from "lucide-react"
+import { AlertCircle, Ban, CheckCircle2, MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -27,6 +27,8 @@ type PlaylistLyricsImportRowProps = {
   onPaste: () => void
   onTranscribe: () => void
   onSkip: () => void
+  onReject: () => void
+  rejectionUrl?: string | null
   busy?: boolean
 }
 
@@ -49,9 +51,12 @@ export function PlaylistLyricsImportRowView({
   onPaste,
   onTranscribe,
   onSkip,
+  onReject,
+  rejectionUrl,
   busy = false,
 }: PlaylistLyricsImportRowProps) {
   const isCached = row.status === "cached"
+  const isRejected = row.status === "rejected"
   const needsArtist = row.selected && !row.artist.trim()
   const needsTrack = row.selected && !row.track.trim()
   const needsSource =
@@ -72,7 +77,7 @@ export function PlaylistLyricsImportRowView({
     >
       <Checkbox
         checked={row.selected}
-        disabled={busy || isCached}
+        disabled={busy || isCached || isRejected}
         onCheckedChange={onSelect}
         aria-label={`Select ${row.title}`}
         className="row-span-1 sm:row-span-1"
@@ -97,7 +102,7 @@ export function PlaylistLyricsImportRowView({
         onChange={(e) => onArtistChange(e.target.value)}
         placeholder="Artist"
         aria-label={`Artist for ${row.title}`}
-        disabled={busy || isCached || !row.selected}
+        disabled={busy || isCached || isRejected || !row.selected}
         className={cn("h-9 text-sm", needsArtist && requiredFieldClass)}
       />
 
@@ -106,7 +111,7 @@ export function PlaylistLyricsImportRowView({
         onChange={(e) => onTrackChange(e.target.value)}
         placeholder="Track"
         aria-label={`Track for ${row.title}`}
-        disabled={busy || isCached || !row.selected}
+        disabled={busy || isCached || isRejected || !row.selected}
         className={cn("h-9 text-sm", needsTrack && requiredFieldClass)}
       />
 
@@ -117,7 +122,7 @@ export function PlaylistLyricsImportRowView({
               type="button"
               variant="outline"
               size="sm"
-              disabled={busy || isCached || !row.selected}
+              disabled={busy || isCached || isRejected || !row.selected}
               className={cn(
                 "h-9 min-w-0 justify-between truncate text-xs font-normal",
                 needsSource && requiredFieldClass,
@@ -150,7 +155,7 @@ export function PlaylistLyricsImportRowView({
           disabled
           className={cn("h-9 text-xs font-normal", needsSource && requiredFieldClass)}
         >
-          {isCached ? "Indexed" : "No match"}
+          {isCached ? "Indexed" : isRejected ? "Rejected" : "No match"}
         </Button>
       )}
 
@@ -161,12 +166,16 @@ export function PlaylistLyricsImportRowView({
             ? "Plain"
             : row.status === "cached"
               ? "—"
-              : "—"}
+              : row.status === "rejected"
+                ? "—"
+                : "—"}
       </span>
 
       <div className="flex items-center justify-end gap-1">
         {isCached ? (
           <CheckCircle2 className="size-4 text-emerald-600" aria-label="Already indexed" />
+        ) : isRejected ? (
+          <Ban className="size-4 text-muted-foreground" aria-label="Lyrics rejected" />
         ) : needsAttention ? (
           <AlertCircle className="size-4 text-destructive" aria-label="Needs attention" />
         ) : canImport ? (
@@ -188,13 +197,53 @@ export function PlaylistLyricsImportRowView({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={onRetry}>Retry auto-match</DropdownMenuItem>
-              <DropdownMenuItem onSelect={onPaste}>Paste lyrics</DropdownMenuItem>
-              <DropdownMenuItem onSelect={onTranscribe}>Transcribe</DropdownMenuItem>
-              <DropdownMenuItem onSelect={onSkip}>Skip</DropdownMenuItem>
+              {!isRejected ? (
+                <>
+                  <DropdownMenuItem onSelect={onRetry}>Retry auto-match</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onPaste}>Paste lyrics</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onTranscribe}>Transcribe</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onSkip}>Skip</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onReject}>Reject lyrics</DropdownMenuItem>
+                  {rejectionUrl ? (
+                    <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
+                      <a
+                        href={rejectionUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2"
+                      >
+                        Report on GitHub
+                      </a>
+                    </DropdownMenuItem>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem onSelect={onRetry}>Try again</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onPaste}>Paste lyrics</DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
-        ) : null}
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                disabled={busy}
+                aria-label={`Actions for ${row.title}`}
+              >
+                <MoreHorizontal className="size-4" aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onReject}>Reject lyrics</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </li>
   )

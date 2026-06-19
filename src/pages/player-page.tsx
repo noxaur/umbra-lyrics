@@ -27,6 +27,7 @@ import {
   lyricsResultToNativeLines,
 } from "@/lib/lyrics-pipeline"
 import { getLyricsCache, reparseCachedLyrics, setLyricsCache, type LyricsCacheEntry } from "@/lib/lyrics-cache"
+import { clearLyricsRejection, isLyricsRejected } from "@/lib/lyrics-rejection"
 import {
   bumpLyricsLoadGeneration,
   getActiveLyricsLoad,
@@ -1020,6 +1021,14 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           }
         }
 
+        if (isLyricsRejected(videoId)) {
+          if (isUiStale()) return
+          resetLyricsSearch()
+          setStatus("idle")
+          setLyricsOutcome("not_found")
+          return
+        }
+
         if (!options?.skipCache) {
           const cached = getLyricsCache(videoId)
           if (cached) {
@@ -1391,6 +1400,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const handleRetry = useCallback(
     (artist: string, track: string, providerIds?: LyricsProviderId[]) => {
       const title = usePlayerStore.getState().title
+      clearLyricsRejection(videoId)
       bumpLyricsLoadGeneration(videoId)
       void loadLyrics(artist, track, title, duration, {
         skipPasted: true,
@@ -1417,6 +1427,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         track,
       }
       setMeta({ title, artist, track })
+      clearLyricsRejection(videoId)
       void loadLyrics(artist, track, title, duration, options)
     },
     [duration, loadLyrics, pendingMetadata, videoId],
@@ -1425,6 +1436,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const handleRefreshLyrics = useCallback(async () => {
     if (duration <= 0 || usePlayerStore.getState().status === "loading") return
 
+    clearLyricsRejection(videoId)
     bumpLyricsLoadGeneration(videoId)
     transcribeAbortRef.current?.abort()
     alignAbortRef.current?.abort()
@@ -1474,6 +1486,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
   const handleTranscribe = useCallback(() => {
     const { title, artist, track } = usePlayerStore.getState()
+    clearLyricsRejection(videoId)
     bumpLyricsLoadGeneration(videoId)
     void loadLyrics(artist, track, title, duration, {
       skipPasted: true,
