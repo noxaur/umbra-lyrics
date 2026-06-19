@@ -465,29 +465,30 @@ export function LyricsStage({
       : null
 
   return (
-    <div
-      ref={scrollRef}
-      className={cnStage(tvMode)}
-      data-tv-mode={tvMode ? "true" : undefined}
-      data-lyrics-follow={lyricsFollowMode}
-      style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
-    >
-      <div className="sr-only" aria-live="polite" aria-atomic="true">
-        {activeLineText}
-      </div>
-
+    <div className="relative flex min-h-0 w-full flex-1 flex-col">
       {lyricsFollowMode === "manual" ? (
-        <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center px-3">
+        <div className="z-20 flex shrink-0 justify-center px-3 pb-1 pt-1">
           <Button
             type="button"
             size="sm"
-            className="pointer-events-auto shadow-md"
+            className="shadow-md"
             onClick={() => requestLyricsScrollSync()}
           >
             Sync lyrics
           </Button>
         </div>
       ) : null}
+
+      <div
+        ref={scrollRef}
+        className={cnStage(tvMode)}
+        data-tv-mode={tvMode ? "true" : undefined}
+        data-lyrics-follow={lyricsFollowMode}
+        style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
+      >
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {activeLineText}
+        </div>
 
       {showCacheBadge && (
         <p
@@ -560,6 +561,7 @@ export function LyricsStage({
           </div>
         </MotionConfig>
       )}
+      </div>
     </div>
   )
 }
