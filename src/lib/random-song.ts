@@ -1,3 +1,4 @@
+import { isAbortError } from "@/lib/abort-signal"
 import { parseTrackTitle } from "@/lib/parse-track-title"
 import { readPlaylists } from "@/lib/playlists"
 import type { SeedMetadata } from "@/lib/player-navigation"
@@ -123,9 +124,14 @@ export async function resolveRandomSong(options?: {
           seedMetadata: seedMetadataFromSearchHit(hit),
         }
       }
-    } catch {
+    } catch (err) {
+      if (isAbortError(err) || options?.signal?.aborted) throw err
       // Fall through to local candidates or another query attempt.
     }
+  }
+
+  if (options?.signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError")
   }
 
   const localCandidates = collectLocalRandomSongCandidates(excludeVideoId)
