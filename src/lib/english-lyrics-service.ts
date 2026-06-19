@@ -197,7 +197,7 @@ export async function resolveEnglishFromPrefetch(
   }
 
   if (!needsEnglishLyrics(nativeText, languageMeta) && isEnglish(language)) {
-    return { lines: nativeLines, source: "found", status: "skipped" }
+    return { lines: [], source: "found", status: "skipped" }
   }
 
   if (!nativeLines.some((l) => l.trim())) {
@@ -291,7 +291,7 @@ export async function resolveEnglishLyrics(
   }
 
   if (!needsEnglishLyrics(nativeText, languageMeta) && isEnglish(language)) {
-    return { lines: nativeLines, source: "found", status: "skipped" }
+    return { lines: [], source: "found", status: "skipped" }
   }
 
   if (!nativeLines.some((l) => l.trim())) {

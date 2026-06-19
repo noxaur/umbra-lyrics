@@ -22,7 +22,7 @@ import {
   lyricsResultSampleText,
   lyricsResultToNativeLines,
 } from "@/lib/lyrics-pipeline"
-import { getLyricsCache, reparseCachedLyrics, setLyricsCache } from "@/lib/lyrics-cache"
+import { getLyricsCache, reparseCachedLyrics, setLyricsCache, type LyricsCacheEntry } from "@/lib/lyrics-cache"
 import {
   bumpLyricsLoadGeneration,
   getActiveLyricsLoad,
@@ -71,6 +71,27 @@ function applyLyricsText(
   if (fromPlain.lines.length > 0) return fromPlain
 
   return null
+}
+
+function restoreCachedEnglish(
+  cached: LyricsCacheEntry,
+  setEnglishLines: ReturnType<typeof usePlayerStore.getState>["setEnglishLines"],
+  setDisplayMode: ReturnType<typeof usePlayerStore.getState>["setDisplayMode"],
+  setEnglishStatus: ReturnType<typeof usePlayerStore.getState>["setEnglishStatus"],
+) {
+  if (cached.englishStatus === "skipped") {
+    setDisplayMode("native")
+    setEnglishStatus("skipped")
+    setEnglishLines([], null, null, "skipped")
+    return
+  }
+
+  setEnglishLines(
+    cached.englishLines,
+    cached.englishSource ?? (cached.englishLines.length > 0 ? "found" : null),
+    cached.translationBackend ?? null,
+    cached.englishStatus ?? (cached.englishLines.length > 0 ? "ready" : null),
+  )
 }
 
 /** Minimum embed size YouTube needs to start playback while visually hidden. */
@@ -315,12 +336,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         cached.autoTimed ?? (!cached.synced && cached.lines.length > 0),
         cached.aligned ?? cached.providerId === "transcription",
       )
-      setEnglishLines(
-        cached.englishLines,
-        cached.englishSource ?? (cached.englishLines.length > 0 ? "found" : null),
-        cached.translationBackend ?? null,
-        cached.englishStatus ?? (cached.englishLines.length > 0 ? "ready" : null),
-      )
+      restoreCachedEnglish(cached, setEnglishLines, setDisplayMode, setEnglishStatus)
       setRomajiLines(cached.romajiLines ?? [], cached.romajiStatus ?? null)
       setLanguageCode(cached.languageCode)
       setLyricsAlternates(cached.alternates ?? [])
@@ -353,6 +369,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     setRomajiLines,
     setMeta,
     setLanguageCode,
+    setDisplayMode,
+    setEnglishStatus,
     setLrclibTrackId,
     setLyricsOutcome,
     resetLyricsSearch,
@@ -380,10 +398,9 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       setLanguageCode(lang)
 
       if (!english || english.status === "skipped") {
+        setDisplayMode("native")
         setEnglishStatus("skipped")
-        if (english?.lines.length) {
-          setEnglishLines(english.lines, "found", null, "skipped")
-        }
+        setEnglishLines([], null, null, "skipped")
         return
       }
 
@@ -941,12 +958,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
               artist: cached.artist || artist,
               track: cached.track || track,
             })
-            setEnglishLines(
-              cached.englishLines,
-              cached.englishSource ?? (cached.englishLines.length > 0 ? "found" : null),
-              cached.translationBackend ?? null,
-              cached.englishStatus ?? (cached.englishLines.length > 0 ? "ready" : null),
-            )
+            restoreCachedEnglish(cached, setEnglishLines, setDisplayMode, setEnglishStatus)
             setLanguageCode(cached.languageCode)
             setLyricsAlternates(cached.alternates ?? [])
             if (parsed.suggestedOffsetMs) setSyncOffset(parsed.suggestedOffsetMs)

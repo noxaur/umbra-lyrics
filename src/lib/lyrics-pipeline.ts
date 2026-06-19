@@ -119,7 +119,7 @@ export async function runLyricsPipeline(
         native,
         romaji,
         english: {
-          lines: nativeLines,
+          lines: [],
           source: "found",
           status: "skipped",
         },

@@ -46,7 +46,7 @@ describe("lyrics-cache", () => {
     expect(cached?.cachedAt).toBeTypeOf("number")
   })
 
-  it("round-trips skipped english status for English-only tracks", () => {
+  it("clears stale english lines when status is skipped on read", () => {
     setLyricsCache({
       ...sampleEntry,
       englishLines: ["Hello world"],
@@ -56,7 +56,7 @@ describe("lyrics-cache", () => {
     })
     const cached = getLyricsCache("abc12345678")
     expect(cached?.englishStatus).toBe("skipped")
-    expect(cached?.englishLines).toEqual(["Hello world"])
+    expect(cached?.englishLines).toEqual([])
   })
 
   it("round-trips romaji lines", () => {

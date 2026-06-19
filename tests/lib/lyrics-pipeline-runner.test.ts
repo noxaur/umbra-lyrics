@@ -103,10 +103,7 @@ describe("runLyricsPipeline", () => {
     expect(result.romaji.status).toBe("skipped")
     expect(result.romaji.lines).toEqual([])
     expect(result.english.status).toBe("skipped")
-    expect(result.english.lines).toEqual([
-      "Never gonna give you up",
-      "Never gonna let you down",
-    ])
+    expect(result.english.lines).toEqual([])
   })
 
   it("extracts native lines from plain lyrics", () => {
