@@ -8,6 +8,8 @@ import { usePlayerStore } from "@/stores/player-store"
 import { LYRICS_PROVIDER_LABELS, type LyricsAlternate, type LyricsProviderId } from "@/types/lyrics"
 import { LyricsSourcePicker } from "@/components/lyrics-source-picker"
 import { AddToPlaylistMenu } from "@/components/add-to-playlist-menu"
+import { QueueAddMenu } from "@/components/queue-add-menu"
+import { QueueMenu } from "@/components/queue-menu"
 import { getRecentSongs } from "@/lib/recent-songs"
 
 const TRANSLATION_BACKEND_LABELS: Record<string, string> = {
@@ -254,6 +256,8 @@ export function NowPlayingHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5">
+          <QueueAddMenu className={TOOLBAR_ICON_CLASS} />
+          <QueueMenu className={`relative ${TOOLBAR_ICON_CLASS}`} />
           {videoId ? (
             <AddToPlaylistMenu
               track={{

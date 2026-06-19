@@ -7,7 +7,10 @@ import { usePlayerStore } from "@/stores/player-store"
 import { ShortcutsHelp } from "@/components/shortcuts-help"
 import { MkvExportButton } from "@/components/mkv-export-button"
 import { PlayerViewMenu } from "@/components/player-view-menu"
+import { QueueAddMenu } from "@/components/queue-add-menu"
+import { QueueMenu } from "@/components/queue-menu"
 import { getPlaylistById } from "@/lib/playlists"
+import { readSongQueue } from "@/lib/song-queue"
 import { isEnglish } from "@/lib/language-service"
 import type { LyricDisplayMode } from "@/types/lyrics"
 
@@ -53,12 +56,24 @@ export function TransportControls({
   const playlistContext = usePlayerStore((s) => s.playlistContext)
   const goToNextPlaylistTrack = usePlayerStore((s) => s.goToNextPlaylistTrack)
   const goToPrevPlaylistTrack = usePlayerStore((s) => s.goToPrevPlaylistTrack)
+  const queueContext = usePlayerStore((s) => s.queueContext)
+  const goToNextQueueTrack = usePlayerStore((s) => s.goToNextQueueTrack)
+  const goToPrevQueueTrack = usePlayerStore((s) => s.goToPrevQueueTrack)
 
   const playlist = playlistContext ? getPlaylistById(playlistContext.playlistId) : undefined
-  const hasPrevTrack = playlistContext ? playlistContext.trackIndex > 0 : false
+  const hasPrevTrack = playlistContext
+    ? playlistContext.trackIndex > 0
+    : queueContext
+      ? queueContext.trackIndex > 0
+      : false
   const hasNextTrack = playlist
     ? playlistContext!.trackIndex < playlist.tracks.length - 1
-    : false
+    : queueContext
+      ? queueContext.trackIndex < readSongQueue().length - 1
+      : false
+  const showSkipControls = Boolean(playlistContext || queueContext)
+  const goToPrevTrack = playlistContext ? goToPrevPlaylistTrack : goToPrevQueueTrack
+  const goToNextTrack = playlistContext ? goToNextPlaylistTrack : goToNextQueueTrack
 
   const lyricsRefreshing = status === "loading"
 
@@ -139,15 +154,15 @@ export function TransportControls({
 
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
           <div className="flex items-center gap-1">
-            {playlistContext ? (
+            {showSkipControls ? (
               <Button
                 variant="outline"
                 size="icon"
                 className={`${ICON_BTN} rounded-full`}
-                onClick={goToPrevPlaylistTrack}
+                onClick={goToPrevTrack}
                 disabled={!hasPrevTrack}
-                aria-label="Previous track in playlist"
-                title="Previous track (Shift+←)"
+                aria-label={playlistContext ? "Previous track in playlist" : "Previous track in queue"}
+                title={playlistContext ? "Previous track (Shift+←)" : "Previous in queue"}
               >
                 <SkipBack className="size-3.5" aria-hidden />
               </Button>
@@ -161,15 +176,15 @@ export function TransportControls({
             >
               <AnimatedIcon icon={isPlaying ? Pause : Play} active={isPlaying} />
             </Button>
-            {playlistContext ? (
+            {showSkipControls ? (
               <Button
                 variant="outline"
                 size="icon"
                 className={`${ICON_BTN} rounded-full`}
-                onClick={goToNextPlaylistTrack}
+                onClick={goToNextTrack}
                 disabled={!hasNextTrack}
-                aria-label="Next track in playlist"
-                title="Next track (Shift+→)"
+                aria-label={playlistContext ? "Next track in playlist" : "Next track in queue"}
+                title={playlistContext ? "Next track (Shift+→)" : "Next in queue"}
               >
                 <SkipForward className="size-3.5" aria-hidden />
               </Button>
@@ -260,6 +275,8 @@ export function TransportControls({
           </div>
 
           <div className="ml-auto flex items-center gap-0.5">
+            <QueueAddMenu />
+            <QueueMenu className="relative" />
             {onToggleStageFullscreen ? (
               <Button
                 variant="outline"

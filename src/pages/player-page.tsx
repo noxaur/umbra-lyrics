@@ -49,6 +49,10 @@ import {
   getPlaylistById,
   type PlaylistPlaybackContext,
 } from "@/lib/playlists"
+import {
+  readSongQueue,
+  type QueuePlaybackContext,
+} from "@/lib/song-queue"
 import { analyzeRoute, isValidPlayVideoId } from "@/lib/route-suggestions"
 import type { PlayerNavigationState } from "@/lib/player-navigation"
 import { fetchYouTubeAuthor } from "@/lib/youtube-oembed"
@@ -132,6 +136,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const seedMetadata = navigationState?.seedMetadata
   const onEndedRef = useRef<() => void>(() => {})
   const playlistAutoPlayPending = useRef(false)
+  const queueAutoPlayPending = useRef(false)
   const loadedRef = useRef(false)
   const oembedAuthorRef = useRef<string | null>(null)
   const transcribeAbortRef = useRef<AbortController | null>(null)
@@ -175,6 +180,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const bindControls = usePlayerStore((s) => s.bindControls)
   const setPlaylistContext = usePlayerStore((s) => s.setPlaylistContext)
   const bindPlaylistNavigation = usePlayerStore((s) => s.bindPlaylistNavigation)
+  const setQueueContext = usePlayerStore((s) => s.setQueueContext)
+  const bindQueueNavigation = usePlayerStore((s) => s.bindQueueNavigation)
   const languageCode = usePlayerStore((s) => s.languageCode)
   const englishLines = usePlayerStore((s) => s.englishLines)
   const englishStatus = usePlayerStore((s) => s.englishStatus)
@@ -217,15 +224,40 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     [navigate],
   )
 
+  const navigateToQueueTrack = useCallback(
+    (trackIndex: number) => {
+      const queue = readSongQueue()
+      const track = queue[trackIndex]
+      if (!track) return
+      navigate(`/play/${track.videoId}`, {
+        state: {
+          queueContext: { trackIndex } satisfies QueuePlaybackContext,
+          queueAutoPlay: true,
+          seedMetadata: track.seedMetadata,
+        },
+      })
+    },
+    [navigate],
+  )
+
   const handleVideoEnded = useCallback(() => {
-    const ctx = usePlayerStore.getState().playlistContext
-    if (!ctx) return
-    const playlist = getPlaylistById(ctx.playlistId)
-    if (!playlist) return
-    const nextIndex = ctx.trackIndex + 1
-    if (nextIndex >= playlist.tracks.length) return
-    navigateToPlaylistTrack(nextIndex)
-  }, [navigateToPlaylistTrack])
+    const playlistCtx = usePlayerStore.getState().playlistContext
+    if (playlistCtx) {
+      const playlist = getPlaylistById(playlistCtx.playlistId)
+      if (!playlist) return
+      const nextIndex = playlistCtx.trackIndex + 1
+      if (nextIndex >= playlist.tracks.length) return
+      navigateToPlaylistTrack(nextIndex)
+      return
+    }
+
+    const queueCtx = usePlayerStore.getState().queueContext
+    if (!queueCtx) return
+    const queue = readSongQueue()
+    const nextIndex = queueCtx.trackIndex + 1
+    if (nextIndex >= queue.length) return
+    navigateToQueueTrack(nextIndex)
+  }, [navigateToPlaylistTrack, navigateToQueueTrack])
 
   onEndedRef.current = handleVideoEnded
 
@@ -233,10 +265,14 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     const state = location.state as {
       playlistContext?: PlaylistPlaybackContext
       playlistAutoPlay?: boolean
+      queueContext?: QueuePlaybackContext
+      queueAutoPlay?: boolean
     } | null
     setPlaylistContext(state?.playlistContext ?? null)
+    setQueueContext(state?.queueContext ?? null)
     playlistAutoPlayPending.current = Boolean(state?.playlistAutoPlay)
-  }, [location.state, setPlaylistContext])
+    queueAutoPlayPending.current = Boolean(state?.queueAutoPlay)
+  }, [location.state, setPlaylistContext, setQueueContext])
 
   useEffect(() => {
     if (!ready || !playlistAutoPlayPending.current) return
@@ -245,13 +281,27 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   }, [ready, videoId, play])
 
   useEffect(() => {
-    return () => setPlaylistContext(null)
-  }, [setPlaylistContext])
+    if (!ready || !queueAutoPlayPending.current) return
+    queueAutoPlayPending.current = false
+    play()
+  }, [ready, videoId, play])
+
+  useEffect(() => {
+    return () => {
+      setPlaylistContext(null)
+      setQueueContext(null)
+    }
+  }, [setPlaylistContext, setQueueContext])
 
   useEffect(() => {
     bindPlaylistNavigation(navigateToPlaylistTrack)
     return () => bindPlaylistNavigation(null)
   }, [bindPlaylistNavigation, navigateToPlaylistTrack])
+
+  useEffect(() => {
+    bindQueueNavigation(navigateToQueueTrack)
+    return () => bindQueueNavigation(null)
+  }, [bindQueueNavigation, navigateToQueueTrack])
 
   const ensureOEmbedAuthor = useCallback(async () => {
     if (oembedAuthorRef.current != null) return oembedAuthorRef.current
