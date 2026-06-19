@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import {
   deleteCustomTheme,
   exportCustomTheme,
@@ -31,6 +39,8 @@ type ThemeProviderState = {
   presetThemes: Theme[]
   customThemes: CustomTheme[]
   setTheme: (id: string) => void
+  previewTheme: (id: string) => void
+  clearThemePreview: (id?: string) => void
   setLightTheme: () => void
   setDarkTheme: () => void
   saveCustomTheme: (input: CustomThemeInput, existingId?: string) => { theme: CustomTheme; error?: string }
@@ -69,6 +79,7 @@ export function ThemeProvider({
   })
 
   const theme = getThemeById(themeId, registry)
+  const previewThemeIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     bootstrapThemeFromStorage()
@@ -84,6 +95,7 @@ export function ThemeProvider({
   }, [defaultThemeId, registry])
 
   useEffect(() => {
+    previewThemeIdRef.current = null
     applyThemeToElement(document.documentElement, theme)
     cacheThemeForBootstrap(theme)
   }, [theme])
@@ -96,10 +108,31 @@ export function ThemeProvider({
     (id: string) => {
       const next = registry[id]
       if (!next) return
+      previewThemeIdRef.current = null
       persistThemeId(id, next)
       setThemeIdState(id)
     },
     [registry],
+  )
+
+  const previewTheme = useCallback(
+    (id: string) => {
+      const next = registry[id]
+      if (!next) return
+      previewThemeIdRef.current = id
+      applyThemeToElement(document.documentElement, next)
+    },
+    [registry],
+  )
+
+  const clearThemePreview = useCallback(
+    (id?: string) => {
+      if (id !== undefined && previewThemeIdRef.current !== id) return
+      if (previewThemeIdRef.current === null) return
+      previewThemeIdRef.current = null
+      applyThemeToElement(document.documentElement, theme)
+    },
+    [theme],
   )
 
   const setLightTheme = () => setTheme(DEFAULT_LIGHT_THEME_ID)
@@ -151,6 +184,8 @@ export function ThemeProvider({
         presetThemes,
         customThemes,
         setTheme,
+        previewTheme,
+        clearThemePreview,
         setLightTheme,
         setDarkTheme,
         saveCustomTheme: handleSaveCustomTheme,
@@ -169,4 +204,22 @@ export function useTheme() {
   const ctx = useContext(ThemeProviderContext)
   if (!ctx) throw new Error("useTheme must be used within ThemeProvider")
   return ctx
+}
+
+export function useThemePreviewHandlers(id: string) {
+  const { previewTheme, clearThemePreview } = useTheme()
+
+  return useMemo(
+    () => ({
+      onPointerEnter: () => previewTheme(id),
+      onPointerLeave: () => clearThemePreview(id),
+    }),
+    [clearThemePreview, id, previewTheme],
+  )
+}
+
+export function useThemePreviewEnter(id: string) {
+  const { previewTheme } = useTheme()
+
+  return useMemo(() => ({ onPointerEnter: () => previewTheme(id) }), [id, previewTheme])
 }

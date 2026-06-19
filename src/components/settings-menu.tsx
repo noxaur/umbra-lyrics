@@ -15,13 +15,14 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useTheme } from "@/components/theme-provider"
+import { useTheme, useThemePreviewEnter } from "@/components/theme-provider"
 import {
   TEXT_SIZE_LABELS,
   TEXT_SIZE_PRESETS,
   type TextSizePreset,
 } from "@/lib/display-settings"
 import { useDisplaySettingsStore } from "@/stores/display-settings-store"
+import { DEFAULT_DARK_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/lib/themes"
 
 function TextSizeGroup({
   label,
@@ -52,6 +53,31 @@ function TextSizeGroup({
   )
 }
 
+function ThemeMenuItem({
+  entryId,
+  name,
+  selected,
+  onSelect,
+}: {
+  entryId: string
+  name: string
+  selected: boolean
+  onSelect: () => void
+}) {
+  const previewHandlers = useThemePreviewEnter(entryId)
+
+  return (
+    <DropdownMenuItem
+      {...previewHandlers}
+      onSelect={(e) => e.preventDefault()}
+      onClick={onSelect}
+      className={selected ? "bg-accent/60" : undefined}
+    >
+      {name}
+    </DropdownMenuItem>
+  )
+}
+
 function ThemeSubmenu() {
   const {
     theme,
@@ -61,7 +87,11 @@ function ThemeSubmenu() {
     setTheme,
     setDarkTheme,
     setLightTheme,
+    clearThemePreview,
   } = useTheme()
+
+  const darkPreviewHandlers = useThemePreviewEnter(DEFAULT_DARK_THEME_ID)
+  const lightPreviewHandlers = useThemePreviewEnter(DEFAULT_LIGHT_THEME_ID)
 
   const darkThemes = presetThemes.filter((entry) => entry.category === "dark")
   const lightThemes = presetThemes.filter((entry) => entry.category === "light")
@@ -74,12 +104,23 @@ function ThemeSubmenu() {
           <span className="truncate text-xs font-normal text-muted-foreground">{theme.name}</span>
         </span>
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className="w-56">
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={setDarkTheme}>
+      <DropdownMenuSubContent
+        className="w-56"
+        onPointerLeave={() => clearThemePreview()}
+      >
+        <DropdownMenuItem
+          {...darkPreviewHandlers}
+          onSelect={(e) => e.preventDefault()}
+          onClick={setDarkTheme}
+        >
           <Moon className="size-4" aria-hidden />
           Quick dark
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={setLightTheme}>
+        <DropdownMenuItem
+          {...lightPreviewHandlers}
+          onSelect={(e) => e.preventDefault()}
+          onClick={setLightTheme}
+        >
           <Sun className="size-4" aria-hidden />
           Quick light
         </DropdownMenuItem>
@@ -88,40 +129,37 @@ function ThemeSubmenu() {
           <>
             <DropdownMenuLabel>Your themes</DropdownMenuLabel>
             {customThemes.map((entry) => (
-              <DropdownMenuItem
+              <ThemeMenuItem
                 key={entry.id}
-                onSelect={(e) => e.preventDefault()}
-                onClick={() => setTheme(entry.id)}
-                className={themeId === entry.id ? "bg-accent/60" : undefined}
-              >
-                {entry.name}
-              </DropdownMenuItem>
+                entryId={entry.id}
+                name={entry.name}
+                selected={themeId === entry.id}
+                onSelect={() => setTheme(entry.id)}
+              />
             ))}
             <DropdownMenuSeparator />
           </>
         ) : null}
         <DropdownMenuLabel>Dark stages</DropdownMenuLabel>
         {darkThemes.map((entry) => (
-          <DropdownMenuItem
+          <ThemeMenuItem
             key={entry.id}
-            onSelect={(e) => e.preventDefault()}
-            onClick={() => setTheme(entry.id)}
-            className={themeId === entry.id ? "bg-accent/60" : undefined}
-          >
-            {entry.name}
-          </DropdownMenuItem>
+            entryId={entry.id}
+            name={entry.name}
+            selected={themeId === entry.id}
+            onSelect={() => setTheme(entry.id)}
+          />
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Light stages</DropdownMenuLabel>
         {lightThemes.map((entry) => (
-          <DropdownMenuItem
+          <ThemeMenuItem
             key={entry.id}
-            onSelect={(e) => e.preventDefault()}
-            onClick={() => setTheme(entry.id)}
-            className={themeId === entry.id ? "bg-accent/60" : undefined}
-          >
-            {entry.name}
-          </DropdownMenuItem>
+            entryId={entry.id}
+            name={entry.name}
+            selected={themeId === entry.id}
+            onSelect={() => setTheme(entry.id)}
+          />
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
@@ -142,6 +180,7 @@ function ThemeSubmenu() {
 }
 
 export function SettingsMenu() {
+  const { clearThemePreview } = useTheme()
   const lyricsTextSize = useDisplaySettingsStore((s) => s.lyricsTextSize)
   const secondaryTextSize = useDisplaySettingsStore((s) => s.secondaryTextSize)
   const uiTextSize = useDisplaySettingsStore((s) => s.uiTextSize)
@@ -151,7 +190,7 @@ export function SettingsMenu() {
   const resetDisplaySettings = useDisplaySettingsStore((s) => s.resetDisplaySettings)
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(open) => { if (!open) clearThemePreview() }}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" aria-label="Settings" title="Settings">
           <AnimatedIcon icon={Settings2} />

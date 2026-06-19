@@ -1,10 +1,12 @@
+import { useEffect } from "react"
 import { Link } from "react-router-dom"
 import { ArrowLeft, Moon, Palette, Sun } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { ThemePreviewCard } from "@/components/theme-preview-card"
 import { Button } from "@/components/ui/button"
-import { useTheme } from "@/components/theme-provider"
+import { useTheme, useThemePreviewEnter } from "@/components/theme-provider"
 import { MAX_CUSTOM_THEMES } from "@/lib/custom-themes"
+import { DEFAULT_DARK_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/lib/themes"
 import { cn } from "@/lib/utils"
 
 export function ThemesPage() {
@@ -16,10 +18,16 @@ export function ThemesPage() {
     setDarkTheme,
     setLightTheme,
     deleteCustomTheme,
+    clearThemePreview,
   } = useTheme()
+
+  const darkPreviewHandlers = useThemePreviewEnter(DEFAULT_DARK_THEME_ID)
+  const lightPreviewHandlers = useThemePreviewEnter(DEFAULT_LIGHT_THEME_ID)
 
   const darkThemes = presetThemes.filter((t) => t.category === "dark")
   const lightThemes = presetThemes.filter((t) => t.category === "light")
+
+  useEffect(() => () => clearThemePreview(), [clearThemePreview])
 
   return (
     <AppShell>
@@ -47,12 +55,27 @@ export function ThemesPage() {
               </Link>
             </Button>
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={setDarkTheme} className="gap-1.5">
+          <div
+            className="mt-4 flex flex-wrap gap-2"
+            onPointerLeave={() => clearThemePreview()}
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={setDarkTheme}
+              {...darkPreviewHandlers}
+              className="gap-1.5"
+            >
               <Moon className="size-3.5" aria-hidden />
               Quick dark
             </Button>
-            <Button variant="outline" size="sm" onClick={setLightTheme} className="gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={setLightTheme}
+              {...lightPreviewHandlers}
+              className="gap-1.5"
+            >
               <Sun className="size-3.5" aria-hidden />
               Quick light
             </Button>
