@@ -119,6 +119,9 @@ describe("SpotifyLoginButton", () => {
     fireEvent.click(button)
     expect(document.body.querySelector(".spotify-easter-egg-overlay")).not.toBeNull()
     expect(listQueueNotifications()).toHaveLength(notificationsBeforeTenth)
+    expect(button).toHaveAttribute("tabindex", "-1")
+    expect(button).toHaveAttribute("aria-hidden", "true")
+    expect(button).not.toHaveFocus()
   })
 
   it("uses a shorter label in compact mode", () => {
