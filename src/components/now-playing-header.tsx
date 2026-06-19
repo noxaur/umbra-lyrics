@@ -1,9 +1,12 @@
 import { AlertTriangle, Flag, Languages, RefreshCw } from "lucide-react"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { getLyricsCache } from "@/lib/lyrics-cache"
-import { buildLyricsRejectionUrl } from "@/lib/lyrics-rejection-report"
+import {
+  buildLyricsRejectionUrl,
+  type LyricsReportIssueType,
+} from "@/lib/lyrics-rejection-report"
 import { usePlayerStore } from "@/stores/player-store"
 import { LYRICS_PROVIDER_LABELS, type LyricsAlternate, type LyricsProviderId } from "@/types/lyrics"
 import { LyricsSourcePicker } from "@/components/lyrics-source-picker"
@@ -12,6 +15,7 @@ import { AddToPlaylistMenu } from "@/components/add-to-playlist-menu"
 import { QueueAddMenu } from "@/components/queue-add-menu"
 import { QueueMenu } from "@/components/queue-menu"
 import { getRecentSongs } from "@/lib/recent-songs"
+import { LyricsReportModal } from "@/components/lyrics-report-modal"
 
 const TRANSLATION_BACKEND_LABELS: Record<string, string> = {
   browser: "Browser",
@@ -103,6 +107,7 @@ export function NowPlayingHeader({
   translating = false,
   showTranslate = false,
 }: NowPlayingHeaderProps) {
+  const [reportOpen, setReportOpen] = useState(false)
   const track = usePlayerStore((s) => s.track)
   const artist = usePlayerStore((s) => s.artist)
   const title = usePlayerStore((s) => s.title)
@@ -138,19 +143,16 @@ export function NowPlayingHeader({
   const timingNotice = showTimingNotice
     ? getTimingNoticeText(lyricsAutoTimed, lyricsSource, lyricsAligned)
     : null
-  const rejectionUrl = useMemo(() => {
-    if (
-      !videoId ||
-      lyrics.length === 0 ||
-      !lyricsSource ||
-      lyricsSource === "pasted" ||
-      lyricsSource === "translated"
-    ) {
-      return null
-    }
+  const canReportLyrics =
+    status === "ready" &&
+    Boolean(videoId) &&
+    lyricsSource !== "pasted" &&
+    lyricsSource !== "translated"
 
+  const openLyricsReport = (issueType: LyricsReportIssueType) => {
+    if (!videoId) return
     const cached = getLyricsCache(videoId)
-    return buildLyricsRejectionUrl({
+    const href = buildLyricsRejectionUrl({
       videoId,
       title,
       artist,
@@ -160,26 +162,17 @@ export function NowPlayingHeader({
       autoTimed: lyricsAutoTimed,
       aligned: lyricsAligned,
       currentLyrics:
-        cached?.lyricsResult.providerId === lyricsSource ? cached.lyricsResult : undefined,
-      displayedLines: lyrics.map((line) => line.text),
+        cached?.lyricsResult && cached.lyricsResult.providerId === lyricsSource
+          ? cached.lyricsResult
+          : undefined,
+      displayedLines: lyrics.length > 0 ? lyrics.map((line) => line.text) : undefined,
       alternates: lyricsAlternates,
       providersSearched: lyricsProvidersSearched,
       attempts: lyricsAttempts,
+      issueType,
     })
-  }, [
-    artist,
-    lyrics,
-    lyricsAligned,
-    lyricsAlternates,
-    lyricsAttempts,
-    lyricsAutoTimed,
-    lyricsProvidersSearched,
-    lyricsSource,
-    lyricsSynced,
-    title,
-    track,
-    videoId,
-  ])
+    window.open(href, "_blank", "noopener,noreferrer")
+  }
 
   const recentEnglish = useMemo(
     () => (videoId ? getRecentSongs().find((song) => song.videoId === videoId) : undefined),
@@ -292,17 +285,16 @@ export function NowPlayingHeader({
                 />
               </Button>
             ) : null}
-            {rejectionUrl ? (
-              <Button asChild variant="ghost" size="icon" className={TOOLBAR_ICON_CLASS}>
-                <a
-                  href={rejectionUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Reject lyrics"
-                  title="Report incorrect lyrics on GitHub"
-                >
-                  <Flag className="size-4" aria-hidden />
-                </a>
+            {canReportLyrics ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={TOOLBAR_ICON_CLASS}
+                onClick={() => setReportOpen(true)}
+                aria-label="Report lyrics"
+                title="Report lyrics issue"
+              >
+                <Flag className="size-4" aria-hidden />
               </Button>
             ) : null}
             {showTranslate && onTranslate ? (
@@ -339,7 +331,7 @@ export function NowPlayingHeader({
             }
             onRefreshLyrics={onRefreshLyrics}
             lyricsRefreshing={lyricsRefreshing}
-            rejectionUrl={rejectionUrl}
+            onReportLyrics={canReportLyrics ? () => setReportOpen(true) : undefined}
             showTranslate={showTranslate}
             onTranslate={onTranslate}
             translating={translating}
@@ -362,6 +354,14 @@ export function NowPlayingHeader({
           </p>
         </div>
       ) : null}
+      <LyricsReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        onSubmit={(issueType) => {
+          setReportOpen(false)
+          openLyricsReport(issueType)
+        }}
+      />
     </div>
   )
 }

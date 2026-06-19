@@ -122,4 +122,29 @@ describe("buildLyricsRejectionUrl", () => {
     const body = new URL(href).searchParams.get("body") ?? ""
     expect(body).toMatch(/truncated|Omitted/)
   })
+
+  it("includes the selected issue type when provided", () => {
+    const url = new URL(
+      buildLyricsRejectionUrl({
+        videoId: "video-id",
+        title: "Track",
+        artist: "Artist",
+        track: "Track",
+        providerId: null,
+        synced: false,
+        autoTimed: false,
+        aligned: false,
+        alternates: [],
+        providersSearched: [],
+        attempts: [],
+        issueType: "no_lyrics",
+      }),
+    )
+
+    expect(url.searchParams.get("title")).toContain("No lyrics")
+    const body = url.searchParams.get("body") ?? ""
+    expect(body).toContain("## Issue type")
+    expect(body).toContain("No lyrics")
+    expect(body).toContain("No lyrics available")
+  })
 })

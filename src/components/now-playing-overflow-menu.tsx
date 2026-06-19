@@ -27,7 +27,7 @@ type NowPlayingOverflowMenuProps = {
   track: Omit<PlaylistTrack, "addedAt"> | null
   onRefreshLyrics?: () => void
   lyricsRefreshing?: boolean
-  rejectionUrl?: string | null
+  onReportLyrics?: () => void
   showTranslate?: boolean
   onTranslate?: () => void
   translating?: boolean
@@ -39,7 +39,7 @@ export function NowPlayingOverflowMenu({
   track,
   onRefreshLyrics,
   lyricsRefreshing = false,
-  rejectionUrl,
+  onReportLyrics,
   showTranslate = false,
   onTranslate,
   translating = false,
@@ -96,7 +96,7 @@ export function NowPlayingOverflowMenu({
   const hasActions =
     track ||
     (onRefreshLyrics && track) ||
-    rejectionUrl ||
+    onReportLyrics ||
     (showTranslate && onTranslate) ||
     showSourcePicker
 
@@ -172,17 +172,15 @@ export function NowPlayingOverflowMenu({
               {lyricsRefreshing ? "Searching for lyrics…" : "Re-search lyrics"}
             </DropdownMenuItem>
           ) : null}
-          {rejectionUrl ? (
-            <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
-              <a
-                href={rejectionUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2"
-              >
-                <Flag className="size-4" aria-hidden />
-                Reject lyrics
-              </a>
+          {onReportLyrics ? (
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                onReportLyrics()
+              }}
+            >
+              <Flag className="size-4" aria-hidden />
+              Report lyrics
             </DropdownMenuItem>
           ) : null}
           {showTranslate && onTranslate ? (
