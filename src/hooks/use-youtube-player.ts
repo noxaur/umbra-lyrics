@@ -6,6 +6,9 @@ type UseYouTubePlayerOptions = {
   onEnded?: () => void
 }
 
+/** yt-embed defaults to 250ms; lyric sync reads this via rAF so a lower cadence reduces handoff lag. */
+export const PLAYBACK_TIME_POLL_INTERVAL_MS = 50
+
 export function useYouTubePlayer(videoId: string, options: UseYouTubePlayerOptions = {}) {
   const { onEnded } = options
   const onEndedRef = useRef(onEnded)
@@ -23,7 +26,10 @@ export function useYouTubePlayer(videoId: string, options: UseYouTubePlayerOptio
   )
 
   const { containerRef, player, ready, currentTime, duration, isPlaying, error } =
-    useYTEmbed(videoId, { playerVars })
+    useYTEmbed(videoId, {
+      playerVars,
+      pollingIntervalMs: PLAYBACK_TIME_POLL_INTERVAL_MS,
+    })
 
   const [autoplayBlocked, setAutoplayBlocked] = useState(false)
 
