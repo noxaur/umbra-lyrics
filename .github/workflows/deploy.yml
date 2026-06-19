@@ -26,14 +26,7 @@ jobs:
       - run: npx vp build
 
       - name: Strip zone routes for CI deploy
-        run: |
-          node -e "
-          const fs = require('fs');
-          const path = 'dist/song_kara/wrangler.json';
-          const config = JSON.parse(fs.readFileSync(path, 'utf8'));
-          delete config.routes;
-          fs.writeFileSync(path, JSON.stringify(config));
-          "
+        run: node scripts/prepare-wrangler-deploy.mjs dist/song_kara/wrangler.json
 
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
