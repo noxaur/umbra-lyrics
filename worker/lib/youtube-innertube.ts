@@ -12,8 +12,11 @@ import {
   type PlaylistImportItem,
 } from "./youtube-playlist-map"
 import { fetchPlaylistViaRss } from "./youtube-playlist-rss"
-import { mapSearchVideos, searchCandidateLimit } from "./youtube-search-map"
-import { rankSongSearchHits, type SongSearchHit } from "./youtube-search-rank"
+import {
+  collectMusicHits,
+  searchSongsMusicFirst,
+} from "./youtube-music-search-shared"
+import { type SongSearchHit } from "./youtube-search-rank"
 import {
   pickBestYouTubeMusicHit,
   type YouTubeMusicHit,
@@ -101,62 +104,8 @@ export async function resolveStreamViaInnertubeDetailed(
 }
 
 export async function searchViaInnertube(query: string, limit: number): Promise<SongSearchHit[]> {
-  const yt = await createInnertube(ClientType.WEB)
-  const search = await yt.search(query, { type: "video" })
-  const mapped = mapSearchVideos(
-    [...search.videos] as Parameters<typeof mapSearchVideos>[0],
-    searchCandidateLimit(limit),
-  )
-  return rankSongSearchHits(mapped).slice(0, limit)
-}
-
-type MusicListItemLike = {
-  id?: string
-  title?: string
-  name?: string
-  item_type?: YouTubeMusicHit["resultType"]
-  duration?: { seconds?: number }
-  artists?: Array<{ name?: string }>
-  authors?: Array<{ name?: string }>
-  author?: { name?: string }
-}
-
-function mapMusicItem(item: MusicListItemLike): YouTubeMusicHit | null {
-  const videoId = item.id?.trim()
-  if (!videoId) return null
-  const title = item.title?.trim() || item.name?.trim() || videoId
-  const channel =
-    item.artists?.[0]?.name?.trim() ||
-    item.authors?.[0]?.name?.trim() ||
-    item.author?.name?.trim() ||
-    ""
-  const resultType = item.item_type ?? "unknown"
-
-  return {
-    videoId,
-    title,
-    channel,
-    durationSec: item.duration?.seconds ?? null,
-    resultType,
-    isOfficialAudio: resultType === "song" || /\s-\sTopic$/i.test(channel),
-  }
-}
-
-function collectMusicHits(search: Awaited<ReturnType<Innertube["music"]["search"]>>): YouTubeMusicHit[] {
-  const hits: YouTubeMusicHit[] = []
-  const seen = new Set<string>()
-  const shelves = [search.songs, search.videos].filter(Boolean)
-
-  for (const shelf of shelves) {
-    for (const item of [...(shelf?.contents ?? [])] as MusicListItemLike[]) {
-      const hit = mapMusicItem(item)
-      if (!hit || seen.has(hit.videoId)) continue
-      seen.add(hit.videoId)
-      hits.push(hit)
-    }
-  }
-
-  return hits
+  const yt = await createInnertube(ClientType.MUSIC)
+  return searchSongsMusicFirst(yt, query, limit)
 }
 
 export async function searchYouTubeMusicViaInnertube(
@@ -165,7 +114,7 @@ export async function searchYouTubeMusicViaInnertube(
   limit: number,
   durationSec?: number,
 ): Promise<YouTubeMusicHit[]> {
-  const yt = await createInnertube(ClientType.WEB)
+  const yt = await createInnertube(ClientType.MUSIC)
   const query = [artist, track].filter(Boolean).join(" ")
   const [songSearch, videoSearch] = await Promise.all([
     yt.music.search(query, { type: "song" }),
@@ -252,6 +201,56 @@ async function fetchPlaylistViaWatchUrl(
 const UNVIEWABLE_PLAYLIST_MESSAGE =
   "This mix playlist cannot be imported. Open it on YouTube and copy a standard playlist link (list=PL…)."
 
+async function fetchPlaylistWithClient(
+  clientType: ClientType,
+  normalizedId: string,
+  limit: number,
+  sourceUrl?: string,
+): Promise<PlaylistImportResult> {
+  const yt = await createInnertube(clientType)
+
+  if (sourceUrl && isWatchPlaylistUrl(sourceUrl) && !normalizedId.startsWith("PL")) {
+    try {
+      const fromWatch = await fetchPlaylistViaWatchUrl(yt, sourceUrl, normalizedId, limit)
+      if (fromWatch && fromWatch.items.length > 0) return fromWatch
+    } catch {
+      // Watch-page panel unavailable; fall back to playlist browse when allowed.
+    }
+  }
+
+  let playlist = await yt.getPlaylist(normalizedId)
+
+  const items: PlaylistImportItem[] = []
+  const seen = new Set<string>()
+
+  const collectItems = () => {
+    for (const entry of playlist.videos) {
+      const mapped = mapPlaylistEntry(entry)
+      if (!mapped || seen.has(mapped.videoId)) continue
+      seen.add(mapped.videoId)
+      items.push(mapped)
+      if (items.length >= limit) return
+    }
+  }
+
+  collectItems()
+  let pages = 0
+  while (items.length < limit && playlist.has_continuation && pages < MAX_CONTINUATION_PAGES) {
+    playlist = await playlist.getContinuation()
+    pages += 1
+    collectItems()
+  }
+
+  const title = playlist.info.title?.trim() || "Imported playlist"
+  return {
+    playlistId: normalizedId,
+    title,
+    items: items.slice(0, limit),
+    truncated: items.length >= limit || playlist.has_continuation,
+    totalReported: playlist.info.total_items ?? null,
+  }
+}
+
 export async function fetchPlaylistViaInnertube(
   playlistId: string,
   limit: number,
@@ -264,65 +263,36 @@ export async function fetchPlaylistViaInnertube(
     throw new Error(UNVIEWABLE_PLAYLIST_MESSAGE)
   }
 
-  const yt = await createInnertube(ClientType.WEB)
+  const clientTypes = [ClientType.MUSIC, ClientType.WEB]
+  let lastError: unknown
 
-  if (sourceUrl && isWatchPlaylistUrl(sourceUrl) && !normalizedId.startsWith("PL")) {
+  for (const clientType of clientTypes) {
     try {
-      const fromWatch = await fetchPlaylistViaWatchUrl(yt, sourceUrl, normalizedId, limit)
-      if (fromWatch && fromWatch.items.length > 0) return fromWatch
-    } catch {
-      // Watch-page panel unavailable; fall back to playlist browse when allowed.
+      const browseResult = await fetchPlaylistWithClient(
+        clientType,
+        normalizedId,
+        limit,
+        sourceUrl,
+      )
+
+      if (browseResult.items.length > 0) return browseResult
+
+      const fromRss = await fetchPlaylistViaRss(normalizedId, limit)
+      if (fromRss && fromRss.items.length > 0) {
+        return {
+          ...fromRss,
+          title: browseResult.title !== "Imported playlist" ? browseResult.title : fromRss.title,
+          totalReported: browseResult.totalReported,
+        }
+      }
+
+      return browseResult
+    } catch (error) {
+      lastError = error
     }
   }
 
-  try {
-    let playlist = await yt.getPlaylist(normalizedId)
-
-    const items: PlaylistImportItem[] = []
-    const seen = new Set<string>()
-
-    const collectItems = () => {
-      for (const entry of playlist.videos) {
-        const mapped = mapPlaylistEntry(entry)
-        if (!mapped || seen.has(mapped.videoId)) continue
-        seen.add(mapped.videoId)
-        items.push(mapped)
-        if (items.length >= limit) return
-      }
-    }
-
-    collectItems()
-    let pages = 0
-    while (items.length < limit && playlist.has_continuation && pages < MAX_CONTINUATION_PAGES) {
-      playlist = await playlist.getContinuation()
-      pages += 1
-      collectItems()
-    }
-
-    const title = playlist.info.title?.trim() || "Imported playlist"
-    const browseResult: PlaylistImportResult = {
-      playlistId: normalizedId,
-      title,
-      items: items.slice(0, limit),
-      truncated: items.length >= limit || playlist.has_continuation,
-      totalReported: playlist.info.total_items ?? null,
-    }
-
-    if (browseResult.items.length > 0) return browseResult
-
-    const fromRss = await fetchPlaylistViaRss(normalizedId, limit)
-    if (fromRss && fromRss.items.length > 0) {
-      return {
-        ...fromRss,
-        title: browseResult.title !== "Imported playlist" ? browseResult.title : fromRss.title,
-        totalReported: browseResult.totalReported,
-      }
-    }
-
-    return browseResult
-  } catch (error) {
-    const fromRss = await fetchPlaylistViaRss(normalizedId, limit)
-    if (fromRss && fromRss.items.length > 0) return fromRss
-    throw error
-  }
+  const fromRss = await fetchPlaylistViaRss(normalizedId, limit)
+  if (fromRss && fromRss.items.length > 0) return fromRss
+  throw lastError instanceof Error ? lastError : new Error("Playlist import failed")
 }

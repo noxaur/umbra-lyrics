@@ -39,8 +39,10 @@ function isWatchPlaylistUrl(sourceUrl: string): boolean {
 /** Max continuation pages in the browser (more headroom than the worker). */
 const MAX_BROWSER_CONTINUATION_PAGES = 8
 
+type BrowserInnertube = InstanceType<(typeof import("youtubei.js/web"))["Innertube"]>
+
 async function fetchPlaylistViaWatchUrl(
-  yt: InstanceType<(typeof import("youtubei.js/web"))["Innertube"]>,
+  yt: BrowserInnertube,
   sourceUrl: string,
   playlistId: string,
   limit: number,
@@ -72,16 +74,11 @@ async function fetchPlaylistViaWatchUrl(
   }
 }
 
-export async function fetchPlaylistInBrowser(
-  playlistId: string,
-  limit: number,
-  options?: { signal?: AbortSignal; sourceUrl?: string },
-): Promise<PlaylistImportResponse> {
-  throwIfAborted(options?.signal)
-
+async function createBrowserInnertube(clientType: import("youtubei.js/web").ClientType) {
   const { Innertube } = await loadInnertube()
-  const yt = await Innertube.create({
+  return Innertube.create({
     generate_session_locally: true,
+    client_type: clientType,
     cache: {
       cache_dir: "yt-cache",
       get: async (key: string) => memCache[key],
@@ -93,11 +90,18 @@ export async function fetchPlaylistInBrowser(
       },
     },
   })
+}
 
-  throwIfAborted(options?.signal)
+async function fetchPlaylistWithClient(
+  clientType: import("youtubei.js/web").ClientType,
+  normalizedId: string,
+  limit: number,
+  sourceUrl?: string,
+  signal?: AbortSignal,
+): Promise<PlaylistImportResponse> {
+  const yt = await createBrowserInnertube(clientType)
 
-  const normalizedId = normalizePlaylistId(playlistId)
-  const sourceUrl = options?.sourceUrl?.trim()
+  throwIfAborted(signal)
 
   if (sourceUrl && isWatchPlaylistUrl(sourceUrl)) {
     const fromWatch = await fetchPlaylistViaWatchUrl(yt, sourceUrl, normalizedId, limit)
@@ -128,7 +132,7 @@ export async function fetchPlaylistInBrowser(
   collectItems()
   let pages = 0
   while (items.length < limit && playlist.has_continuation && pages < MAX_BROWSER_CONTINUATION_PAGES) {
-    throwIfAborted(options?.signal)
+    throwIfAborted(signal)
     playlist = await playlist.getContinuation()
     pages += 1
     collectItems()
@@ -143,4 +147,34 @@ export async function fetchPlaylistInBrowser(
     truncated: items.length >= limit || playlist.has_continuation,
     totalReported: playlist.info.total_items ?? null,
   }
+}
+
+export async function fetchPlaylistInBrowser(
+  playlistId: string,
+  limit: number,
+  options?: { signal?: AbortSignal; sourceUrl?: string },
+): Promise<PlaylistImportResponse> {
+  throwIfAborted(options?.signal)
+
+  const { ClientType } = await loadInnertube()
+  const normalizedId = normalizePlaylistId(playlistId)
+  const sourceUrl = options?.sourceUrl?.trim()
+  const clientTypes = [ClientType.MUSIC, ClientType.WEB]
+  let lastError: unknown
+
+  for (const clientType of clientTypes) {
+    try {
+      return await fetchPlaylistWithClient(
+        clientType,
+        normalizedId,
+        limit,
+        sourceUrl,
+        options?.signal,
+      )
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Playlist import failed")
 }

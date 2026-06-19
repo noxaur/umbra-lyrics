@@ -6,8 +6,8 @@ export const INNERTUBE_CLIENT_CHAIN = [
   "TV_EMBEDDED",
   "WEB_EMBEDDED",
   "MWEB",
-  "WEB",
   "MUSIC",
+  "WEB",
   "TV",
 ] as const
 

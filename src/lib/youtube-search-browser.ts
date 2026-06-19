@@ -1,5 +1,4 @@
-import { mapSearchVideos, searchCandidateLimit } from "../../worker/lib/youtube-search-map"
-import { rankSongSearchHits } from "../../worker/lib/youtube-search-rank"
+import { searchSongsMusicFirst } from "../../worker/lib/youtube-music-search-shared"
 import type { SongSearchHit } from "./youtube-search"
 
 const memCache: Record<string, ArrayBuffer> = {}
@@ -29,9 +28,10 @@ export async function searchSongsInBrowser(
   const limit = options?.limit ?? 10
   throwIfAborted(options?.signal)
 
-  const { Innertube } = await loadInnertube()
+  const { Innertube, ClientType } = await loadInnertube()
   const yt = await Innertube.create({
     generate_session_locally: true,
+    client_type: ClientType.MUSIC,
     cache: {
       cache_dir: "yt-cache",
       get: async (key: string) => memCache[key],
@@ -46,13 +46,9 @@ export async function searchSongsInBrowser(
 
   throwIfAborted(options?.signal)
 
-  const search = await yt.search(trimmed, { type: "video" })
-  const mapped = mapSearchVideos(
-    [...search.videos] as Parameters<typeof mapSearchVideos>[0],
-    searchCandidateLimit(limit),
-  )
+  const results = await searchSongsMusicFirst(yt, trimmed, limit)
 
   throwIfAborted(options?.signal)
 
-  return rankSongSearchHits(mapped).slice(0, limit)
+  return results
 }

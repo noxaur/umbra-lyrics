@@ -197,6 +197,10 @@ export function youTubeMusicWatchUrl(videoId: string): string {
   return `https://music.youtube.com/watch?v=${videoId}`
 }
 
+export function youTubeMusicPlaylistUrl(playlistId: string): string {
+  return `https://music.youtube.com/playlist?list=${playlistId}`
+}
+
 /** Build a shareable karaoke player URL on the public custom domain. */
 export function karaokePlayUrl(
   videoId: string,

@@ -7,4 +7,12 @@ describe("innertube-resolve", () => {
     expect(INNERTUBE_CLIENT_CHAIN).toContain("ANDROID_VR")
     expect(INNERTUBE_CLIENT_CHAIN.length).toBeGreaterThanOrEqual(5)
   })
+
+  it("prefers MUSIC before WEB for stream resolution", () => {
+    const musicIndex = INNERTUBE_CLIENT_CHAIN.indexOf("MUSIC")
+    const webIndex = INNERTUBE_CLIENT_CHAIN.indexOf("WEB")
+    expect(musicIndex).toBeGreaterThan(-1)
+    expect(webIndex).toBeGreaterThan(-1)
+    expect(musicIndex).toBeLessThan(webIndex)
+  })
 })

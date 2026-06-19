@@ -46,6 +46,7 @@ describe("buildLyricsRejectionUrl", () => {
 
     const body = url.searchParams.get("body") ?? ""
     expect(body).toContain("## Additional details")
+    expect(body).toContain("https://music.youtube.com/watch?v=abc_123")
     expect(body).toContain("https://www.youtube.com/watch?v=abc_123")
     expect(body).toContain("**Provider:** LRCLIB (`lrclib`)")
     expect(body).toContain("**Timing:** Synced")

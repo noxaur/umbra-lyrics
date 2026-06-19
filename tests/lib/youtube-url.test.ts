@@ -10,6 +10,7 @@ import {
   karaokeWatchUrl,
   KARAOKE_PUBLIC_ORIGIN,
   toKaraokePlayUrl,
+  youTubeMusicPlaylistUrl,
   youTubeMusicWatchUrl,
   youTubeWatchUrl,
 } from "@/lib/youtube-url"
@@ -192,6 +193,14 @@ describe("youTubeWatchUrl", () => {
 describe("youTubeMusicWatchUrl", () => {
   it("builds a YouTube Music watch URL", () => {
     expect(youTubeMusicWatchUrl(ID)).toBe(`https://music.youtube.com/watch?v=${ID}`)
+  })
+})
+
+describe("youTubeMusicPlaylistUrl", () => {
+  it("builds a YouTube Music playlist URL", () => {
+    expect(youTubeMusicPlaylistUrl("PLabc123")).toBe(
+      "https://music.youtube.com/playlist?list=PLabc123",
+    )
   })
 })
 

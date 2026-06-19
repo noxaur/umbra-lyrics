@@ -132,13 +132,13 @@ export function LyricsRetry({ onRetry, onPaste, onTranscribe, variant = "not_fou
         {videoId ? (
           <div className="flex w-full max-w-md flex-col gap-2 sm:flex-row">
             <Button variant="outline" className="flex-1" asChild>
-              <a href={youTubeWatchUrl(videoId)} target="_blank" rel="noreferrer">
-                Open on YouTube
+              <a href={youTubeMusicWatchUrl(videoId)} target="_blank" rel="noreferrer">
+                Open on YouTube Music
               </a>
             </Button>
             <Button variant="outline" className="flex-1" asChild>
-              <a href={youTubeMusicWatchUrl(videoId)} target="_blank" rel="noreferrer">
-                Open on YouTube Music
+              <a href={youTubeWatchUrl(videoId)} target="_blank" rel="noreferrer">
+                Open on YouTube
               </a>
             </Button>
           </div>

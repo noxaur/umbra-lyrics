@@ -209,7 +209,7 @@ export function PlaylistImportDialog({
                 id={urlId}
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://www.youtube.com/playlist?list=PL..."
+                placeholder="https://music.youtube.com/playlist?list=PL..."
                 className="mt-1.5"
                 disabled={busy}
               />
