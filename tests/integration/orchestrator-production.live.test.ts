@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest"
 import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
 
 const runLive = process.env.RUN_LIVE_LYRICS === "1"
-const apiBase = process.env.LYRICS_API_BASE ?? "https://umbra.nox-heights.workers.dev"
+const apiBase = process.env.LYRICS_API_BASE ?? "https://song.opsec.rent"
 
 describe.runIf(runLive)("orchestrator live on production", () => {
   beforeAll(() => {

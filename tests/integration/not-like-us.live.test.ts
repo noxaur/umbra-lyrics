@@ -1,11 +1,15 @@
-import { describe, expect, it } from "vitest"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
 import { parseLrc } from "@/lib/lrc-parser"
 
 const runLive = process.env.RUN_LIVE_LYRICS === "1"
-const API_BASE = process.env.VITE_LYRICS_API_BASE ?? "https://umbra.nox-heights.workers.dev"
+const apiBase = process.env.LYRICS_API_BASE ?? "https://song.opsec.rent"
 
 describe.runIf(runLive)("Not Like Us sync on production", () => {
+  beforeAll(() => {
+    vi.stubEnv("VITE_LYRICS_API_BASE", apiBase)
+  })
+
   const youtubeDurationSec = 354 // H58vbez_m4E official MV ~5:54
 
   it("picks LRCLIB with first vocal near MV intro (~27s), not album offset (~0s)", async () => {

@@ -54,12 +54,12 @@ Auto-transcription downloads a quantized Whisper Base model on first use, then c
 
 | URL | Notes |
 |-----|-------|
-| https://umbra.nox-heights.workers.dev | Always works; primary fallback |
-| https://song.opsec.rent | Custom domain on `opsec.rent` zone |
+| https://song.opsec.rent | Primary production URL |
+| https://umbra.nox-heights.workers.dev | Workers.dev fallback |
 
 If `song.opsec.rent` shows "Server Not Found" in your browser, your local DNS resolver may have a stale cache. Try:
 
-1. Use the workers.dev URL above, or
+1. Use the workers.dev fallback above, or
 2. Set your device DNS to `1.1.1.1` / `8.8.8.8`, or
 3. In Cloudflare dashboard → **opsec.rent** → **DNS**: ensure a proxied **A** record exists for `song` → `192.0.2.0` (not a Worker-type record). Delete any stale Worker record, then redeploy.
 

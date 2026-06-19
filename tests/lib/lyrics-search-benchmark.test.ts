@@ -6,7 +6,7 @@ import { fetchLyrics } from "@/lib/lyrics-service"
 import { pickBestCandidate, scoreCandidate } from "@/lib/lyrics-providers/match-utils"
 
 const FIXTURES = join(import.meta.dirname, "../fixtures/reference-tracks.json")
-const apiBase = process.env.LYRICS_API_BASE ?? "https://umbra.nox-heights.workers.dev"
+const apiBase = process.env.LYRICS_API_BASE ?? "https://song.opsec.rent"
 
 type ReferenceTrack = {
   videoId: string
