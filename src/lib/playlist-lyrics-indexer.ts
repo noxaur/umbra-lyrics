@@ -103,11 +103,21 @@ async function indexTrack(job: QueueJob): Promise<void> {
     return
   }
   if (!meta.track.trim()) {
-    recordIssue(playlistId, track, "needs_metadata", "Track title is missing. Edit it to search lyrics.")
+    recordIssue(
+      playlistId,
+      { ...track, artist: meta.artist, track: meta.track },
+      "needs_metadata",
+      "Track title is missing. Edit it to search lyrics.",
+    )
     return
   }
   if (!meta.artist.trim()) {
-    recordIssue(playlistId, track, "needs_metadata", "Artist name is missing. Edit it to search lyrics.")
+    recordIssue(
+      playlistId,
+      { ...track, artist: meta.artist, track: meta.track },
+      "needs_metadata",
+      "Artist name is missing. Edit it to search lyrics.",
+    )
     return
   }
   Object.assign(track, meta)
