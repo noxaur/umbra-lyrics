@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
-import { Minimize2 } from "lucide-react"
+import { Minimize2, Pause, Play } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { MisroutedRouteView } from "@/components/misrouted-route-view"
 import { LyricsMetadataConfirm } from "@/components/lyrics-metadata-confirm"
@@ -10,6 +10,7 @@ import { PlayerError } from "@/components/player-error"
 import { TransportControls } from "@/components/transport-controls"
 import { YouTubePanel } from "@/components/youtube-panel"
 import { Button } from "@/components/ui/button"
+import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { cn } from "@/lib/utils"
 import { useYouTubePlayer } from "@/hooks/use-youtube-player"
 import { useLyricsSync } from "@/hooks/use-lyrics-sync"
@@ -1523,6 +1524,22 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             >
               <Minimize2 className="size-4" aria-hidden />
             </Button>
+          )}
+
+          {stageFullscreen && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-10 flex justify-center">
+              <Button
+                type="button"
+                variant="default"
+                size="icon"
+                className="pointer-events-auto size-12 rounded-full shadow-lg"
+                onClick={() => (isPlaying ? pause() : play())}
+                aria-label={isPlaying ? "Pause" : "Play"}
+                title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+              >
+                <AnimatedIcon icon={isPlaying ? Pause : Play} active={isPlaying} />
+              </Button>
+            </div>
           )}
 
           <div
