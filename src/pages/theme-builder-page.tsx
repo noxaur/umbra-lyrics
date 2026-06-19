@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
-import { ArrowLeft, Download, RotateCcw, Upload } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { ThemeColorInput, BUILDER_TOKEN_FIELDS, type BuilderTokenKey } from "@/components/theme-color-input"
 import { ThemePreviewMini } from "@/components/theme-preview-mini"
@@ -108,7 +108,7 @@ export function ThemeBuilderPage() {
             to="/themes"
             className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
           >
-            <ArrowLeft className="size-4" aria-hidden />
+            <LottieIcon name="arrow-left" className="size-4" aria-hidden />
             Back to themes
           </Link>
           <h1 className="text-3xl font-bold tracking-tight text-balance">
@@ -148,7 +148,7 @@ export function ThemeBuilderPage() {
 
             <div className="flex flex-wrap gap-2 border-t border-border pt-4">
               <Button type="button" variant="outline" onClick={resetToBasePreset} className="gap-1.5">
-                <RotateCcw className="size-4" aria-hidden />
+                <LottieIcon name="rotate-ccw" className="size-4" aria-hidden />
                 Reset to {basePreset.name}
               </Button>
               <Button
@@ -157,11 +157,11 @@ export function ThemeBuilderPage() {
                 onClick={() => fileInputRef.current?.click()}
                 className="gap-1.5"
               >
-                <Upload className="size-4" aria-hidden />
+                <LottieIcon name="upload" className="size-4" aria-hidden />
                 Import JSON
               </Button>
               <Button type="button" variant="outline" onClick={handleExport} className="gap-1.5">
-                <Download className="size-4" aria-hidden />
+                <LottieIcon name="download" className="size-4" aria-hidden />
                 Export JSON
               </Button>
               <input

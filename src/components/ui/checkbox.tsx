@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check } from "lucide-react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { cn } from "@/lib/utils"
 
 export type CheckboxProps = Omit<
@@ -31,7 +31,7 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
           }}
           {...props}
         />
-        <Check
+        <LottieIcon name="check"
           className="pointer-events-none absolute size-3 text-primary-foreground opacity-0 peer-checked:opacity-100"
           aria-hidden
         />

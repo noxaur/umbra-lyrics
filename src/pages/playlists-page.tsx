@@ -1,6 +1,6 @@
 import { useState } from "react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Link } from "react-router-dom"
-import { ArrowLeft, Download, ListMusic, Plus } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { PlaylistFormDialog } from "@/components/playlist-form-dialog"
 import { PlaylistImportDialog } from "@/components/playlist-import-dialog"
@@ -33,7 +33,7 @@ export function PlaylistsPage() {
           to="/"
           className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
         >
-          <ArrowLeft className="size-4" aria-hidden />
+          <LottieIcon name="arrow-left" className="size-4" aria-hidden />
           Back home
         </Link>
 
@@ -46,11 +46,11 @@ export function PlaylistsPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <Button variant="outline" className="gap-1.5" onClick={() => setImportOpen(true)}>
-              <Download className="size-4" aria-hidden />
+              <LottieIcon name="download" className="size-4" aria-hidden />
               Import from YouTube
             </Button>
             <Button className="gap-1.5" onClick={() => setCreateOpen(true)}>
-              <Plus className="size-4" aria-hidden />
+              <LottieIcon name="plus" className="size-4" aria-hidden />
               New playlist
             </Button>
           </div>
@@ -64,18 +64,18 @@ export function PlaylistsPage() {
 
         {playlists.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
-            <ListMusic className="mx-auto mb-3 size-8 text-muted-foreground" aria-hidden />
+            <LottieIcon name="list-music" className="mx-auto mb-3 size-8 text-muted-foreground" aria-hidden />
             <p className="font-medium">No playlists yet</p>
             <p className="mt-1 text-sm text-muted-foreground">
               Create a playlist, import from YouTube, or add songs from the player.
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <Button className="gap-1.5" onClick={() => setCreateOpen(true)}>
-                <Plus className="size-4" aria-hidden />
+                <LottieIcon name="plus" className="size-4" aria-hidden />
                 Create playlist
               </Button>
               <Button variant="outline" className="gap-1.5" onClick={() => setImportOpen(true)}>
-                <Download className="size-4" aria-hidden />
+                <LottieIcon name="download" className="size-4" aria-hidden />
                 Import from YouTube
               </Button>
             </div>

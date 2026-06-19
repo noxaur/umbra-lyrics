@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { ArrowRight } from "lucide-react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { formatRecentLabel, getRecentSongs } from "@/lib/recent-songs"
 import type { RouteSuggestion } from "@/lib/route-suggestions"
 import { youtubeThumbnailUrl } from "@/lib/youtube-thumbnail"
@@ -44,7 +44,7 @@ export function RouteSuggestionList({ suggestions }: RouteSuggestionListProps) {
                   </span>
                 ) : null}
               </span>
-              <ArrowRight
+              <LottieIcon name="arrow-right"
                 className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
                 aria-hidden
               />

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { useNavigate, useParams } from "react-router-dom"
-import { Shuffle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { buildPlayerNavigationState } from "@/lib/player-navigation"
 import { resolveRandomSong } from "@/lib/random-song"
 
@@ -64,7 +63,7 @@ export function RandomSongButton() {
         disabled={loading}
         aria-label="Play a random song"
       >
-        <AnimatedIcon icon={Shuffle} />
+        <LottieIcon name="shuffle" hover />
         {loading ? "Picking…" : "Random"}
       </Button>
       {error ? (

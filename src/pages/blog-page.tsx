@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { ArrowLeft } from "lucide-react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { AppShell } from "@/components/app-shell"
 import { getBlogPosts } from "@/lib/site-content"
 import { cn } from "@/lib/utils"
@@ -23,7 +23,7 @@ export function BlogPage() {
           to="/"
           className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
         >
-          <ArrowLeft className="size-4" aria-hidden />
+          <LottieIcon name="arrow-left" className="size-4" aria-hidden />
           Back home
         </Link>
 

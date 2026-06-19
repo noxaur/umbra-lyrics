@@ -1,6 +1,6 @@
 import * as React from "react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
-import { ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const DropdownMenu = DropdownMenuPrimitive.Root
@@ -125,7 +125,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
     {...props}
   >
     {children}
-    <ChevronRight className="ml-auto size-4" aria-hidden />
+    <LottieIcon name="chevron-right" className="ml-auto size-4" aria-hidden />
   </DropdownMenuPrimitive.SubTrigger>
 ))
 DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayName

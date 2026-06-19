@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
-import { CheckCircle2, Info, X, XCircle } from "lucide-react"
+import type { IconName } from "@/components/icons/icon-names"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -15,14 +16,14 @@ import {
 } from "@/lib/song-queue-worker"
 import { cn } from "@/lib/utils"
 
-function iconFor(kind: QueueNotification["kind"]) {
+function iconFor(kind: QueueNotification["kind"]): IconName {
   switch (kind) {
     case "success":
-      return CheckCircle2
+      return "check-circle-2"
     case "error":
-      return XCircle
+      return "x-circle"
     default:
-      return Info
+      return "info"
   }
 }
 
@@ -90,7 +91,7 @@ function MetadataConfirmToast({
           onClick={handleDismiss}
           aria-label="Dismiss"
         >
-          <X className="size-3.5" aria-hidden />
+          <LottieIcon name="x" className="size-3.5" aria-hidden />
         </Button>
       </div>
       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -136,7 +137,7 @@ function SimpleToast({
   notification: QueueNotification
   onDismiss: () => void
 }) {
-  const Icon = iconFor(notification.kind)
+  const iconName = iconFor(notification.kind)
 
   return (
     <div
@@ -147,7 +148,8 @@ function SimpleToast({
       )}
       role="status"
     >
-      <Icon
+      <LottieIcon
+        name={iconName}
         className={cn(
           "mt-0.5 size-4 shrink-0",
           notification.kind === "success" && "text-emerald-600 dark:text-emerald-400",
@@ -170,7 +172,7 @@ function SimpleToast({
         onClick={onDismiss}
         aria-label="Dismiss"
       >
-        <X className="size-3.5" aria-hidden />
+        <LottieIcon name="x" className="size-3.5" aria-hidden />
       </Button>
     </div>
   )

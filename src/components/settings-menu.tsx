@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom"
-import { Moon, Palette, Settings2, Sun } from "lucide-react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Button } from "@/components/ui/button"
-import { AnimatedIcon } from "@/components/icons/animated-icon"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -76,11 +75,11 @@ function ThemeSubmenu() {
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-56">
         <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={setDarkTheme}>
-          <Moon className="size-4" aria-hidden />
+          <LottieIcon name="moon" hover className="size-4" aria-hidden />
           Quick dark
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={setLightTheme}>
-          <Sun className="size-4" aria-hidden />
+          <LottieIcon name="sun" hover className="size-4" aria-hidden />
           Quick light
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -126,13 +125,13 @@ function ThemeSubmenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link to="/themes" className="gap-2">
-            <Palette className="size-4" aria-hidden />
+            <LottieIcon name="palette" hover className="size-4" aria-hidden />
             Browse all themes
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link to="/themes/build" className="gap-2">
-            <Palette className="size-4" aria-hidden />
+            <LottieIcon name="palette" hover className="size-4" aria-hidden />
             Build custom theme
           </Link>
         </DropdownMenuItem>
@@ -154,7 +153,7 @@ export function SettingsMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" aria-label="Settings" title="Settings">
-          <AnimatedIcon icon={Settings2} />
+          <LottieIcon name="settings" hover />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
