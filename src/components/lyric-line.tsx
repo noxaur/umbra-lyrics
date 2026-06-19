@@ -1,9 +1,5 @@
-import { forwardRef, useState } from "react"
-import {
-  useMotionValueEvent,
-  useReducedMotion,
-  useSpring,
-} from "motion/react"
+import { forwardRef } from "react"
+import { useReducedMotion } from "motion/react"
 import { KaraokeWordProgress } from "@/components/karaoke-word-progress"
 import { formatLyricTimestamp } from "@/lib/format-time"
 import {
@@ -50,45 +46,10 @@ function WordProgressText({
   progress: number
   activeLine?: boolean
 }) {
-  const reducedMotion = useReducedMotion()
-  const smoothProgress = useSpring(progress, {
-    stiffness: 160,
-    damping: 28,
-    mass: 0.45,
-    restDelta: 0.001,
-  })
-
-  if (reducedMotion) {
-    return (
-      <KaraokeWordProgress
-        text={text}
-        progress={progress}
-        tone={activeLine ? "active-line" : "default"}
-      />
-    )
-  }
-
-  return (
-    <SmoothKaraokeProgress text={text} progress={smoothProgress} activeLine={activeLine} />
-  )
-}
-
-function SmoothKaraokeProgress({
-  text,
-  progress,
-  activeLine = false,
-}: {
-  text: string
-  progress: ReturnType<typeof useSpring>
-  activeLine?: boolean
-}) {
-  const [value, setValue] = useState(() => progress.get())
-  useMotionValueEvent(progress, "change", setValue)
-
   return (
     <KaraokeWordProgress
       text={text}
-      progress={value}
+      progress={progress}
       tone={activeLine ? "active-line" : "default"}
     />
   )
