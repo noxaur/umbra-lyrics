@@ -9,6 +9,7 @@ export type TrackMetadata = {
   title: string
   artist: string
   track: string
+  mediaSource?: "youtube" | "music.youtube"
   englishArtist?: string
   englishTrack?: string
 }

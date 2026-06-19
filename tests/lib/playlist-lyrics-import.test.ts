@@ -74,6 +74,20 @@ describe("playlist lyrics import", () => {
     expect(rows[0].selected).toBe(true)
   })
 
+  it("preserves mediaSource when preparing rows from canonical tracks", () => {
+    const rows = preparePlaylistLyricsImportRows([
+      {
+        videoId: "canonical01",
+        title: "Artist - Song",
+        artist: "Artist",
+        track: "Song",
+        mediaSource: "music.youtube",
+      },
+    ])
+
+    expect(rows[0].mediaSource).toBe("music.youtube")
+  })
+
   it("prepares rejected tracks as unselected with rejected status", () => {
     rejectLyrics("abc123def45")
 

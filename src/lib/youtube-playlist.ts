@@ -1,5 +1,6 @@
 import { proxyFetch } from "@/lib/lyrics-providers/api-base"
 import { parseTrackTitle } from "@/lib/parse-track-title"
+import { resolveCanonicalMusicVideo } from "@/lib/canonical-music-video"
 import {
   MAX_TRACKS_PER_PLAYLIST,
   type PlaylistTrack,
@@ -35,6 +36,69 @@ export function playlistItemsToTracks(
       track: parsed.track || item.title,
     })
   })
+}
+
+type PlaylistTrackResolutionOptions = {
+  signal?: AbortSignal
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const index = nextIndex
+      nextIndex += 1
+      results[index] = await mapper(items[index], index)
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()))
+  return results
+}
+
+async function resolvePlaylistItemMedia(
+  item: PlaylistImportItem,
+  track: Omit<PlaylistTrack, "addedAt">,
+  options?: PlaylistTrackResolutionOptions,
+): Promise<Omit<PlaylistTrack, "addedAt">> {
+  const canonical = await resolveCanonicalMusicVideo(
+    {
+      kind: "youtube",
+      videoId: item.videoId,
+      title: item.title,
+      oembedAuthor: item.channel,
+      durationSec: item.durationSec ?? undefined,
+    },
+    options,
+  ).catch(() => null)
+
+  if (!canonical?.ok || canonical.videoId === track.videoId) {
+    return track
+  }
+
+  return normalizeTrackMetadata({
+    ...track,
+    videoId: canonical.videoId,
+    artist: canonical.seedMetadata.artist || track.artist,
+    track: canonical.seedMetadata.track || track.track,
+    mediaSource: "music.youtube",
+  })
+}
+
+export async function playlistItemsToCanonicalTracks(
+  items: PlaylistImportItem[],
+  options?: PlaylistTrackResolutionOptions,
+): Promise<Omit<PlaylistTrack, "addedAt">[]> {
+  const tracks = playlistItemsToTracks(items)
+  return mapWithConcurrency(items, 4, (item, index) =>
+    resolvePlaylistItemMedia(item, tracks[index], options),
+  )
 }
 
 export async function fetchYouTubePlaylist(

@@ -29,6 +29,7 @@ export type PlaylistLyricsImportRow = {
   title: string
   artist: string
   track: string
+  mediaSource?: "youtube" | "music.youtube"
   durationSec: number
   selected: boolean
   status: LyricsImportRowStatus
@@ -269,6 +270,7 @@ export function preparePlaylistLyricsImportRows(
         title: normalized.title,
         artist: normalized.artist,
         track: normalized.track,
+        mediaSource: normalized.mediaSource,
         durationSec: track.durationSec ?? 0,
         selected: !isCached && !isRejected,
         status: isRejected ? "rejected" : isCached ? "cached" : "pending",
