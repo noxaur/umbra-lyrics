@@ -1,0 +1,13 @@
+{
+  "entries": [
+    {
+      "version": "0.1.0",
+      "date": "2026-06-19",
+      "title": "Initial release",
+      "changes": [
+        { "type": "feature", "text": "Karaoke player with synced lyrics" },
+        { "type": "fix", "text": "Playlist import edge cases" }
+      ]
+    }
+  ]
+}

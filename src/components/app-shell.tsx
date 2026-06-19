@@ -4,9 +4,29 @@ import { HomeBrandLink } from "@/components/home-brand-link"
 import { MonsterEasterEgg } from "@/components/monster-easter-egg"
 import { RandomSongButton } from "@/components/random-song-button"
 import { SettingsMenu } from "@/components/settings-menu"
+import { SiteAlertBanner } from "@/components/site-alert-banner"
 import { SpotifyLoginButton } from "@/components/spotify-login-button"
 import { cn } from "@/lib/utils"
 import { usePlayerStore } from "@/stores/player-store"
+
+const navLinkClass =
+  "text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+
+function ShellNavLinks({ className }: { className?: string }) {
+  return (
+    <>
+      <Link to="/playlists" className={cn(navLinkClass, className)}>
+        Playlists
+      </Link>
+      <Link to="/blog" className={cn(navLinkClass, className)}>
+        Blog
+      </Link>
+      <Link to="/changelog" className={cn(navLinkClass, className)}>
+        Changelog
+      </Link>
+    </>
+  )
+}
 
 export function AppShell({
   children,
@@ -66,12 +86,7 @@ export function AppShell({
               >
                 umbra
               </HomeBrandLink>
-              <Link
-                to="/playlists"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-              >
-                Playlists
-              </Link>
+              <ShellNavLinks />
             </div>
             <div className="flex items-center gap-2">
               <RandomSongButton />
@@ -79,30 +94,29 @@ export function AppShell({
               <SettingsMenu />
             </div>
           </header>
+          <SiteAlertBanner />
         </>
       ) : null}
       {!focusMode && !stageFullscreen && !compactHeader ? (
-        <header className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2 sm:px-4 sm:py-3">
-          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <HomeBrandLink
-              onTripleClick={triggerMonster}
-              className="text-lg font-semibold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-            >
-              umbra
-            </HomeBrandLink>
-            <Link
-              to="/playlists"
-              className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm sm:inline"
-            >
-              Playlists
-            </Link>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <RandomSongButton />
-            <SpotifyLoginButton />
-            <SettingsMenu />
-          </div>
-        </header>
+        <>
+          <header className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2 sm:px-4 sm:py-3">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <HomeBrandLink
+                onTripleClick={triggerMonster}
+                className="text-lg font-semibold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              >
+                umbra
+              </HomeBrandLink>
+              <ShellNavLinks className="hidden sm:inline" />
+            </div>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <RandomSongButton />
+              <SpotifyLoginButton />
+              <SettingsMenu />
+            </div>
+          </header>
+          <SiteAlertBanner />
+        </>
       ) : null}
       <main
         id="main-content"
