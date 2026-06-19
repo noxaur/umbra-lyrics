@@ -155,6 +155,51 @@ describe("resolveCanonicalMusicVideo", () => {
     expect(mockSearchYouTubeMusicSongs).toHaveBeenCalledTimes(2)
   })
 
+  it("searches with the base track name when metadata includes a session variant", async () => {
+    mockResolveTrackMetadata.mockResolvedValue({
+      artist: "milet",
+      track: "Anytime Anywhere - A.Gt Session",
+      source: "deezer",
+      confidence: 0.9,
+      durationSec: 231,
+      alternates: [],
+    })
+    mockSearchYouTubeMusicSongs.mockResolvedValue([
+      {
+        videoId: "OqQAFmkrzew",
+        title: "Anytime Anywhere",
+        channel: "milet - Topic",
+        durationSec: 231,
+        resultType: "song",
+        isOfficialAudio: true,
+      },
+    ])
+
+    const result = await resolveCanonicalMusicVideo({
+      kind: "youtube",
+      videoId: "oSvR4C7RK0w",
+      title: "Anytime Anywhere - A.Gt Session",
+      oembedAuthor: "milet - Topic",
+      durationSec: 231,
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      videoId: "OqQAFmkrzew",
+      seedMetadata: {
+        artist: "milet",
+        track: "Anytime Anywhere - A.Gt Session",
+        durationSec: 231,
+        source: "music-api",
+      },
+    })
+    expect(mockSearchYouTubeMusicSongs).toHaveBeenCalledWith(
+      "milet",
+      "Anytime Anywhere",
+      expect.objectContaining({ durationSec: 231 }),
+    )
+  })
+
   it("uses Spotify metadata as validated and searches YouTube Music", async () => {
     mockProxyFetch.mockResolvedValue(
       new Response(

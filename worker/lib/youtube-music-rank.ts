@@ -9,7 +9,7 @@ export type YouTubeMusicHit = {
 }
 
 const BAD_CANONICAL_RE =
-  /\b(cover|reaction|tutorial|lesson|behind the scenes|interview|live|remix|karaoke|instrumental|guitar|fingerstyle|acoustic|piano)\b|(?:\ba\.?\s*gt\b|gt\s+session|piano\s+session)/i
+  /\b(cover|reaction|tutorial|lesson|behind the scenes|interview|live|remix|karaoke|instrumental|fingerstyle)\b|(?:\ba\.?\s*gt\s+session\b|\ba\.?\s*gt\s+ver\.?\b|(?:guitar|piano|acoustic)\s+session\b|(?:guitar|piano|acoustic)\s+ver\.?\b)/i
 const VIDEO_RE = /\b(official\s+music\s+video|music\s+video|mv|lyric\s+video|lyrics?)\b/i
 const TOPIC_RE = /\s-\sTopic$/i
 
