@@ -7,9 +7,6 @@ export const LYRICS_HANDOFF_MS = 360
 /** Default eased handoff when advancing to the next lyric line. */
 export const LINE_HANDOFF_MS = LYRICS_HANDOFF_MS
 
-/** @deprecated Fast chorus uses the same handoff pace for unified motion. */
-export const FAST_LINE_HANDOFF_MS = LYRICS_HANDOFF_MS
-
 /** Uniform visual distance when no line is active (intro / gap). */
 export const IDLE_DISTANCE_FROM_ACTIVE = 8
 

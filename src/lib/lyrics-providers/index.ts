@@ -437,26 +437,4 @@ export async function searchProvidersStaged(
   })
 }
 
-export async function searchProvidersSequential(
-  options: MultiProviderSearchOptions,
-): Promise<RankedLyricsHit | null> {
-  const { params, onProviderStart } = options
-  const ids = options.providerIds ?? PROVIDER_FALLBACK_ORDER
-
-  for (const id of ids) {
-    const provider = getProviderById(id)
-    if (!provider) continue
-    onProviderStart?.(provider.id, provider.searchPhase)
-    try {
-      const candidates = await provider.search(params)
-      const hit = pickBestHit(candidates, params)
-      if (hit) return hit
-    } catch {
-      // try next provider
-    }
-  }
-
-  return null
-}
-
 export { rankLyricsCandidate }
