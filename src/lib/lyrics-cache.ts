@@ -49,8 +49,7 @@ function isValidEntry(value: unknown): value is LyricsCacheEntry {
       entry.v === 4 ||
       entry.v === 5 ||
       entry.v === 6 ||
-      entry.v === 8 ||
-      entry.v === CACHE_VERSION) &&
+      entry.v === 8) &&
     typeof entry.videoId === "string" &&
     Array.isArray(entry.lines) &&
     typeof entry.synced === "boolean" &&
