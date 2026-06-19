@@ -56,6 +56,7 @@ describe("extractYouTubeVideoId", () => {
 
   it("parses YouTube Music URLs", () => {
     expect(extractYouTubeVideoId(`https://music.youtube.com/watch?v=${ID}`)).toBe(ID)
+    expect(extractYouTubeVideoId(`https://music.youtube.com/embed/${ID}`)).toBe(ID)
   })
 
   it("parses mobile YouTube URLs", () => {

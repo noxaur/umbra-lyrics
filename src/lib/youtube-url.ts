@@ -7,6 +7,15 @@ export const YOUTUBE_PLAYLIST_ID_RE = /^[A-Za-z0-9_-]{2,80}$/
 /** Public karaoke share origin (custom domain). */
 export const KARAOKE_PUBLIC_ORIGIN = "https://song.opsec.rent"
 
+export {
+  stripMusicYouTubeHost,
+  youTubeIframeEmbedUrl,
+  youTubeMusicPlaylistUrl,
+  youTubeMusicWatchUrl,
+  youTubePlaybackEmbedUrl,
+  youTubeWatchUrl,
+} from "../../worker/lib/youtube-endpoints"
+
 const YOUTUBE_HOST_RE = /(^|\.)youtube(-nocookie)?\.com$|^youtu\.be$/i
 const YOUTUBE_MUSIC_HOST_RE = /(^|\.)music\.youtube\.com$/i
 const KARAOKE_HOST_RE = /(^|\.)song\.opsec\.rent$/i
@@ -18,7 +27,9 @@ const KARAOKE_HOST_RE = /(^|\.)song\.opsec\.rent$/i
 const YOUTUBE_PATH_PATTERNS = [
   /youtu\.be\/([\w-]{11})/,
   /youtube(?:-nocookie)?\.com\/embed\/([\w-]{11})/,
+  /music\.youtube\.com\/embed\/([\w-]{11})/,
   /youtube\.com\/shorts\/([\w-]{11})/,
+  /music\.youtube\.com\/shorts\/([\w-]{11})/,
   /youtube\.com\/live\/([\w-]{11})/,
   /youtube\.com\/(?:v|e|vi)\/([\w-]{11})/,
   /music\.youtube\.com\/watch/,
@@ -45,6 +56,7 @@ function matchVQueryParam(input: string): string | null {
     const v = url.searchParams.get("v")
     if (!v || !YOUTUBE_VIDEO_ID_RE.test(v)) return null
 
+    if (YOUTUBE_MUSIC_HOST_RE.test(url.hostname)) return v
     if (YOUTUBE_HOST_RE.test(url.hostname)) return v
     if (KARAOKE_HOST_RE.test(url.hostname) && url.pathname === "/watch") return v
   } catch {
@@ -187,18 +199,6 @@ export function karaokeWatchUrl(
   origin: string = KARAOKE_PUBLIC_ORIGIN,
 ): string {
   return `${origin.replace(/\/$/, "")}/watch?v=${videoId}`
-}
-
-export function youTubeWatchUrl(videoId: string): string {
-  return `https://www.youtube.com/watch?v=${videoId}`
-}
-
-export function youTubeMusicWatchUrl(videoId: string): string {
-  return `https://music.youtube.com/watch?v=${videoId}`
-}
-
-export function youTubeMusicPlaylistUrl(playlistId: string): string {
-  return `https://music.youtube.com/playlist?list=${playlistId}`
 }
 
 /** Build a shareable karaoke player URL on the public custom domain. */

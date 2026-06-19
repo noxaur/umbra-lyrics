@@ -23,6 +23,7 @@ import {
 import { mediaResolveErrorMessage, resolveMediaInput } from "@/lib/media-url"
 import { buildPlayerNavigationState, type SeedMetadata } from "@/lib/player-navigation"
 import { youtubeThumbnailUrl } from "@/lib/youtube-thumbnail"
+import { youTubePlaybackEmbedUrl } from "@/lib/youtube-url"
 
 const DEBOUNCE_MS = 600
 const MIN_QUERY_LEN = 2
@@ -56,7 +57,7 @@ type SearchPreviewModalProps = {
 function SearchPreviewModal({ hit, label, meta, onClose }: SearchPreviewModalProps) {
   const titleId = useId()
   const backButtonRef = useRef<HTMLButtonElement>(null)
-  const embedSrc = `https://www.youtube.com/embed/${hit.videoId}?rel=0`
+  const embedSrc = youTubePlaybackEmbedUrl(hit.videoId, { rel: 0 })
 
   useEffect(() => {
     requestAnimationFrame(() => backButtonRef.current?.focus())
