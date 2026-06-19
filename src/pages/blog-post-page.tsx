@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { getBlogPostBySlug } from "@/lib/site-content"
+import type { BlogPostBlock } from "@/lib/content-types"
 import { cn } from "@/lib/utils"
 
 function formatDate(iso: string): string {
@@ -11,6 +12,51 @@ function formatDate(iso: string): string {
     month: "long",
     day: "numeric",
   })
+}
+
+function BlogBlock({ block }: { block: BlogPostBlock }) {
+  if (block.type === "paragraph") {
+    return <p className="leading-relaxed text-pretty">{block.text}</p>
+  }
+
+  if (block.type === "heading") {
+    const className = cn(
+      "font-semibold tracking-tight text-balance",
+      block.level === 2 ? "pt-5 text-2xl" : "pt-3 text-xl",
+    )
+    return block.level === 2 ? (
+      <h2 className={className}>{block.text}</h2>
+    ) : (
+      <h3 className={className}>{block.text}</h3>
+    )
+  }
+
+  if (block.type === "list") {
+    const List = block.style === "ordered" ? "ol" : "ul"
+    return (
+      <List
+        className={cn(
+          "space-y-2 pl-6 leading-relaxed",
+          block.style === "ordered" ? "list-decimal" : "list-disc",
+        )}
+      >
+        {block.items.map((item) => (
+          <li key={item} className="pl-1 text-pretty">
+            {item}
+          </li>
+        ))}
+      </List>
+    )
+  }
+
+  return (
+    <aside className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3">
+      <p className="font-medium text-foreground">{block.title}</p>
+      <p className="mt-1 text-sm leading-relaxed text-muted-foreground text-pretty">
+        {block.text}
+      </p>
+    </aside>
+  )
 }
 
 export function BlogPostPage() {
@@ -72,10 +118,8 @@ export function BlogPostPage() {
         </header>
 
         <div className="space-y-4 text-foreground">
-          {post.paragraphs.map((paragraph, index) => (
-            <p key={index} className="leading-relaxed text-pretty">
-              {paragraph}
-            </p>
+          {post.blocks.map((block, index) => (
+            <BlogBlock key={`${block.type}-${index}`} block={block} />
           ))}
         </div>
       </article>

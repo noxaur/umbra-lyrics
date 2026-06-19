@@ -6,11 +6,11 @@ import type { SiteAlert } from "@/lib/content-types"
 
 const testAlert: SiteAlert = {
   id: "test-banner",
-  severity: "warning",
-  title: "Under the hood",
-  message: "We are currently rewriting to Rust.",
+  severity: "info",
+  title: "Backend prototype in progress",
+  message: "We are moving repeated lyrics work off your device.",
   dismissible: true,
-  link: { href: "/blog/rust-rewrite", label: "Learn more" },
+  link: { href: "/blog/rust-rewrite", label: "Why we are rebuilding" },
 }
 
 function renderBanner(alert: SiteAlert = testAlert) {
@@ -28,30 +28,30 @@ describe("SiteAlertBanner", () => {
 
   it("renders title and message", () => {
     renderBanner()
-    expect(screen.getByText("Under the hood")).toBeInTheDocument()
-    expect(screen.getByText("We are currently rewriting to Rust.")).toBeInTheDocument()
+    expect(screen.getByText("Backend prototype in progress")).toBeInTheDocument()
+    expect(screen.getByText("We are moving repeated lyrics work off your device.")).toBeInTheDocument()
   })
 
   it("renders optional link", () => {
     renderBanner()
-    const link = screen.getByRole("link", { name: "Learn more" })
+    const link = screen.getByRole("link", { name: "Why we are rebuilding" })
     expect(link).toHaveAttribute("href", "/blog/rust-rewrite")
   })
 
   it("applies warning severity styles", () => {
-    renderBanner()
+    renderBanner({ ...testAlert, severity: "warning" })
     expect(screen.getByRole("alert")).toHaveClass("border-amber-500/40")
   })
 
   it("applies info severity role", () => {
-    renderBanner({ ...testAlert, severity: "info" })
+    renderBanner()
     expect(screen.getByRole("status")).toHaveClass("border-sky-500/40")
   })
 
   it("hides after dismiss", () => {
     renderBanner()
     fireEvent.click(screen.getByRole("button", { name: "Dismiss announcement" }))
-    expect(screen.queryByText("Under the hood")).not.toBeInTheDocument()
+    expect(screen.queryByText("Backend prototype in progress")).not.toBeInTheDocument()
     expect(localStorage.getItem("umbra:site-alert-dismissed:test-banner")).toBe("1")
   })
 
