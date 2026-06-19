@@ -48,7 +48,7 @@ npm run deploy
 
 The app deploys as a Cloudflare Worker with static assets (`@cloudflare/vite-plugin`) and lyrics API routes on `/api/*`.
 
-**Deploy token permissions:** `CLOUDFLARE_API_TOKEN` needs **Workers Scripts:Edit** plus **Workers Routes:Edit** and **Zone:Read** on the `opsec.rent` zone so `song.opsec.rent` routes attach to the `song-kara` worker. If route attachment fails, CI still publishes the worker to `*.workers.dev` and emits a warning; widen the token to attach the custom domain. For a workers.dev-only deploy, run `STRIP_ZONE_ROUTES=true npm run deploy` and attach the route in the Cloudflare dashboard.
+**Deploy token permissions:** `CLOUDFLARE_API_TOKEN` needs **Workers Scripts:Edit** plus **Workers Routes:Edit** and **Zone:Read** on the `opsec.rent` zone so `song.opsec.rent` routes attach to the `song-kara` worker. If route attachment fails, deploy still publishes the worker to `*.workers.dev` and emits a warning; widen the token to attach the custom domain. For a workers.dev-only deploy, run `STRIP_ZONE_ROUTES=true npm run deploy` and attach the route in the Cloudflare dashboard.
 
 The Cloudflare Worker is still named `song-kara` (legacy) so deploys update the worker that owns `song.opsec.rent`. The app UI brands as **umbra**.
 
