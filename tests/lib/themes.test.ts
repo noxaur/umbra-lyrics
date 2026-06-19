@@ -4,6 +4,7 @@ import {
   DEFAULT_LIGHT_THEME_ID,
   LEGACY_THEME_STORAGE_KEY,
   THEME_CACHE_KEY,
+  THEME_CATALOG_VERSION,
   THEME_STORAGE_KEY,
   applyThemeToElement,
   buildThemeRegistry,
@@ -56,9 +57,23 @@ describe("themes", () => {
     const theme = themeById[DEFAULT_DARK_THEME_ID]
     cacheThemeForBootstrap(theme)
     const cached = readCachedTheme()
+    expect(cached?.catalogVersion).toBe(THEME_CATALOG_VERSION)
     expect(cached?.id).toBe(DEFAULT_DARK_THEME_ID)
     expect(cached?.tokens.primary).toBe(theme.tokens.primary)
     expect(localStorage.getItem(THEME_CACHE_KEY)).toBeTruthy()
+  })
+
+  it("ignores stale bootstrap cache from prior catalog versions", () => {
+    localStorage.setItem(
+      THEME_CACHE_KEY,
+      JSON.stringify({
+        catalogVersion: 1,
+        id: "midnight",
+        category: "dark",
+        tokens: themeById[DEFAULT_DARK_THEME_ID].tokens,
+      }),
+    )
+    expect(readCachedTheme()).toBeNull()
   })
 
   it("reads stored custom theme id from merged registry", () => {

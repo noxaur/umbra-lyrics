@@ -12,7 +12,7 @@
           var raw = localStorage.getItem("song-kara-theme-cache");
           if (!raw) return;
           var data = JSON.parse(raw);
-          if (!data || !data.tokens) return;
+          if (!data || !data.tokens || data.catalogVersion !== 2) return;
           var el = document.documentElement;
           el.setAttribute("data-theme", data.id || "");
           el.classList.add(data.category === "light" ? "light" : "dark");

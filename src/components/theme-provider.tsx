@@ -20,6 +20,7 @@ import {
   persistThemeId,
   presetThemes,
   readStoredThemeId,
+  THEME_STORAGE_KEY,
   type Theme,
 } from "@/lib/themes"
 
@@ -72,6 +73,15 @@ export function ThemeProvider({
   useEffect(() => {
     bootstrapThemeFromStorage()
   }, [])
+
+  useEffect(() => {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY)
+    if (!stored || registry[stored]) return
+
+    const fallback = getThemeById(defaultThemeId, registry)
+    persistThemeId(fallback.id, fallback)
+    setThemeIdState(fallback.id)
+  }, [defaultThemeId, registry])
 
   useEffect(() => {
     applyThemeToElement(document.documentElement, theme)

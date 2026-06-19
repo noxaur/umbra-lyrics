@@ -3,6 +3,7 @@ import { generatedTintedThemes } from "@/lib/generated-tinted-themes"
 export const THEME_STORAGE_KEY = "song-kara-theme-id"
 export const LEGACY_THEME_STORAGE_KEY = "song-kara-theme"
 export const THEME_CACHE_KEY = "song-kara-theme-cache"
+export const THEME_CATALOG_VERSION = 2
 
 export type ThemeCategory = "dark" | "light"
 
@@ -40,6 +41,7 @@ export type Theme = {
 }
 
 export type ThemeCache = {
+  catalogVersion: number
   id: string
   category: ThemeCategory
   tokens: ThemeTokens
@@ -115,6 +117,7 @@ export function applyThemeToElement(element: HTMLElement, theme: Theme): void {
 
 export function cacheThemeForBootstrap(theme: Theme): void {
   const payload: ThemeCache = {
+    catalogVersion: THEME_CATALOG_VERSION,
     id: theme.id,
     category: theme.category,
     tokens: theme.tokens,
@@ -128,6 +131,7 @@ export function readCachedTheme(): ThemeCache | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as ThemeCache
     if (!parsed?.id || !parsed?.tokens) return null
+    if (parsed.catalogVersion !== THEME_CATALOG_VERSION) return null
     return parsed
   } catch {
     return null
