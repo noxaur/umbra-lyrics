@@ -7,7 +7,6 @@ delete config.routes
 if (process.env.DEPLOY_CONTAINERS !== "true") {
   delete config.containers
   delete config.durable_objects
-  delete config.migrations
 }
 fs.writeFileSync(path, JSON.stringify(config))
 console.log(

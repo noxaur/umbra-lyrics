@@ -18,6 +18,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Require Fly API token
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::error::FLY_API_TOKEN secret is not configured. Create a deploy token at https://fly.io/user/personal_access_tokens and add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
       - uses: superfly/flyctl-actions/setup-flyctl@1.5
 
       - name: Deploy cutlet service to Fly.io

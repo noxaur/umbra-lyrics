@@ -23,7 +23,17 @@
   },
   "ai": {
     "binding": "AI"
-  }
+  },
+  "migrations": [
+    {
+      "tag": "v1-romaji-container",
+      "new_sqlite_classes": ["RomajiContainer"]
+    },
+    {
+      "tag": "v2-remove-romaji-container",
+      "deleted_classes": ["RomajiContainer"]
+    }
+  ]
   // Optional secrets (set via `wrangler secret put`):
   // SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, MUSIXMATCH_API_KEY, LIBRETRANSLATE_API_KEY
   // ROMAJI_SERVICE_URL (Fly.io cutlet URL, e.g. https://song-kara-romaji.fly.dev)
