@@ -134,8 +134,22 @@ export function PlaylistImportDialog({
     setError(null)
     setStatus("Finding Music YouTube versions…")
 
-    const tracks = await playlistItemsToCanonicalTracks(preview.items, { signal: fetchAbortRef.current?.signal })
-    const swappedCount = tracks.filter((track, index) => track.videoId !== preview.items[index]?.videoId).length
+    let tracks: Awaited<ReturnType<typeof playlistItemsToCanonicalTracks>>
+    let swappedCount = 0
+    try {
+      tracks = await playlistItemsToCanonicalTracks(preview.items, {
+        signal: fetchAbortRef.current?.signal,
+      })
+      swappedCount = tracks.filter(
+        (track, index) => track.videoId !== preview.items[index]?.videoId,
+      ).length
+    } catch (err) {
+      if (fetchAbortRef.current?.signal.aborted) return
+      setError(err instanceof Error ? err.message : "Could not resolve Music YouTube versions")
+      setStep("preview")
+      setStatus(null)
+      return
+    }
 
     setStatus("Adding songs to playlist…")
 
