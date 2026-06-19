@@ -56,6 +56,18 @@ describe("AppShell", () => {
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument()
   })
 
+  it("uses a compact back bar on small player pages", () => {
+    renderShell(
+      <AppShell compactHeader>
+        <p>Player content</p>
+      </AppShell>,
+    )
+
+    expect(screen.getByRole("link", { name: "← Home" })).toHaveAttribute("href", "/")
+    const desktopHeader = screen.getByRole("link", { name: "song-kara" }).closest("header")
+    expect(desktopHeader).toHaveClass("hidden")
+  })
+
   it("locks the viewport when requested", () => {
     renderShell(
       <AppShell viewportLock>

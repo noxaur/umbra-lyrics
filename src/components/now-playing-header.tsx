@@ -7,6 +7,7 @@ import { buildLyricsRejectionUrl } from "@/lib/lyrics-rejection-report"
 import { usePlayerStore } from "@/stores/player-store"
 import { LYRICS_PROVIDER_LABELS, type LyricsAlternate, type LyricsProviderId } from "@/types/lyrics"
 import { LyricsSourcePicker } from "@/components/lyrics-source-picker"
+import { NowPlayingOverflowMenu } from "@/components/now-playing-overflow-menu"
 import { AddToPlaylistMenu } from "@/components/add-to-playlist-menu"
 import { QueueAddMenu } from "@/components/queue-add-menu"
 import { QueueMenu } from "@/components/queue-menu"
@@ -188,8 +189,8 @@ export function NowPlayingHeader({
   if (!displayTrack && !artist && status === "idle" && !videoId) return null
 
   return (
-    <div className="shrink-0 border-b border-border px-3 py-2 sm:px-4">
-      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+    <div className="shrink-0 border-b border-border px-3 py-1.5 sm:px-4 sm:py-2">
+      <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
         <div className="min-w-0 flex-1 leading-tight">
           <h1
             className="truncate text-sm font-semibold sm:text-[0.9375rem]"
@@ -258,66 +259,92 @@ export function NowPlayingHeader({
         <div className="flex shrink-0 items-center gap-0.5">
           <QueueAddMenu className={TOOLBAR_ICON_CLASS} />
           <QueueMenu className={`relative ${TOOLBAR_ICON_CLASS}`} />
-          {videoId ? (
-            <AddToPlaylistMenu
-              track={{
-                videoId,
-                title,
-                artist,
-                track,
-                englishArtist: recentEnglish?.englishArtist,
-                englishTrack: recentEnglish?.englishTrack,
-              }}
-              variant="ghost"
-              size="icon"
-              className={TOOLBAR_ICON_CLASS}
-            />
-          ) : null}
-          {onRefreshLyrics && videoId ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              className={TOOLBAR_ICON_CLASS}
-              onClick={onRefreshLyrics}
-              disabled={lyricsRefreshing}
-              aria-label={lyricsRefreshing ? "Searching for lyrics" : "Re-search lyrics"}
-              title="Re-parse title, search providers, and verify against audio"
-            >
-              <RefreshCw
-                className={cn("size-4", lyricsRefreshing && "motion-safe:animate-spin")}
-                aria-hidden
+
+          <div className="hidden items-center gap-0.5 sm:flex">
+            {videoId ? (
+              <AddToPlaylistMenu
+                track={{
+                  videoId,
+                  title,
+                  artist,
+                  track,
+                  englishArtist: recentEnglish?.englishArtist,
+                  englishTrack: recentEnglish?.englishTrack,
+                }}
+                variant="ghost"
+                size="icon"
+                className={TOOLBAR_ICON_CLASS}
               />
-            </Button>
-          ) : null}
-          {rejectionUrl ? (
-            <Button asChild variant="ghost" size="icon" className={TOOLBAR_ICON_CLASS}>
-              <a
-                href={rejectionUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Reject lyrics"
-                title="Report incorrect lyrics on GitHub"
+            ) : null}
+            {onRefreshLyrics && videoId ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={TOOLBAR_ICON_CLASS}
+                onClick={onRefreshLyrics}
+                disabled={lyricsRefreshing}
+                aria-label={lyricsRefreshing ? "Searching for lyrics" : "Re-search lyrics"}
+                title="Re-parse title, search providers, and verify against audio"
               >
-                <Flag className="size-4" aria-hidden />
-              </a>
-            </Button>
-          ) : null}
-          {showTranslate && onTranslate ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              className={TOOLBAR_ICON_CLASS}
-              onClick={onTranslate}
-              disabled={translating}
-              aria-label={translating ? "Translating lyrics" : "Translate lyrics"}
-              title={translating ? "Translating…" : "Translate lyrics to English"}
-            >
-              <Languages className="size-4" aria-hidden />
-            </Button>
-          ) : null}
-          {onSelectAlternate ? (
-            <LyricsSourcePicker onSelectAlternate={onSelectAlternate} compact />
-          ) : null}
+                <RefreshCw
+                  className={cn("size-4", lyricsRefreshing && "motion-safe:animate-spin")}
+                  aria-hidden
+                />
+              </Button>
+            ) : null}
+            {rejectionUrl ? (
+              <Button asChild variant="ghost" size="icon" className={TOOLBAR_ICON_CLASS}>
+                <a
+                  href={rejectionUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Reject lyrics"
+                  title="Report incorrect lyrics on GitHub"
+                >
+                  <Flag className="size-4" aria-hidden />
+                </a>
+              </Button>
+            ) : null}
+            {showTranslate && onTranslate ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={TOOLBAR_ICON_CLASS}
+                onClick={onTranslate}
+                disabled={translating}
+                aria-label={translating ? "Translating lyrics" : "Translate lyrics"}
+                title={translating ? "Translating…" : "Translate lyrics to English"}
+              >
+                <Languages className="size-4" aria-hidden />
+              </Button>
+            ) : null}
+            {onSelectAlternate ? (
+              <LyricsSourcePicker onSelectAlternate={onSelectAlternate} compact />
+            ) : null}
+          </div>
+
+          <NowPlayingOverflowMenu
+            className="sm:hidden"
+            track={
+              videoId
+                ? {
+                    videoId,
+                    title,
+                    artist,
+                    track,
+                    englishArtist: recentEnglish?.englishArtist,
+                    englishTrack: recentEnglish?.englishTrack,
+                  }
+                : null
+            }
+            onRefreshLyrics={onRefreshLyrics}
+            lyricsRefreshing={lyricsRefreshing}
+            rejectionUrl={rejectionUrl}
+            showTranslate={showTranslate}
+            onTranslate={onTranslate}
+            translating={translating}
+            onSelectAlternate={onSelectAlternate}
+          />
         </div>
       </div>
       {timingNotice ? (

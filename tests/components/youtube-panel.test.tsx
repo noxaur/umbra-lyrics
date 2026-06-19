@@ -19,7 +19,7 @@ describe("YouTubePanel", () => {
     const { container } = render(<YouTubePanel containerRef={ref} hidden={false} compact />)
 
     const panel = container.firstChild as HTMLElement
-    expect(panel).toHaveClass("h-[100px]", "sm:h-[140px]")
+    expect(panel).toHaveClass("h-[84px]", "sm:h-[120px]", "md:h-[140px]")
     expect(panel).not.toHaveClass("h-0")
   })
 
@@ -31,7 +31,7 @@ describe("YouTubePanel", () => {
 
     const panel = container.firstChild as HTMLElement
     expect(panel).toHaveClass(
-      "h-[100px]",
+      "h-[84px]",
       "lg:aspect-video",
       "lg:h-full",
       "lg:max-h-full",

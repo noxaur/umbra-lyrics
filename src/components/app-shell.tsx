@@ -8,9 +8,12 @@ import { usePlayerStore } from "@/stores/player-store"
 export function AppShell({
   children,
   viewportLock = false,
+  compactHeader = false,
 }: {
   children: React.ReactNode
   viewportLock?: boolean
+  /** Slim back bar for player pages on phones — saves vertical space for lyrics. */
+  compactHeader?: boolean
 }) {
   const focusMode = usePlayerStore((s) => s.focusMode)
   const stageFullscreen = usePlayerStore((s) => s.stageFullscreen)
@@ -27,9 +30,45 @@ export function AppShell({
       >
         Skip to content
       </a>
-      {!focusMode && !stageFullscreen && (
-        <header className="flex items-center justify-between border-b border-border px-4 py-3">
-          <div className="flex items-center gap-4">
+      {!focusMode && !stageFullscreen && compactHeader ? (
+        <>
+          <header className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1.5 sm:hidden">
+            <Link
+              to="/"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+            >
+              ← Home
+            </Link>
+            <div className="flex items-center gap-1">
+              <SettingsMenu />
+            </div>
+          </header>
+          <header className="hidden shrink-0 items-center justify-between border-b border-border px-4 py-3 sm:flex">
+            <div className="flex min-w-0 items-center gap-4">
+              <Link
+                to="/"
+                className="text-lg font-semibold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              >
+                song-kara
+              </Link>
+              <Link
+                to="/playlists"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              >
+                Playlists
+              </Link>
+            </div>
+            <div className="flex items-center gap-2">
+              <RandomSongButton />
+              <SpotifyLoginButton />
+              <SettingsMenu />
+            </div>
+          </header>
+        </>
+      ) : null}
+      {!focusMode && !stageFullscreen && !compactHeader ? (
+        <header className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2 sm:px-4 sm:py-3">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <Link
               to="/"
               className="text-lg font-semibold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
@@ -38,18 +77,18 @@ export function AppShell({
             </Link>
             <Link
               to="/playlists"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm sm:inline"
             >
               Playlists
             </Link>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <RandomSongButton />
             <SpotifyLoginButton />
             <SettingsMenu />
           </div>
         </header>
-      )}
+      ) : null}
       <main
         id="main-content"
         className={cn(

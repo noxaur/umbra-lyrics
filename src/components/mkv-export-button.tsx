@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Download, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { useMkvExport } from "@/hooks/use-mkv-export"
 import { usePlayerStore } from "@/stores/player-store"
 import type { MkvExportInput, MkvExportProgress } from "@/lib/mkv-export/types"
@@ -210,9 +211,10 @@ export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogP
 
 type MkvExportButtonProps = {
   durationSec: number
+  className?: string
 }
 
-export function MkvExportButton({ durationSec }: MkvExportButtonProps) {
+export function MkvExportButton({ durationSec, className }: MkvExportButtonProps) {
   const [open, setOpen] = useState(false)
 
   const status = usePlayerStore((s) => s.status)
@@ -225,7 +227,7 @@ export function MkvExportButton({ durationSec }: MkvExportButtonProps) {
       <Button
         variant="outline"
         size="sm"
-        className="h-8 min-h-8 gap-1 px-1.5 text-[0.6875rem]"
+        className={cn("h-8 min-h-8 gap-1 px-1.5 text-[0.6875rem]", className)}
         onClick={() => setOpen(true)}
         aria-label="Download MKV with synced lyrics (beta)"
         title="Download MKV with synced lyrics (beta)"

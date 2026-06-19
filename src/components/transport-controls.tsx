@@ -134,8 +134,8 @@ export function TransportControls({
   ]
 
   return (
-    <div className="shrink-0 border-t border-border bg-card px-3 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
-      <div className="mx-auto flex max-w-3xl flex-col gap-1">
+    <div className="shrink-0 border-t border-border bg-card px-3 py-1 pb-[max(0.375rem,env(safe-area-inset-bottom))] sm:py-1.5">
+      <div className="mx-auto flex max-w-3xl flex-col gap-1 sm:gap-1.5">
         <div className="flex items-center gap-1.5">
           <span className="w-9 shrink-0 text-right text-[0.6875rem] tabular-nums text-muted-foreground">
             {formatDuration(currentTime)}
@@ -155,7 +155,7 @@ export function TransportControls({
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-1.5 sm:gap-y-1">
           <div className="flex items-center gap-1">
             {showSkipControls ? (
               <Button
@@ -222,7 +222,7 @@ export function TransportControls({
           </div>
 
           <div
-            className="flex min-w-[11rem] flex-1 items-center gap-0.5 border-l border-border/60 pl-1.5 sm:min-w-[14rem]"
+            className="flex w-full items-center gap-0.5 sm:min-w-[14rem] sm:flex-1 sm:border-l sm:border-border/60 sm:pl-1.5"
             role="group"
             aria-labelledby="lyrics-timing-label"
           >
@@ -277,9 +277,11 @@ export function TransportControls({
             </span>
           </div>
 
-          <div className="ml-auto flex items-center gap-0.5">
-            <QueueAddMenu />
-            <QueueMenu className="relative" />
+          <div className="flex items-center justify-end gap-0.5 sm:ml-auto">
+            <div className="hidden items-center gap-0.5 sm:flex">
+              <QueueAddMenu />
+              <QueueMenu className="relative" />
+            </div>
             {onToggleStageFullscreen ? (
               <Button
                 variant="outline"
@@ -307,7 +309,7 @@ export function TransportControls({
                 <HelpCircle className="size-3.5" />
               </Button>
             </ShortcutsHelp>
-            <MkvExportButton durationSec={duration} />
+            <MkvExportButton durationSec={duration} className="hidden sm:inline-flex" />
           </div>
         </div>
 

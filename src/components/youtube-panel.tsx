@@ -28,14 +28,14 @@ export function YouTubePanel({
           : "opacity-100",
         !hidden &&
           resolvedLayout === "strip" &&
-          "mx-auto h-[100px] max-w-3xl rounded-lg border border-border sm:h-[140px]",
+          "mx-auto h-[84px] max-w-3xl rounded-lg border border-border sm:h-[120px] md:h-[140px]",
         !hidden &&
           resolvedLayout === "column" &&
           "aspect-video min-h-0 flex-1 rounded-lg",
         !hidden &&
           resolvedLayout === "split" &&
           cn(
-            "mx-auto h-[100px] max-w-3xl rounded-lg border border-border sm:h-[140px]",
+            "mx-auto h-[84px] max-w-3xl rounded-lg border border-border sm:h-[120px] md:h-[140px]",
             "lg:mx-0 lg:h-full lg:max-h-full lg:w-auto lg:max-w-full lg:min-h-0 lg:flex-none lg:aspect-video lg:border-0 lg:shadow-none",
           ),
       )}
