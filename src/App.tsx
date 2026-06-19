@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom"
 import { AppErrorBoundary } from "@/components/app-error-boundary"
 import { AppShell } from "@/components/app-shell"
 import { PlaylistIndexPrompt } from "@/components/playlist-index-prompt"
+import { PlaylistLyricsImportHost } from "@/components/playlist-lyrics-import-host"
 import { QueueToastHost } from "@/components/queue-toast-host"
 import { ThemeProvider } from "@/components/theme-provider"
 import { HomePage } from "@/pages/home-page"
@@ -65,6 +66,7 @@ export default function App() {
     <ThemeProvider>
       <AppErrorBoundary>
         <PlaylistIndexPrompt />
+        <PlaylistLyricsImportHost />
         <QueueToastHost />
         <Suspense fallback={<RouteLoading />}>
           <Routes>
