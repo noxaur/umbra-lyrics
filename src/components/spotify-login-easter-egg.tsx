@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react"
+import { useReducedMotion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { SpotifyAngryLogo } from "@/components/spotify-angry-logo"
 import { cn } from "@/lib/utils"
@@ -7,7 +8,7 @@ export const SPOTIFY_EASTER_EGG_CLICKS = 10
 
 type Phase = "explode" | "angry" | "drag" | "exit"
 
-type AnchorRect = {
+export type AnchorRect = {
   top: number
   left: number
   width: number
@@ -28,10 +29,12 @@ const PHASE_MS: Record<Phase, number> = {
 
 export function SpotifyLoginEasterEgg({ anchor, onComplete }: SpotifyLoginEasterEggProps) {
   const [phase, setPhase] = useState<Phase>("explode")
+  const reducedMotion = useReducedMotion()
 
   useEffect(() => {
     const order: Phase[] = ["explode", "angry", "drag", "exit"]
     const index = order.indexOf(phase)
+    const durationMs = reducedMotion ? 1 : PHASE_MS[phase]
     const timer = window.setTimeout(() => {
       const next = order[index + 1]
       if (next) {
@@ -39,10 +42,10 @@ export function SpotifyLoginEasterEgg({ anchor, onComplete }: SpotifyLoginEaster
         return
       }
       onComplete()
-    }, PHASE_MS[phase])
+    }, durationMs)
 
     return () => window.clearTimeout(timer)
-  }, [onComplete, phase])
+  }, [onComplete, phase, reducedMotion])
 
   const centerX = anchor.left + anchor.width / 2
   const centerY = anchor.top + anchor.height / 2

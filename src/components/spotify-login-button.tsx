@@ -1,7 +1,11 @@
 import { useCallback, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { SpotifyLoginEasterEgg, SPOTIFY_EASTER_EGG_CLICKS } from "@/components/spotify-login-easter-egg"
+import {
+  SpotifyLoginEasterEgg,
+  SPOTIFY_EASTER_EGG_CLICKS,
+  type AnchorRect,
+} from "@/components/spotify-login-easter-egg"
 import { useSpotifyAuth } from "@/hooks/use-spotify-auth"
 import { pushQueueNotification } from "@/lib/queue-notifications"
 
@@ -12,13 +16,6 @@ function showSpotifyDisabledNotice(): void {
     message: "Spotify login is currently disabled.",
     dismissAfterMs: 3000,
   })
-}
-
-type AnchorRect = {
-  top: number
-  left: number
-  width: number
-  height: number
 }
 
 export function SpotifyLoginButton() {

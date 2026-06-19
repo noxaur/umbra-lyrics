@@ -76,10 +76,11 @@ describe("SpotifyLoginButton", () => {
       fireEvent.click(button)
     }
     expect(container.querySelector(".spotify-easter-egg-overlay")).toBeNull()
+    const notificationsBeforeTenth = listQueueNotifications().length
 
     fireEvent.click(button)
     expect(container.querySelector(".spotify-easter-egg-overlay")).not.toBeNull()
-    expect(listQueueNotifications().length).toBeGreaterThan(0)
+    expect(listQueueNotifications()).toHaveLength(notificationsBeforeTenth)
   })
 
   it("shows profile and logout when logged in", () => {
