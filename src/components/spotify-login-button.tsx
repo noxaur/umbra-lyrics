@@ -1,8 +1,18 @@
 import { Button } from "@/components/ui/button"
 import { useSpotifyAuth } from "@/hooks/use-spotify-auth"
+import { pushQueueNotification } from "@/lib/queue-notifications"
+
+function showSpotifyDisabledNotice(): void {
+  pushQueueNotification({
+    kind: "info",
+    title: "Spotify login unavailable",
+    message: "Spotify login is disabled currently.",
+    dismissAfterMs: 3000,
+  })
+}
 
 export function SpotifyLoginButton() {
-  const { session, isLoggedIn, loading, error, login, logout } = useSpotifyAuth()
+  const { session, isLoggedIn, logout } = useSpotifyAuth()
 
   if (isLoggedIn && session) {
     return (
@@ -27,21 +37,15 @@ export function SpotifyLoginButton() {
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => void login()}
-        disabled={loading}
-        className="border-[#1DB954]/40 text-[#1DB954] hover:bg-[#1DB954]/10 hover:text-[#1DB954]"
-      >
-        {loading ? "Connecting…" : "Log in with Spotify"}
-      </Button>
-      {error ? (
-        <span className="max-w-[12rem] text-right text-xs text-destructive" role="alert">
-          {error}
-        </span>
-      ) : null}
-    </div>
+    <Button
+      variant="outline"
+      size="sm"
+      type="button"
+      aria-label="Log in with Spotify (unavailable — click for details)"
+      onClick={showSpotifyDisabledNotice}
+      className="cursor-not-allowed border-border/60 text-muted-foreground opacity-60 hover:bg-transparent hover:text-muted-foreground"
+    >
+      Log in with Spotify
+    </Button>
   )
 }
