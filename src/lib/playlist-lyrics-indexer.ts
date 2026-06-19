@@ -31,11 +31,6 @@ function queueKey(playlistId: string, videoId: string): string {
   return `${playlistId}:${videoId}`
 }
 
-function metadataLooksWeak(track: PlaylistIndexTrack): boolean {
-  const normalized = normalizeTrackMetadata(track)
-  return !normalized.track.trim() || !normalized.artist.trim()
-}
-
 function recordIssue(
   playlistId: string,
   track: PlaylistIndexTrack,
@@ -97,21 +92,16 @@ async function indexTrack(job: QueueJob): Promise<void> {
     return
   }
 
-  if (metadataLooksWeak(track)) {
-    const meta = await resolveIndexingMetadata(track)
-    if (!meta.track.trim() || !meta.artist.trim()) {
-      recordIssue(
-        playlistId,
-        { ...track, artist: meta.artist, track: meta.track },
-        "needs_metadata",
-        "Artist or track title could not be parsed. Edit the details to search lyrics.",
-      )
-      return
-    }
-    Object.assign(track, meta)
-  }
-
   const meta = await resolveIndexingMetadata(track)
+  if (!meta.track.trim() && !meta.artist.trim()) {
+    recordIssue(
+      playlistId,
+      { ...track, artist: meta.artist, track: meta.track },
+      "needs_metadata",
+      "Artist or track title could not be parsed. Edit the details to search lyrics.",
+    )
+    return
+  }
   if (!meta.track.trim()) {
     recordIssue(playlistId, track, "needs_metadata", "Track title is missing. Edit it to search lyrics.")
     return
@@ -120,6 +110,7 @@ async function indexTrack(job: QueueJob): Promise<void> {
     recordIssue(playlistId, track, "needs_metadata", "Artist name is missing. Edit it to search lyrics.")
     return
   }
+  Object.assign(track, meta)
 
   try {
     const pipeline = await runLyricsPipeline({
