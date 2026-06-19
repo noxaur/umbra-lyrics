@@ -19,6 +19,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "onnxruntime-common": path.resolve(
+        __dirname,
+        "node_modules/onnxruntime-web/node_modules/onnxruntime-common",
+      ),
     },
   },
   server: {
