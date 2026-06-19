@@ -102,6 +102,8 @@ describe("LyricLine", () => {
     const primary = screen.getByRole("button", { name: "TV line" }).querySelector(".font-semibold")
     expect(primary?.className).toContain("lyrics-tv-primary-size")
     expect(primary?.className).toContain("lyrics-tv-primary-lg-size")
+    // Utilities layer wins over component-layer line-height; keep leading in CSS.
+    expect(primary?.className).not.toContain("leading-snug")
   })
 
   it("renders romaji-only lyrics", () => {
