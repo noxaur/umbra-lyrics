@@ -39,6 +39,16 @@ describe("suggestRoutes", () => {
     expect(suggestions.some((s) => s.href === "/themes")).toBe(true)
   })
 
+  it("suggests blog for /blg typo", () => {
+    const suggestions = suggestRoutes("/blg")
+    expect(suggestions.some((s) => s.href === "/blog")).toBe(true)
+  })
+
+  it("suggests changelog for /changelg typo", () => {
+    const suggestions = suggestRoutes("/changelg")
+    expect(suggestions.some((s) => s.href === "/changelog")).toBe(true)
+  })
+
   it("extracts video ID from watch query on a 404 path", () => {
     const suggestions = suggestRoutes("/missing", `?v=${ID}`)
     expect(suggestions.some((s) => s.href === `/play/${ID}` && s.videoId === ID)).toBe(true)

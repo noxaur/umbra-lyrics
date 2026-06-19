@@ -48,11 +48,24 @@ const KNOWN_ROUTES: KnownRoute[] = [
     aliases: ["build", "builder", "custom", "create"],
   },
   { path: "/watch", label: "Watch link", aliases: ["watch"] },
+  { path: "/blog", label: "Blog", aliases: ["blog", "blogs", "post", "posts"] },
+  {
+    path: "/changelog",
+    label: "Changelog",
+    aliases: ["changelog", "changes", "release-notes", "releases"],
+  },
 ]
 
 const PLAY_ALIASES = [...PLAY_ROUTE_ALIASES]
 
-const VALID_EXACT_PATHS = new Set(["/", "/themes", "/themes/build", "/watch"])
+const VALID_EXACT_PATHS = new Set([
+  "/",
+  "/themes",
+  "/themes/build",
+  "/watch",
+  "/blog",
+  "/changelog",
+])
 
 function levenshtein(a: string, b: string): number {
   if (a === b) return 0
