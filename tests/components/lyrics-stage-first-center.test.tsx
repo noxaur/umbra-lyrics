@@ -42,8 +42,10 @@ function MobilePlayerChrome({ height = 667 }: { height?: number }) {
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="stage-fullscreen relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-            <div className="stage-video-column flex shrink-0 flex-col px-4 py-2">
-              <div className="mx-auto h-[100px] w-full max-w-3xl rounded-lg border border-border" />
+            <div
+              className="stage-video-column flex shrink-0 flex-col px-3 py-1.5 sm:px-4 sm:py-2"
+            >
+              <div className="mx-auto h-[84px] w-full max-w-3xl rounded-lg border border-border sm:h-[120px] md:h-[140px]" />
             </div>
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               <div className="shrink-0 border-b border-border px-3 py-2">
@@ -53,8 +55,8 @@ function MobilePlayerChrome({ height = 667 }: { height?: number }) {
                 <LyricsStage durationMs={60_000} />
               </div>
             </div>
-            <div className="shrink-0 border-t border-border px-3 py-1.5">
-              <div className="h-16" />
+            <div className="shrink-0 border-t border-border px-3 py-1">
+              <div className="h-14 sm:h-16" />
             </div>
           </div>
         </div>

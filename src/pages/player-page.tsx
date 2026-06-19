@@ -1543,7 +1543,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const showOpening = (fromHome || status === "idle") && !ready && lyrics.length === 0
 
   return (
-    <AppShell viewportLock>
+    <AppShell viewportLock compactHeader>
       {showOpening && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
@@ -1618,7 +1618,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
               "stage-video-column flex shrink-0 flex-col lg:w-[42%] lg:min-h-0 lg:max-h-full lg:shrink lg:overflow-hidden",
               !showVideoInStage &&
                 `pointer-events-none fixed top-0 overflow-hidden opacity-0 -left-[9999px] ${HIDDEN_EMBED_CLASS}`,
-              showVideoInStage && "px-4 py-2 lg:border-r lg:border-border lg:p-4",
+              showVideoInStage && "px-3 py-1.5 sm:px-4 sm:py-2 lg:border-r lg:border-border lg:p-4",
             )}
             aria-hidden={!showVideoInStage}
           >
@@ -1652,7 +1652,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
               />
             )}
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:px-6 lg:py-4">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-3 sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:px-6 lg:py-4">
               {youtubeError ? (
                 <PlayerError
                   title="Video couldn't load"
