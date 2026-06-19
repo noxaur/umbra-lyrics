@@ -1,10 +1,15 @@
 import { proxyFetch } from "@/lib/lyrics-providers/api-base"
-import { parseTrackTitleCandidates } from "@/lib/parse-track-title"
+import { parseTrackTitleCandidates, stripSessionVariantSuffix } from "@/lib/parse-track-title"
 import { ensureSpotifyAccessToken, spotifyAuthHeaders } from "@/lib/spotify-auth"
 import { extractSpotifyTrackId } from "@/lib/spotify-url"
 import { resolveTrackMetadata, type ResolvedTrackMetadata } from "@/lib/track-metadata-resolver"
 import { fetchYouTubeOEmbed } from "@/lib/youtube-oembed"
 import { searchYouTubeMusicSongs } from "@/lib/youtube-music-search"
+import {
+  MAX_CANONICAL_SCORE,
+  scoreYouTubeMusicHit,
+  type YouTubeMusicHit,
+} from "../../worker/lib/youtube-music-rank"
 import type { SeedMetadata } from "@/lib/player-navigation"
 
 export type CanonicalMusicVideoInput =
@@ -58,14 +63,47 @@ async function fetchSpotifyTrackById(
 
 async function resolveCanonicalFromMetadata(
   metadata: SeedMetadata,
-  options?: { signal?: AbortSignal },
+  options?: {
+    signal?: AbortSignal
+    sourceVideoId?: string
+    sourceTitle?: string
+    sourceChannel?: string
+  },
 ): Promise<CanonicalMusicVideoResult> {
-  const hits = await searchYouTubeMusicSongs(metadata.artist, metadata.track, {
+  const searchTrack = stripSessionVariantSuffix(metadata.track) || metadata.track
+  const hits = await searchYouTubeMusicSongs(metadata.artist, searchTrack, {
     durationSec: metadata.durationSec,
     limit: 8,
     signal: options?.signal,
   })
-  const best = hits[0]
+  let best = hits[0]
+
+  if (
+    options?.sourceVideoId &&
+    best &&
+    best.videoId !== options.sourceVideoId &&
+    options.sourceTitle?.trim()
+  ) {
+    const sourceHit: YouTubeMusicHit = {
+      videoId: options.sourceVideoId,
+      title: options.sourceTitle.trim(),
+      channel: options.sourceChannel?.trim() ?? "",
+      durationSec: metadata.durationSec ?? null,
+      resultType: /\s-\sTopic$/i.test(options.sourceChannel ?? "") ? "song" : "video",
+      isOfficialAudio: /\s-\sTopic$/i.test(options.sourceChannel ?? ""),
+    }
+    const sourceScore = scoreYouTubeMusicHit(
+      sourceHit,
+      metadata.artist,
+      searchTrack,
+      metadata.durationSec,
+    )
+    const bestScore = scoreYouTubeMusicHit(best, metadata.artist, searchTrack, metadata.durationSec)
+    if (sourceScore <= MAX_CANONICAL_SCORE && sourceScore <= bestScore) {
+      best = sourceHit
+    }
+  }
+
   if (!best) return { ok: false, reason: "no_youtube_match" }
 
   return {
@@ -128,7 +166,12 @@ async function resolveYouTubeCanonical(
         isrc: resolved.externalIds?.isrc,
         source: "music-api",
       },
-      options,
+      {
+        ...options,
+        sourceVideoId: input.videoId,
+        sourceTitle: title,
+        sourceChannel: oembedAuthor,
+      },
     )
     if (canonical.ok) return canonical
   }

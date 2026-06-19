@@ -51,4 +51,34 @@ describe("youtube-music-rank", () => {
 
     expect(result).toBeNull()
   })
+
+  it("does not penalize legitimate instrument words in track titles", () => {
+    const pianoMan = hit({
+      videoId: "piano000001",
+      title: "Piano Man",
+      channel: "Billy Joel - Topic",
+      durationSec: 336,
+    })
+
+    expect(scoreYouTubeMusicHit(pianoMan, "Billy Joel", "Piano Man", 336)).toBeLessThanOrEqual(74)
+  })
+
+  it("prefers studio audio over guitar session for Anytime Anywhere", () => {
+    const studio = hit({
+      videoId: "OqQAFmkrzew",
+      title: "Anytime Anywhere",
+      channel: "milet",
+      durationSec: 231,
+    })
+    const guitar = hit({
+      videoId: "oSvR4C7RK0w",
+      title: "Anytime Anywhere - A.Gt Session",
+      channel: "milet",
+      durationSec: 235,
+    })
+
+    expect(
+      pickBestYouTubeMusicHit([guitar, studio], "milet", "Anytime Anywhere", 231)?.videoId,
+    ).toBe("OqQAFmkrzew")
+  })
 })
