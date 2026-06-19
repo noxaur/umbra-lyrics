@@ -66,6 +66,10 @@ function needsRomajiRebuild(entry: LyricsCacheEntry): boolean {
   return entry.romajiLines.some((line) => CJK_RE.test(line))
 }
 
+function needsSkippedEnglishSanitize(entry: LyricsCacheEntry): boolean {
+  return entry.englishStatus === "skipped" && entry.englishLines.length > 0
+}
+
 function isTrustedCacheEntry(entry: LyricsCacheEntry): boolean {
   const text = entry.lines.map((line) => line.text).join("\n")
   if (lyricsTextLooksLikeJunk(text)) return false
@@ -125,6 +129,7 @@ export function getLyricsCache(videoId: string): LyricsCacheEntry | null {
       localStorage.removeItem(storageKey(videoId))
       return null
     }
+    let cacheDirty = false
     if (needsRomajiRebuild(parsed)) {
       const romaji = buildRomajiLines(
         parsed.lines.map((line) => line.text),
@@ -133,8 +138,15 @@ export function getLyricsCache(videoId: string): LyricsCacheEntry | null {
       if (romaji.status === "ready") {
         parsed.romajiLines = romaji.lines
         parsed.romajiStatus = romaji.status
-        localStorage.setItem(storageKey(videoId), JSON.stringify(parsed))
+        cacheDirty = true
       }
+    }
+    if (needsSkippedEnglishSanitize(parsed)) {
+      parsed.englishLines = []
+      cacheDirty = true
+    }
+    if (cacheDirty) {
+      localStorage.setItem(storageKey(videoId), JSON.stringify(parsed))
     }
     return parsed
   } catch {

@@ -46,6 +46,7 @@ describe("resolveEnglishLyrics", () => {
     })
 
     expect(result.status).toBe("skipped")
+    expect(result.lines).toEqual([])
     expect(mockSearch).not.toHaveBeenCalled()
   })
 
