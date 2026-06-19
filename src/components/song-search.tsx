@@ -13,20 +13,13 @@ import { ArrowLeft, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { AnimatedIcon } from "@/components/icons/animated-icon"
+import { useSongSearch } from "@/hooks/use-song-search"
 import { parseTrackTitle } from "@/lib/parse-track-title"
-import {
-  formatSongDuration,
-  formatViewCount,
-  searchSongs,
-  type SongSearchHit,
-} from "@/lib/youtube-search"
+import { formatSongDuration, formatViewCount, type SongSearchHit } from "@/lib/youtube-search"
 import { mediaResolveErrorMessage, resolveMediaInput } from "@/lib/media-url"
 import { buildPlayerNavigationState, type SeedMetadata } from "@/lib/player-navigation"
 import { youtubeThumbnailUrl } from "@/lib/youtube-thumbnail"
 import { youTubePlaybackEmbedUrl } from "@/lib/youtube-url"
-
-const DEBOUNCE_MS = 600
-const MIN_QUERY_LEN = 2
 
 function formatResultLabel(hit: SongSearchHit): string {
   const { artist, track } = parseTrackTitle(hit.title)
@@ -127,24 +120,33 @@ function SearchPreviewModal({ hit, label, meta, onClose }: SearchPreviewModalPro
 }
 
 export function SongSearch() {
-  const [query, setQuery] = useState("")
-  const [results, setResults] = useState<SongSearchHit[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
   const [resolving, setResolving] = useState(false)
+  const [resolveError, setResolveError] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState(-1)
   const [previewHit, setPreviewHit] = useState<SongSearchHit | null>(null)
   const closePreview = useCallback(() => setPreviewHit(null), [])
   const navigate = useNavigate()
   const listId = useId()
   const optionIdPrefix = useId()
-  const requestId = useRef(0)
 
-  const invalidateSearch = useCallback(() => {
-    requestId.current += 1
-    setLoading(false)
-  }, [])
+  const {
+    query,
+    setQuery,
+    results,
+    status,
+    error: searchError,
+    isSearching,
+    submitSearch,
+    resetSearch,
+  } = useSongSearch({
+    limit: 10,
+    enabled: !opening,
+    emptyMessage:
+      "No songs found. Try different keywords or paste a YouTube or Spotify link below.",
+    errorMessage:
+      "Search unavailable right now. Paste a YouTube or Spotify link below instead.",
+  })
 
   const optionId = (index: number) => `${optionIdPrefix}-option-${index}`
 
@@ -162,20 +164,14 @@ export function SongSearch() {
     if (!trimmed) return false
 
     setResolving(true)
-    setError(null)
-    setResults([])
-    setActiveIndex(-1)
+    setResolveError(null)
+    resetSearch()
 
     try {
       const resolved = await resolveMediaInput(trimmed)
       if (resolved === null) return false
       if (!resolved.ok) {
-        setError(mediaResolveErrorMessage(resolved.error))
-        return true
-      }
-
-      if (resolved.result.kind === "youtube") {
-        goToPlayer(resolved.result.videoId, resolved.result.seedMetadata)
+        setResolveError(mediaResolveErrorMessage(resolved.error))
         return true
       }
 
@@ -186,74 +182,18 @@ export function SongSearch() {
     }
   }
 
-  const runSearch = async (value: string, signal?: AbortSignal) => {
-    const trimmed = value.trim()
-    if (await resolveMediaLink(trimmed)) return
-
-    if (trimmed.length < MIN_QUERY_LEN) {
-      setResults([])
-      setError(null)
-      setLoading(false)
-      setActiveIndex(-1)
-      return
-    }
-
-    const currentRequest = ++requestId.current
-    setLoading(true)
-    setError(null)
-
-    try {
-      const hits = await searchSongs(trimmed, { limit: 10, signal })
-      if (currentRequest !== requestId.current) return
-      setResults(hits)
-      setActiveIndex(hits.length > 0 ? 0 : -1)
-      if (hits.length === 0) {
-        setError("No songs found. Try different keywords or paste a YouTube or Spotify link below.")
-      }
-    } catch (err) {
-      if (currentRequest !== requestId.current) return
-      if (err instanceof DOMException && err.name === "AbortError") return
-      setResults([])
-      setActiveIndex(-1)
-      setError("Search unavailable right now. Paste a YouTube or Spotify link below instead.")
-    } finally {
-      if (currentRequest === requestId.current) {
-        setLoading(false)
-      }
-    }
-  }
-
   useEffect(() => {
     setPreviewHit(null)
   }, [query])
 
   useEffect(() => {
-    if (opening) return
+    setActiveIndex(results.length > 0 ? 0 : -1)
+  }, [results])
 
-    const trimmed = query.trim()
-    if (trimmed.length < MIN_QUERY_LEN) {
-      invalidateSearch()
-      setResults([])
-      setError(null)
-      setActiveIndex(-1)
-      return
-    }
-
-    const controller = new AbortController()
-    const timer = window.setTimeout(() => {
-      void runSearch(trimmed, controller.signal)
-    }, DEBOUNCE_MS)
-
-    return () => {
-      invalidateSearch()
-      window.clearTimeout(timer)
-      controller.abort()
-    }
-  }, [query, opening, invalidateSearch])
-
-  const submit = (e?: FormEvent) => {
+  const submit = async (e?: FormEvent) => {
     e?.preventDefault()
-    void runSearch(query)
+    if (await resolveMediaLink(query)) return
+    submitSearch()
   }
 
   const onResultClick = (e: MouseEvent<HTMLButtonElement>, hit: SongSearchHit) => {
@@ -295,9 +235,8 @@ export function SongSearch() {
         closePreview()
         return
       }
-      setResults([])
-      setActiveIndex(-1)
-      setError(null)
+      resetSearch()
+      setResolveError(null)
     }
   }
 
@@ -307,21 +246,24 @@ export function SongSearch() {
   }
 
   const busy = opening || resolving
+  const error = resolveError ?? searchError
   const statusMessage = opening
     ? "Opening player…"
     : resolving
       ? "Finding YouTube match…"
-      : loading
-      ? "Searching…"
-      : error
-        ? error
-        : results.length > 0
-          ? `${results.length} result${results.length === 1 ? "" : "s"}`
-          : ""
+      : isSearching
+        ? "Searching…"
+        : error
+          ? error
+          : results.length > 0
+            ? `${results.length} result${results.length === 1 ? "" : "s"}`
+            : status === "idle" && query.trim().length >= 2
+              ? ""
+              : ""
 
   return (
     <div className="flex w-full max-w-xl flex-col gap-2">
-      <form onSubmit={submit} noValidate className="flex flex-col gap-2">
+      <form onSubmit={(e) => void submit(e)} noValidate className="flex flex-col gap-2">
         <div className="flex gap-2">
           <Input
             type="search"
@@ -345,9 +287,9 @@ export function SongSearch() {
             }
             role="combobox"
           />
-          <Button type="submit" className="shrink-0" disabled={busy || loading}>
+          <Button type="submit" className="shrink-0" disabled={busy || isSearching}>
             <AnimatedIcon icon={Search} />
-            {opening ? "Opening…" : resolving ? "Finding…" : loading ? "Searching…" : "Search"}
+            {opening ? "Opening…" : resolving ? "Finding…" : isSearching ? "Searching…" : "Search"}
           </Button>
         </div>
       </form>

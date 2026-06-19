@@ -55,7 +55,10 @@ describe("SongSearch", () => {
     fireEvent.click(screen.getByRole("button", { name: /search/i }))
 
     await waitFor(() => {
-      expect(mockSearchSongs).toHaveBeenCalledWith("queen bohemian", { limit: 10 })
+      expect(mockSearchSongs).toHaveBeenCalledWith(
+        "queen bohemian",
+        expect.objectContaining({ limit: 10 }),
+      )
     })
 
     await waitFor(() => {

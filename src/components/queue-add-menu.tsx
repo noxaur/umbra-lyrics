@@ -1,15 +1,8 @@
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type FormEvent,
-  type KeyboardEvent,
-} from "react"
+import { useId, useState, type KeyboardEvent } from "react"
 import { Link2, ListPlus, Loader2, Plus, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useSongSearch } from "@/hooks/use-song-search"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -26,7 +19,6 @@ import { parseTrackTitle } from "@/lib/parse-track-title"
 import {
   formatSongDuration,
   formatViewCount,
-  searchSongs,
   type SongSearchHit,
 } from "@/lib/youtube-search"
 import { youtubeThumbnailUrl } from "@/lib/youtube-thumbnail"
@@ -42,8 +34,6 @@ import {
 import { usePlayerStore } from "@/stores/player-store"
 import { cn } from "@/lib/utils"
 
-const DEBOUNCE_MS = 500
-const MIN_QUERY_LEN = 2
 const ICON_BTN = "size-8 min-h-8 min-w-8 shrink-0"
 
 function formatResultLabel(hit: SongSearchHit): string {
@@ -69,13 +59,21 @@ export function QueueAddMenu({ className }: { className?: string }) {
 
   const [url, setUrl] = useState("")
   const [urlBusy, setUrlBusy] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [searchResults, setSearchResults] = useState<SongSearchHit[]>([])
-  const [searchLoading, setSearchLoading] = useState(false)
-  const [searchError, setSearchError] = useState<string | null>(null)
+  const {
+    query: searchQuery,
+    setQuery: setSearchQuery,
+    results: searchResults,
+    isSearching: searchLoading,
+    error: searchError,
+    clearResults: clearQueueSearch,
+  } = useSongSearch({
+    debounceMs: 500,
+    limit: 8,
+    emptyMessage: "No songs found",
+    errorMessage: "Search unavailable",
+  })
   const [autoApprove, setAutoApprove] = useState(() => readQueueSettings().autoApproveMetadata)
   const [addingCurrent, setAddingCurrent] = useState(false)
-  const searchRequestId = useRef(0)
   const listId = useId()
 
   const handleAutoApproveChange = (checked: boolean) => {
@@ -83,7 +81,7 @@ export function QueueAddMenu({ className }: { className?: string }) {
     setAutoApproveMetadata(checked)
   }
 
-  const handleUrlSubmit = async (e?: FormEvent) => {
+  const handleUrlSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     const value = url.trim()
     if (!value || urlBusy) return
@@ -95,54 +93,6 @@ export function QueueAddMenu({ className }: { className?: string }) {
       setUrlBusy(false)
     }
   }
-
-  const runSearch = useCallback(async (value: string, signal?: AbortSignal) => {
-    const trimmed = value.trim()
-    if (trimmed.length < MIN_QUERY_LEN) {
-      setSearchResults([])
-      setSearchError(null)
-      setSearchLoading(false)
-      return
-    }
-
-    const requestId = ++searchRequestId.current
-    setSearchLoading(true)
-    setSearchError(null)
-
-    try {
-      const hits = await searchSongs(trimmed, { limit: 8, signal })
-      if (requestId !== searchRequestId.current) return
-      setSearchResults(hits)
-      if (hits.length === 0) setSearchError("No songs found")
-    } catch (err) {
-      if (requestId !== searchRequestId.current) return
-      if (err instanceof DOMException && err.name === "AbortError") return
-      setSearchResults([])
-      setSearchError("Search unavailable")
-    } finally {
-      if (requestId === searchRequestId.current) setSearchLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    const trimmed = searchQuery.trim()
-    if (trimmed.length < MIN_QUERY_LEN) {
-      setSearchResults([])
-      setSearchError(null)
-      setSearchLoading(false)
-      return
-    }
-
-    const controller = new AbortController()
-    const timer = window.setTimeout(() => {
-      void runSearch(trimmed, controller.signal)
-    }, DEBOUNCE_MS)
-
-    return () => {
-      window.clearTimeout(timer)
-      controller.abort()
-    }
-  }, [searchQuery, runSearch])
 
   const handleSearchPick = async (hit: SongSearchHit) => {
     await submitQueueFromSearch(hit)
@@ -161,8 +111,7 @@ export function QueueAddMenu({ className }: { className?: string }) {
   const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
       e.preventDefault()
-      setSearchQuery("")
-      setSearchResults([])
+      clearQueueSearch()
     }
   }
 
@@ -270,7 +219,7 @@ export function QueueAddMenu({ className }: { className?: string }) {
                     </li>
                   ))}
                 </ul>
-              ) : searchQuery.trim().length >= MIN_QUERY_LEN ? null : (
+              ) : searchQuery.trim().length >= 2 ? null : (
                 <p className="px-1 py-2 text-xs text-muted-foreground">Type at least 2 characters</p>
               )}
             </div>

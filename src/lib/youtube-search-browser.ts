@@ -1,5 +1,8 @@
+import { isAbortError, signalWithTimeout } from "@/lib/abort-signal"
 import { searchSongsMusicFirst } from "../../worker/lib/youtube-music-search-shared"
 import type { SongSearchHit } from "./youtube-search"
+
+const BROWSER_SEARCH_TIMEOUT_MS = 20_000
 
 const memCache: Record<string, ArrayBuffer> = {}
 
@@ -28,27 +31,38 @@ export async function searchSongsInBrowser(
   const limit = options?.limit ?? 10
   throwIfAborted(options?.signal)
 
-  const { Innertube, ClientType } = await loadInnertube()
-  const yt = await Innertube.create({
-    generate_session_locally: true,
-    client_type: ClientType.MUSIC,
-    cache: {
-      cache_dir: "yt-cache",
-      get: async (key: string) => memCache[key],
-      set: async (key: string, value: ArrayBuffer) => {
-        memCache[key] = value
+  const { signal, cleanup } = signalWithTimeout(BROWSER_SEARCH_TIMEOUT_MS, options?.signal)
+  try {
+    const { Innertube, ClientType } = await loadInnertube()
+    throwIfAborted(signal)
+
+    const yt = await Innertube.create({
+      generate_session_locally: true,
+      client_type: ClientType.MUSIC,
+      cache: {
+        cache_dir: "yt-cache",
+        get: async (key: string) => memCache[key],
+        set: async (key: string, value: ArrayBuffer) => {
+          memCache[key] = value
+        },
+        remove: async (key: string) => {
+          delete memCache[key]
+        },
       },
-      remove: async (key: string) => {
-        delete memCache[key]
-      },
-    },
-  })
+    })
 
-  throwIfAborted(options?.signal)
+    throwIfAborted(signal)
 
-  const results = await searchSongsMusicFirst(yt, trimmed, limit)
+    const results = await searchSongsMusicFirst(yt, trimmed, limit)
+    throwIfAborted(signal)
 
-  throwIfAborted(options?.signal)
-
-  return results
+    return results
+  } catch (err) {
+    if (isAbortError(err) || signal.aborted) {
+      throw new DOMException("Aborted", "AbortError")
+    }
+    throw err
+  } finally {
+    cleanup()
+  }
 }
