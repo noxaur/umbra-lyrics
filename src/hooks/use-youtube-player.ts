@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { useYTEmbed } from "@bogdanrn/yt-embed/react"
 import { youtubeErrorMessage } from "@/lib/youtube-errors"
 
@@ -31,22 +31,16 @@ export function useYouTubePlayer(videoId: string, options: UseYouTubePlayerOptio
       pollingIntervalMs: PLAYBACK_TIME_POLL_INTERVAL_MS,
     })
 
-  const [autoplayBlocked, setAutoplayBlocked] = useState(false)
-
   useEffect(() => {
     if (!player) return
 
-    const onAutoplayBlocked = () => setAutoplayBlocked(true)
     const onState = (event: Event) => {
       const state = (event as CustomEvent<{ state: number }>).detail.state
-      if (state === 1) setAutoplayBlocked(false)
       if (state === 0) onEndedRef.current?.()
     }
 
-    player.addEventListener("autoplayblocked", onAutoplayBlocked)
     player.addEventListener("statechange", onState)
     return () => {
-      player.removeEventListener("autoplayblocked", onAutoplayBlocked)
       player.removeEventListener("statechange", onState)
     }
   }, [player])
@@ -60,10 +54,7 @@ export function useYouTubePlayer(videoId: string, options: UseYouTubePlayerOptio
 
   const play = useCallback(() => {
     if (!player) return
-    setAutoplayBlocked(false)
-    void player.playVideo({ awaitState: true }).catch(() => {
-      setAutoplayBlocked(true)
-    })
+    void player.playVideo({ awaitState: true }).catch(() => {})
   }, [player])
 
   const pause = useCallback(() => {
@@ -94,15 +85,6 @@ export function useYouTubePlayer(videoId: string, options: UseYouTubePlayerOptio
       }
     : null
 
-  const playbackHint =
-    resolvedError || isPlaying
-      ? null
-      : autoplayBlocked
-        ? "Click Play to start"
-        : ready && duration > 0 && !isPlaying
-          ? "Click Play to start"
-          : null
-
   return {
     containerRef,
     ready,
@@ -110,7 +92,6 @@ export function useYouTubePlayer(videoId: string, options: UseYouTubePlayerOptio
     duration,
     isPlaying,
     error: resolvedError,
-    playbackHint,
     play,
     pause,
     seekTo,

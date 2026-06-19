@@ -225,14 +225,14 @@ export function MkvExportButton({ durationSec }: MkvExportButtonProps) {
       <Button
         variant="outline"
         size="sm"
-        className="h-9 gap-1.5 px-2 text-xs"
+        className="h-8 min-h-8 gap-1 px-1.5 text-[0.6875rem]"
         onClick={() => setOpen(true)}
         aria-label="Download MKV with synced lyrics (beta)"
         title="Download MKV with synced lyrics (beta)"
       >
         <Download className="size-3.5" aria-hidden />
         <span className="hidden sm:inline">MKV</span>
-        <span className="rounded bg-violet-500/15 px-1 py-0.5 text-[0.6rem] font-semibold uppercase text-violet-700 dark:text-violet-300">
+        <span className="rounded bg-violet-500/15 px-1 py-px text-[0.55rem] font-semibold uppercase leading-none text-violet-700 dark:text-violet-300">
           Beta
         </span>
       </Button>

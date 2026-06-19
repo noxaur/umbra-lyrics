@@ -1,4 +1,4 @@
-import { AlertTriangle, Flag, RefreshCw } from "lucide-react"
+import { AlertTriangle, Flag, Languages, RefreshCw } from "lucide-react"
 import { useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -48,6 +48,19 @@ const badgeStyles: Record<SyncBadge, string> = {
   Approximate: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   Plain: "bg-muted text-muted-foreground",
 }
+
+const badgeTitles: Record<SyncBadge, string> = {
+  Synced: "Lyrics are time-synced to the audio",
+  "Auto-timed": "Auto-timed from plain lyrics — syllable-weighted estimate",
+  Transcribed: "Transcribed from audio via speech recognition",
+  Approximate: "Approximate timing — adjust with ±0.5s below",
+  Plain: "Plain or loading lyrics",
+}
+
+const META_BADGE_CLASS =
+  "shrink-0 cursor-default rounded-full px-1.5 py-px text-[0.6875rem] font-medium leading-tight"
+
+const TOOLBAR_ICON_CLASS = "size-8 shrink-0 text-muted-foreground hover:text-foreground"
 
 function getTimingNoticeText(
   autoTimed: boolean,
@@ -173,25 +186,74 @@ export function NowPlayingHeader({
   if (!displayTrack && !artist && status === "idle" && !videoId) return null
 
   return (
-    <div className="shrink-0 border-b border-border px-4 py-2.5">
-      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
+    <div className="shrink-0 border-b border-border px-3 py-2 sm:px-4">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <div className="min-w-0 flex-1 leading-tight">
           <h1
-            className="line-clamp-2 text-base font-semibold leading-tight"
+            className="truncate text-sm font-semibold sm:text-[0.9375rem]"
             title={displayTrack || undefined}
           >
             {displayTrack || "Loading track…"}
           </h1>
-          {artist ? (
-            <p className="mt-0.5 truncate text-sm text-muted-foreground" title={artist}>
-              {artist}
-            </p>
-          ) : status === "loading" ? (
-            <p className="mt-0.5 text-sm text-muted-foreground">Identifying artist…</p>
-          ) : null}
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+            {artist ? (
+              <p className="min-w-0 truncate text-xs text-muted-foreground" title={artist}>
+                {artist}
+              </p>
+            ) : status === "loading" ? (
+              <p className="text-xs text-muted-foreground">Identifying artist…</p>
+            ) : null}
+            {(artist || status === "loading") && (badge || sourceLabel || englishSource === "translated" || (englishLines.length > 0 && englishLines.length !== lyrics.length)) ? (
+              <span className="shrink-0 text-muted-foreground/35" aria-hidden>
+                ·
+              </span>
+            ) : null}
+            <div className="flex min-w-0 flex-wrap items-center gap-1">
+              {badge ? (
+                <span
+                  className={`${META_BADGE_CLASS} ${badgeStyles[badge]}`}
+                  role="status"
+                  title={badgeTitles[badge]}
+                >
+                  {badge}
+                </span>
+              ) : null}
+              {sourceLabel ? (
+                <span
+                  className={`${META_BADGE_CLASS} border border-border bg-muted/40 text-muted-foreground`}
+                  role="status"
+                  title={`Lyrics from ${sourceLabel}`}
+                >
+                  {sourceLabel}
+                </span>
+              ) : null}
+              {englishSource === "translated" ? (
+                <span
+                  className={`${META_BADGE_CLASS} bg-sky-500/15 text-sky-700 dark:text-sky-300`}
+                  role="status"
+                  title={
+                    translationBackend
+                      ? `Translated via ${TRANSLATION_BACKEND_LABELS[translationBackend] ?? translationBackend}`
+                      : "Machine-translated English"
+                  }
+                >
+                  Translated
+                </span>
+              ) : null}
+              {englishLines.length > 0 && englishLines.length !== lyrics.length ? (
+                <span
+                  className={`${META_BADGE_CLASS} bg-amber-500/15 text-amber-700 dark:text-amber-300`}
+                  role="status"
+                  title="English and native lyric line counts differ"
+                >
+                  Line mismatch
+                </span>
+              ) : null}
+            </div>
+          </div>
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:justify-end">
+        <div className="flex shrink-0 items-center gap-0.5">
           {videoId ? (
             <AddToPlaylistMenu
               track={{
@@ -202,94 +264,61 @@ export function NowPlayingHeader({
                 englishArtist: recentEnglish?.englishArtist,
                 englishTrack: recentEnglish?.englishTrack,
               }}
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1 text-xs"
+              variant="ghost"
+              size="icon"
+              className={TOOLBAR_ICON_CLASS}
             />
           ) : null}
           {onRefreshLyrics && videoId ? (
             <Button
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1 text-xs"
+              variant="ghost"
+              size="icon"
+              className={TOOLBAR_ICON_CLASS}
               onClick={onRefreshLyrics}
               disabled={lyricsRefreshing}
-              aria-label="Re-search lyrics"
+              aria-label={lyricsRefreshing ? "Searching for lyrics" : "Re-search lyrics"}
               title="Re-parse title, search providers, and verify against audio"
             >
-              <RefreshCw className={cn("size-3", lyricsRefreshing && "motion-safe:animate-spin")} aria-hidden />
-              {lyricsRefreshing ? "Searching…" : "Re-search"}
+              <RefreshCw
+                className={cn("size-4", lyricsRefreshing && "motion-safe:animate-spin")}
+                aria-hidden
+              />
             </Button>
           ) : null}
           {rejectionUrl ? (
-            <Button asChild variant="outline" size="sm" className="h-7 gap-1 text-xs">
+            <Button asChild variant="ghost" size="icon" className={TOOLBAR_ICON_CLASS}>
               <a
                 href={rejectionUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="Reject lyrics"
                 title="Report incorrect lyrics on GitHub"
               >
-                <Flag className="size-3" aria-hidden />
-                Reject lyrics
+                <Flag className="size-4" aria-hidden />
               </a>
             </Button>
           ) : null}
           {showTranslate && onTranslate ? (
             <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
+              variant="ghost"
+              size="icon"
+              className={TOOLBAR_ICON_CLASS}
               onClick={onTranslate}
               disabled={translating}
+              aria-label={translating ? "Translating lyrics" : "Translate lyrics"}
+              title={translating ? "Translating…" : "Translate lyrics to English"}
             >
-              {translating ? "Translating…" : "Translate"}
+              <Languages className="size-4" aria-hidden />
             </Button>
           ) : null}
-          {badge ? (
-            <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${badgeStyles[badge]}`}
-              role="status"
-            >
-              {badge}
-            </span>
+          {onSelectAlternate ? (
+            <LyricsSourcePicker onSelectAlternate={onSelectAlternate} compact />
           ) : null}
-          {sourceLabel ? (
-            <span
-              className="shrink-0 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground"
-              role="status"
-              title="Lyrics source"
-            >
-              {sourceLabel}
-            </span>
-          ) : null}
-          {englishSource === "translated" ? (
-            <span
-              className="shrink-0 rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-300"
-              role="status"
-              title={
-                translationBackend
-                  ? `Translated via ${TRANSLATION_BACKEND_LABELS[translationBackend] ?? translationBackend}`
-                  : "Machine-translated English"
-              }
-            >
-              Translated
-            </span>
-          ) : null}
-          {englishLines.length > 0 && englishLines.length !== lyrics.length ? (
-            <span
-              className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
-              role="status"
-              title="English and native lyric line counts differ"
-            >
-              Line mismatch
-            </span>
-          ) : null}
-          {onSelectAlternate ? <LyricsSourcePicker onSelectAlternate={onSelectAlternate} /> : null}
         </div>
       </div>
       {timingNotice ? (
         <div
-          className="mt-1.5 flex min-w-0 items-start gap-1.5 text-xs text-foreground/90 sm:text-sm"
+          className="mt-1 flex min-w-0 items-start gap-1.5 text-[0.6875rem] text-foreground/90 sm:text-xs"
           role="status"
         >
           <AlertTriangle

@@ -30,9 +30,14 @@ export function PlayerViewMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="h-9 gap-1.5 px-2.5 text-xs">
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8 min-h-8 min-w-8 shrink-0"
+          aria-label="View"
+          title="View options"
+        >
           <MoreHorizontal className="size-3.5" aria-hidden />
-          <span>View</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">

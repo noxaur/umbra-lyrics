@@ -171,6 +171,8 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
   const showEnglish =
     (displayMode === "english" || displayMode === "both" || displayMode === "all") &&
     englishText
+  const romajiIsPrimary = displayMode === "romaji"
+  const englishIsPrimary = displayMode === "english"
   const visual =
     viewportDistancePx != null && lineHeightPx != null
       ? getLyricLineVisualFromViewport(
@@ -193,16 +195,18 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
     )
   }
 
-  const renderNativeText = () => {
-    if (!active) return text
+  const renderPrimaryText = (lineText: string, lineWords?: LyricWord[]) => {
+    if (!active) return lineText
     if (!synced) {
-      return <span className="text-karaoke-active-line">{text}</span>
+      return <span className="text-karaoke-active-line">{lineText}</span>
     }
-    if (words && words.length > 0 && wordIndex >= 0) {
-      return <PerWordText words={words} wordIndex={wordIndex} progress={progress} />
+    if (lineWords && lineWords.length > 0 && wordIndex >= 0) {
+      return <PerWordText words={lineWords} wordIndex={wordIndex} progress={progress} />
     }
-    return <WordProgressText text={text} progress={progress} activeLine />
+    return <WordProgressText text={lineText} progress={progress} activeLine />
   }
+
+  const renderNativeText = () => renderPrimaryText(text, words)
 
   return (
     <button
@@ -254,30 +258,38 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
           <span
             className={cn(
               LINE_TEXT,
-              tvMode ? "mt-1 text-[clamp(1rem,2vw,2rem)] text-karaoke-ink/80" : "mt-1 text-sm text-karaoke-ink/80",
-              active && synced && "text-karaoke-highlight/80",
+              romajiIsPrimary
+                ? cn("font-semibold", lineSize)
+                : tvMode
+                  ? "mt-1 text-[clamp(1rem,2vw,2rem)] text-karaoke-ink/80"
+                  : "mt-1 text-sm text-karaoke-ink/80",
+              !romajiIsPrimary && active && synced && "text-karaoke-highlight/80",
             )}
           >
-            {active && synced ? (
-              <WordProgressText text={romajiText} progress={progress} />
-            ) : (
-              romajiText
-            )}
+            {romajiIsPrimary
+              ? renderPrimaryText(romajiText)
+              : active && synced
+                ? <WordProgressText text={romajiText} progress={progress} />
+                : romajiText}
           </span>
         )}
         {showEnglish && (
           <span
             className={cn(
               LINE_TEXT,
-              tvMode ? "mt-1 text-[clamp(1rem,2vw,2rem)] text-muted-foreground" : "mt-1 text-sm text-muted-foreground",
-              active && synced && "text-karaoke-highlight/80",
+              englishIsPrimary
+                ? cn("font-semibold", lineSize)
+                : tvMode
+                  ? "mt-1 text-[clamp(1rem,2vw,2rem)] text-muted-foreground"
+                  : "mt-1 text-sm text-muted-foreground",
+              !englishIsPrimary && active && synced && "text-karaoke-highlight/80",
             )}
           >
-            {active && synced ? (
-              <WordProgressText text={englishText} progress={progress} />
-            ) : (
-              englishText
-            )}
+            {englishIsPrimary
+              ? renderPrimaryText(englishText)
+              : active && synced
+                ? <WordProgressText text={englishText} progress={progress} />
+                : englishText}
           </span>
         )}
       </span>

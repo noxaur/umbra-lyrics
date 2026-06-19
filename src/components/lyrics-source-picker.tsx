@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Layers2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,9 +13,10 @@ import { usePlayerStore } from "@/stores/player-store"
 
 type LyricsSourcePickerProps = {
   onSelectAlternate: (alternate: LyricsAlternate) => void
+  compact?: boolean
 }
 
-export function LyricsSourcePicker({ onSelectAlternate }: LyricsSourcePickerProps) {
+export function LyricsSourcePicker({ onSelectAlternate, compact = false }: LyricsSourcePickerProps) {
   const lyricsSource = usePlayerStore((s) => s.lyricsSource)
   const lyricsAlternates = usePlayerStore((s) => s.lyricsAlternates)
 
@@ -26,14 +27,28 @@ export function LyricsSourcePicker({ onSelectAlternate }: LyricsSourcePickerProp
   const sourceLabel =
     LYRICS_PROVIDER_LABELS[lyricsSource as keyof typeof LYRICS_PROVIDER_LABELS] ?? lyricsSource
   const altCount = lyricsAlternates.length
+  const pickerTitle = `Using ${sourceLabel} — ${altCount} alternative${altCount === 1 ? "" : "s"} available`
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs">
-          Used {sourceLabel} ({altCount} alternative{altCount === 1 ? "" : "s"})
-          <ChevronDown className="size-3 opacity-60" aria-hidden />
-        </Button>
+        {compact ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+            aria-label={pickerTitle}
+            title={pickerTitle}
+          >
+            <Layers2 className="size-4" aria-hidden />
+          </Button>
+        ) : (
+          <Button type="button" variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs">
+            Used {sourceLabel} ({altCount} alternative{altCount === 1 ? "" : "s"})
+            <ChevronDown className="size-3 opacity-60" aria-hidden />
+          </Button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[14rem]">
         <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
