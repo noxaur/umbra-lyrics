@@ -7,10 +7,12 @@ import type { SeedMetadata } from "@/lib/player-navigation"
 import {
   clearQueuePendingMetadata,
   getQueuePendingMetadata,
+  listQueuePendingMetadata,
   upsertQueuePendingMetadata,
 } from "@/lib/queue-pending-metadata"
 import {
   dismissQueueNotificationsForVideo,
+  listQueueNotifications,
   pushQueueNotification,
 } from "@/lib/queue-notifications"
 import {
@@ -192,6 +194,7 @@ function commitToQueue(
     title: meta.title,
     artist: meta.artist,
     track: meta.track,
+    durationSec: meta.durationSec > 0 ? meta.durationSec : undefined,
     seedMetadata,
     status: getLyricsCache(videoId) ? "ready" : "prefetching",
   })
@@ -407,7 +410,20 @@ export function resumeQueuePrefetch(): void {
       title: track.title,
       artist: track.artist,
       track: track.track,
-      durationSec: track.seedMetadata?.durationSec ?? 0,
+      durationSec: track.durationSec ?? track.seedMetadata?.durationSec ?? 0,
+    })
+  }
+}
+
+export function restoreQueuePendingMetadataNotifications(): void {
+  const active = listQueueNotifications()
+  for (const item of listQueuePendingMetadata()) {
+    if (active.some((n) => n.kind === "metadata" && n.videoId === item.videoId)) continue
+    pushQueueNotification({
+      kind: "metadata",
+      title: "Confirm song details",
+      message: labelFor(item),
+      videoId: item.videoId,
     })
   }
 }

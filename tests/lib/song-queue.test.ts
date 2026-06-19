@@ -62,4 +62,9 @@ describe("song-queue", () => {
     clearSongQueue()
     expect(readSongQueue()).toEqual([])
   })
+
+  it("persists optional durationSec on tracks", () => {
+    addTrackToQueue({ ...sampleTrack, durationSec: 245 })
+    expect(readSongQueue()[0]?.durationSec).toBe(245)
+  })
 })
