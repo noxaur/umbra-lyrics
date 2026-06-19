@@ -153,5 +153,10 @@ export async function searchSongsMusicFirst(
   const musicHits = musicResult.status === "fulfilled" ? musicResult.value : []
   const webHits = webResult.status === "fulfilled" ? webResult.value : []
 
-  return mergeMusicBiasedSearchResults(musicHits, webHits, limit)
+  const merged = mergeMusicBiasedSearchResults(musicHits, webHits, limit)
+  if (merged.length > 0) return merged
+
+  if (webResult.status === "rejected") throw webResult.reason
+  if (musicResult.status === "rejected") throw musicResult.reason
+  return merged
 }

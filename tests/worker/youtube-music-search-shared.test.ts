@@ -244,6 +244,36 @@ describe("youtube-music-search-shared", () => {
     expect(yt.search).toHaveBeenCalledWith("artist track karaoke", { type: "video" })
   })
 
+  it("returns music hits when web search fails but music succeeds", async () => {
+    const yt = {
+      music: {
+        search: vi.fn().mockImplementation((_query: string, filters: { type: string }) => {
+          if (filters.type === "song") {
+            return Promise.resolve({
+              songs: {
+                contents: [
+                  {
+                    id: "music123456",
+                    title: "Artist - Track",
+                    artists: [{ name: "Artist" }],
+                    item_type: "song",
+                    duration: { seconds: 240 },
+                  },
+                ],
+              },
+            })
+          }
+          return Promise.resolve({ videos: { contents: [] } })
+        }),
+      },
+      search: vi.fn().mockRejectedValue(new Error("web unavailable")),
+    }
+
+    const results = await searchSongsMusicFirst(yt, "artist track", 5)
+
+    expect(results.map((hit) => hit.videoId)).toEqual(["music123456"])
+  })
+
   it("falls back to regular YouTube search when music search throws", async () => {
     const yt = {
       music: {
@@ -266,5 +296,17 @@ describe("youtube-music-search-shared", () => {
     expect(results).toHaveLength(1)
     expect(results[0]?.videoId).toBe("fallback123")
     expect(yt.search).toHaveBeenCalled()
+  })
+
+  it("rethrows when both music and web search fail with no hits", async () => {
+    const webError = new Error("web unavailable")
+    const yt = {
+      music: {
+        search: vi.fn().mockRejectedValue(new Error("music unavailable")),
+      },
+      search: vi.fn().mockRejectedValue(webError),
+    }
+
+    await expect(searchSongsMusicFirst(yt, "query", 5)).rejects.toThrow("web unavailable")
   })
 })
