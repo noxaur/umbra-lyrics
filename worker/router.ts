@@ -23,6 +23,7 @@ import {
   handleLibreTranslate,
   handleMyMemory,
 } from "./handlers/translate"
+import { handleRomaji, type RomajiBody } from "./handlers/romaji"
 import { handleTranscribe } from "./handlers/transcribe"
 import { handleSpotifySearch, handleSpotifyTrack } from "./handlers/spotify"
 import {
@@ -62,6 +63,8 @@ type ApiEnv = {
   SPOTIFY_CLIENT_ID?: string
   SPOTIFY_CLIENT_SECRET?: string
   MUSIXMATCH_API_KEY?: string
+  ROMAJI_SERVICE_URL?: string
+  ROMAJI_SERVICE_API_KEY?: string
 }
 
 /** Shared API routing for Cloudflare Worker and Vite dev proxy. */
@@ -243,6 +246,15 @@ export async function handleApiRequest(
     const sl = url.searchParams.get("sl") ?? "auto"
     const tl = url.searchParams.get("tl") ?? "en"
     return handleGoogleTranslate(q, sl, tl)
+  }
+
+  if (pathname === "/api/romaji" && request.method === "POST") {
+    try {
+      const body = (await request.json()) as RomajiBody
+      return handleRomaji(body, env)
+    } catch {
+      return jsonResponse({ error: "Invalid JSON body" }, 400)
+    }
   }
 
   return null

@@ -4,7 +4,7 @@ import type { LyricLine, LyricsAlternate, LyricsProviderId, LyricsResult } from 
 import type { TranslationBackend } from "@/lib/translation-service"
 import type { EnglishSource, RomajiLyricsStatus } from "@/stores/player-store"
 import { lyricsLanguageMatchesMetadata } from "@/lib/language-service"
-import { buildRomajiLines } from "@/lib/romaji-service"
+import { buildRomajiLinesLocal } from "@/lib/romaji-service"
 import { lyricsTextLooksLikeJunk } from "@/lib/sanitize-lyrics"
 
 const STORAGE_PREFIX = "song-kara-lyrics:"
@@ -131,7 +131,7 @@ export function getLyricsCache(videoId: string): LyricsCacheEntry | null {
     }
     let cacheDirty = false
     if (needsRomajiRebuild(parsed)) {
-      const romaji = buildRomajiLines(
+      const romaji = buildRomajiLinesLocal(
         parsed.lines.map((line) => line.text),
         { language: parsed.languageCode },
       )

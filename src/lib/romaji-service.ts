@@ -7,6 +7,8 @@ export type RomajiLyricsResult = {
   status: RomajiLyricsStatus
 }
 
+export type RomajiSystem = "hepburn" | "kunrei" | "nippon" | "nihon"
+
 const DIGRAPHS: Record<string, string> = {
   きゃ: "kya",
   きゅ: "kyu",
@@ -273,7 +275,7 @@ export function romanizeJapaneseLine(line: string): string {
     .trim()
 }
 
-export function buildRomajiLines(
+export function buildRomajiLinesLocal(
   nativeLines: string[],
   options: { language?: string },
 ): RomajiLyricsResult {
@@ -285,4 +287,39 @@ export function buildRomajiLines(
     lines: nativeLines.map((line) => romanizeJapaneseLine(line)),
     status: "ready",
   }
+}
+
+async function fetchRomajiLines(
+  nativeLines: string[],
+  system: RomajiSystem = "hepburn",
+): Promise<string[] | null> {
+  try {
+    const res = await fetch("/api/romaji", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lines: nativeLines, system }),
+      signal: AbortSignal.timeout(30_000),
+    })
+    if (!res.ok) return null
+    const payload = (await res.json()) as { lines?: string[] }
+    if (!Array.isArray(payload.lines) || payload.lines.length !== nativeLines.length) {
+      return null
+    }
+    return payload.lines
+  } catch {
+    return null
+  }
+}
+
+export async function buildRomajiLines(
+  nativeLines: string[],
+  options: { language?: string; system?: RomajiSystem } = {},
+): Promise<RomajiLyricsResult> {
+  const local = buildRomajiLinesLocal(nativeLines, options)
+  if (local.status === "skipped") return local
+
+  const remote = await fetchRomajiLines(nativeLines, options.system ?? "hepburn")
+  if (remote) return { lines: remote, status: "ready" }
+
+  return local
 }

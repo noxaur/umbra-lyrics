@@ -8,6 +8,8 @@ type Env = {
   }
   LIBRETRANSLATE_URL?: string
   LIBRETRANSLATE_API_KEY?: string
+  ROMAJI_SERVICE_URL?: string
+  ROMAJI_SERVICE_API_KEY?: string
 }
 
 export default {
