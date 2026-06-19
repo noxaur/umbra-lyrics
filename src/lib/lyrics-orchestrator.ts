@@ -75,6 +75,8 @@ export type OrchestratorParams = {
   providerIds?: LyricsProviderId[]
   resolvedMetadata?: ResolvedTrackMetadata
   skipCache?: boolean
+  /** Skip sample/full browser transcription (e.g. background playlist indexing). */
+  skipTranscription?: boolean
   onProgress?: (update: OrchestratorProgress) => void
 }
 
@@ -172,7 +174,7 @@ export async function orchestrateLyricsSearch(
   const providerParams = toProviderParams(params)
 
   const samplePromise =
-    params.videoId
+    !params.skipTranscription && params.videoId
       ? sampleTranscribeForVerification({
           videoId: params.videoId,
           artist: params.artist,
@@ -251,12 +253,13 @@ export async function orchestrateLyricsSearch(
 
   const promoteVideoId = params.videoId
   const shouldPromote = Boolean(
-    promoteVideoId &&
+    !params.skipTranscription &&
+      promoteVideoId &&
       shouldPromoteTranscription(bestVerification, transcriptProfile, contentAssessment),
   )
 
   if (shouldPromote && promoteVideoId) {
-    report("Transcribing from audio…", "match")
+    report("Preparing browser transcription…", "match", { provider: "transcription" })
     attempts.push({
       strategy: "transcription:promote",
       provider: "transcription",
@@ -270,6 +273,7 @@ export async function orchestrateLyricsSearch(
       track: params.track,
       language: params.preferredLanguage,
       durationSec: Math.round(params.durationSec) || undefined,
+      onProgress: ({ message }) => report(message, "match", { provider: "transcription" }),
     })
 
     if (transcription?.candidate.plainLyrics?.trim()) {
@@ -278,15 +282,15 @@ export async function orchestrateLyricsSearch(
         strategy: "transcription:primary",
         provider: "transcription",
         result: "found",
-        message: transcription.partial ? "Partial transcript" : "Full transcript",
+        message: transcription.partial ? "Partial browser transcript" : "Browser transcript",
       })
 
       const lyrics = candidateToResult(transcription.candidate)
 
       report(
         transcription.partial
-          ? "Transcribed partial audio — timing may drift on long tracks"
-          : "Transcribed from audio",
+          ? "Browser transcription partial — timing may drift"
+          : "Transcribed in browser",
         "ready",
         { provider: "transcription" },
       )
@@ -304,8 +308,8 @@ export async function orchestrateLyricsSearch(
           contentAssessment,
           transcriptProfile: transcriptProfile ?? undefined,
           message: transcription.partial
-            ? "Transcribed partial audio — timing may drift on long tracks"
-            : "Transcribed from audio",
+            ? "Browser transcription partial — timing may drift"
+            : "Transcribed in browser",
         },
       )
     }
@@ -314,7 +318,7 @@ export async function orchestrateLyricsSearch(
       strategy: "transcription:promote",
       provider: "transcription",
       result: "error",
-      message: "Full transcription failed after weak provider match",
+      message: "Browser transcription unavailable",
     })
   }
 
@@ -371,6 +375,68 @@ export async function orchestrateLyricsSearch(
     (r) => !r.candidate.plainLyrics?.trim() && !r.candidate.syncedLyrics?.trim(),
   )?.candidate
 
+  const metadataHit = await tryMetadataLyricsFallback(params, attempts, providersTried, (phase) =>
+    report(phase, "search"),
+  )
+  if (metadataHit?.lyrics) {
+    report(metadataHit.synced ? "Found synced lyrics" : "Found plain lyrics", "ready", {
+      provider: metadataHit.providerId,
+    })
+    return { ...metadataHit, contentAssessment, transcriptProfile: transcriptProfile ?? undefined }
+  }
+
+  if (!params.skipTranscription && params.videoId) {
+    report("Preparing browser transcription…", "match", { provider: "transcription" })
+    const transcription = await fullTranscribeAsProvider({
+      videoId: params.videoId,
+      artist: params.artist,
+      track: params.track,
+      language: params.preferredLanguage,
+      durationSec: Math.round(params.durationSec) || undefined,
+      onProgress: ({ message }) => report(message, "match", { provider: "transcription" }),
+    })
+    if (transcription?.candidate.plainLyrics?.trim()) {
+      if (!providersTried.includes("transcription")) providersTried.push("transcription")
+      attempts.push({
+        strategy: "transcription:browser",
+        provider: "transcription",
+        result: "found",
+        message: transcription.partial ? "Partial browser transcript" : "Browser transcript",
+      })
+      const lyrics = candidateToResult(transcription.candidate)
+      report(
+        transcription.partial
+          ? "Browser transcription partial — timing may drift"
+          : "Transcribed in browser",
+        "ready",
+        { provider: "transcription" },
+      )
+      return successResult(
+        "transcription_browser",
+        attempts,
+        providersTried,
+        lyrics,
+        false,
+        [],
+        {
+          matchId: lyrics.id,
+          verificationScore: 1,
+          contentAssessment,
+          transcriptProfile: transcriptProfile ?? undefined,
+          message: transcription.partial
+            ? "Browser transcription partial — timing may drift"
+            : "Transcribed in browser",
+        },
+      )
+    }
+    attempts.push({
+      strategy: "transcription:browser",
+      provider: "transcription",
+      result: "error",
+      message: "Browser transcription unavailable",
+    })
+  }
+
   if (emptyMatch) {
     report("Song found but no lyrics in database", "ready")
     return {
@@ -386,16 +452,6 @@ export async function orchestrateLyricsSearch(
       contentAssessment,
       transcriptProfile: transcriptProfile ?? undefined,
     }
-  }
-
-  const metadataHit = await tryMetadataLyricsFallback(params, attempts, providersTried, (phase) =>
-    report(phase, "search"),
-  )
-  if (metadataHit?.lyrics) {
-    report(metadataHit.synced ? "Found synced lyrics" : "Found plain lyrics", "ready", {
-      provider: metadataHit.providerId,
-    })
-    return { ...metadataHit, contentAssessment, transcriptProfile: transcriptProfile ?? undefined }
   }
 
   const anyFound = statuses.some((s) => s.outcome === "found")

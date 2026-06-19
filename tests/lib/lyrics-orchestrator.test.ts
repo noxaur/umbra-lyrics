@@ -55,6 +55,138 @@ describe("orchestrateLyricsSearch", () => {
     expect(PROVIDER_FALLBACK_ORDER).not.toContain("transcription")
   })
 
+  it("does not full-transcribe when provider lyrics exist", async () => {
+    const transcriptionService = await import("@/lib/transcription-service")
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/api/lyrics/lrclib")) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: 42,
+                trackName: "Song",
+                artistName: "Artist",
+                duration: 200,
+                plainLyrics: "line one\nline two\nline three\nline four",
+              },
+            ]),
+            { status: 200 },
+          )
+        }
+        if (url.includes("/get/42")) {
+          return new Response(
+            JSON.stringify({
+              id: 42,
+              plainLyrics: "line one\nline two\nline three\nline four",
+              syncedLyrics: null,
+            }),
+            { status: 200 },
+          )
+        }
+        return new Response("[]", { status: 200 })
+      }),
+    )
+
+    const result = await orchestrateLyricsSearch({
+      track: "Song",
+      artist: "Artist",
+      title: "Artist - Song",
+      durationSec: 200,
+      videoId: "dQw4w9WgXcQ",
+      providerIds: ["lrclib"],
+    })
+
+    expect(result.status).toBe("found")
+    expect(transcriptionService.sampleTranscribeForVerification).toHaveBeenCalledOnce()
+    expect(transcriptionService.fullTranscribeAsProvider).not.toHaveBeenCalled()
+  })
+
+  it("transcribes only after providers and metadata fallbacks fail", async () => {
+    const transcriptionService = await import("@/lib/transcription-service")
+    vi.mocked(transcriptionService.fullTranscribeAsProvider).mockResolvedValueOnce({
+      candidate: {
+        providerId: "transcription",
+        externalId: "transcription:dQw4w9WgXcQ",
+        trackName: "Missing Song",
+        artistName: "Artist",
+        plainLyrics: "browser transcript",
+        syncedLyrics: null,
+        synced: false,
+        confidence: 1,
+      },
+      partial: false,
+      language: "en",
+    })
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("[]", { status: 200 })))
+
+    const result = await orchestrateLyricsSearch({
+      track: "Missing Song",
+      artist: "Artist",
+      title: "Artist - Missing Song",
+      durationSec: 200,
+      videoId: "dQw4w9WgXcQ",
+      providerIds: ["lrclib"],
+    })
+
+    expect(result.providerId).toBe("transcription")
+    expect(transcriptionService.sampleTranscribeForVerification).toHaveBeenCalledOnce()
+    expect(transcriptionService.fullTranscribeAsProvider).toHaveBeenCalledOnce()
+  })
+
+  it("transcribes when provider finds song metadata without lyric text", async () => {
+    const transcriptionService = await import("@/lib/transcription-service")
+    vi.mocked(transcriptionService.fullTranscribeAsProvider).mockResolvedValueOnce({
+      candidate: {
+        providerId: "transcription",
+        externalId: "transcription:dQw4w9WgXcQ",
+        trackName: "Instrumental?",
+        artistName: "Artist",
+        plainLyrics: "voice was detected",
+        syncedLyrics: null,
+        synced: false,
+        confidence: 1,
+      },
+      partial: false,
+    })
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/api/lyrics/lrclib")) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: 7,
+                trackName: "Instrumental?",
+                artistName: "Artist",
+                duration: 200,
+                instrumental: false,
+                plainLyrics: null,
+                syncedLyrics: null,
+              },
+            ]),
+            { status: 200 },
+          )
+        }
+        return new Response("[]", { status: 200 })
+      }),
+    )
+
+    const result = await orchestrateLyricsSearch({
+      track: "Instrumental?",
+      artist: "Artist",
+      title: "Artist - Instrumental?",
+      durationSec: 200,
+      videoId: "dQw4w9WgXcQ",
+      providerIds: ["lrclib"],
+    })
+
+    expect(result.providerId).toBe("transcription")
+  })
+
   it("finds lyrics via lrclib in parallel search", async () => {
     vi.stubGlobal(
       "fetch",
@@ -495,6 +627,75 @@ describe("orchestrateLyricsSearch", () => {
     expect(result.status).toBe("not_found")
     expect(result.providerId).not.toBe("lrclib")
     expect(result.lyrics).toBeUndefined()
+  })
+
+  it("skips all transcription when skipTranscription is set", async () => {
+    const transcriptionService = await import("@/lib/transcription-service")
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("[]", { status: 200 })))
+
+    const result = await orchestrateLyricsSearch({
+      track: "Missing Song",
+      artist: "Artist",
+      title: "Artist - Missing Song",
+      durationSec: 200,
+      videoId: "dQw4w9WgXcQ",
+      skipTranscription: true,
+      providerIds: ["lrclib"],
+    })
+
+    expect(result.status).toBe("not_found")
+    expect(transcriptionService.sampleTranscribeForVerification).not.toHaveBeenCalled()
+    expect(transcriptionService.fullTranscribeAsProvider).not.toHaveBeenCalled()
+  })
+
+  it("does not invoke full browser transcription when provider has lyric text", async () => {
+    const transcriptionService = await import("@/lib/transcription-service")
+    vi.mocked(transcriptionService.sampleTranscribeForVerification).mockResolvedValueOnce(null)
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/api/lyrics/lrclib")) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: 1,
+                trackName: "Song",
+                artistName: "Artist",
+                duration: 200,
+                plainLyrics: "completely wrong lyrics from another song",
+              },
+            ]),
+            { status: 200 },
+          )
+        }
+        if (url.includes("/get/1")) {
+          return new Response(
+            JSON.stringify({
+              id: 1,
+              plainLyrics: "completely wrong lyrics from another song",
+              syncedLyrics: null,
+            }),
+            { status: 200 },
+          )
+        }
+        return new Response("[]", { status: 200 })
+      }),
+    )
+
+    const result = await orchestrateLyricsSearch({
+      track: "Song",
+      artist: "Artist",
+      title: "Artist - Song",
+      durationSec: 200,
+      videoId: "abc123",
+      providerIds: ["lrclib"],
+    })
+
+    expect(result.status).toBe("found")
+    expect(result.providerId).toBe("lrclib")
+    expect(transcriptionService.fullTranscribeAsProvider).not.toHaveBeenCalled()
   })
 
   it.each([

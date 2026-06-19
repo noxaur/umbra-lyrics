@@ -12,6 +12,7 @@ import {
   playlistItemsToTracks,
   type PlaylistImportResponse,
 } from "@/lib/youtube-playlist"
+import { enqueuePlaylistLyricsIndexing } from "@/lib/playlist-lyrics-indexer"
 import { extractYouTubePlaylistId } from "@/lib/youtube-url"
 
 type PlaylistImportDialogProps = {
@@ -149,6 +150,15 @@ export function PlaylistImportDialog({
     }
 
     setStatus(parts.join(". ") + ".")
+    const playlistId =
+      mode === "existing" && targetPlaylistId ? targetPlaylistId : result.playlist?.id
+    if (playlistId) {
+      const indexTracks = preview.items.map((item) => {
+        const [track] = playlistItemsToTracks([item])
+        return { ...track, durationSec: item.durationSec }
+      })
+      enqueuePlaylistLyricsIndexing(playlistId, indexTracks)
+    }
     onImported()
     onClose()
   }

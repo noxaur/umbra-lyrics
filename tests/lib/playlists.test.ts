@@ -12,6 +12,7 @@ import {
   removeTrackFromPlaylist,
   reorderPlaylistTracks,
   renamePlaylist,
+  updatePlaylistTrackMetadata,
 } from "@/lib/playlists"
 
 const sampleTrack = {
@@ -93,6 +94,34 @@ describe("playlists", () => {
       "def456",
       "abc123",
     ])
+  })
+
+  it("bulk adds tracks and reports duplicates", () => {
+    const { playlist } = createPlaylist("Import")
+    const result = bulkAddTracksToPlaylist(playlist.id, [sampleTrack, sampleTrack2, sampleTrack])
+    expect(result.added).toBe(2)
+    expect(result.skippedDuplicates).toBe(1)
+    expect(getPlaylistById(playlist.id)?.tracks).toHaveLength(2)
+  })
+
+  it("creates playlist from import", () => {
+    const result = createPlaylistFromImport("YouTube mix", [sampleTrack, sampleTrack2])
+    expect(result.added).toBe(2)
+    expect(result.playlist?.name).toBe("YouTube mix")
+    expect(readPlaylists()).toHaveLength(1)
+  })
+
+  it("updates track metadata", () => {
+    const { playlist } = createPlaylist("Set list")
+    addTrackToPlaylist(playlist.id, sampleTrack)
+    updatePlaylistTrackMetadata(playlist.id, sampleTrack.videoId, {
+      title: sampleTrack.title,
+      artist: "Fixed Artist",
+      track: "Fixed Track",
+    })
+    const track = getPlaylistById(playlist.id)?.tracks[0]
+    expect(track?.artist).toBe("Fixed Artist")
+    expect(track?.track).toBe("Fixed Track")
   })
 
   it("recovers from corrupt storage", () => {

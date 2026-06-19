@@ -243,7 +243,37 @@ export function createPlaylistFromImport(
     return result
   }
 
-  return result
+  return { ...result, playlist: result.playlist ?? created.playlist }
+}
+
+export function updatePlaylistTrackMetadata(
+  playlistId: string,
+  videoId: string,
+  metadata: Pick<PlaylistTrack, "artist" | "track" | "title">,
+): { playlist?: Playlist; error?: string } {
+  const playlists = readPlaylists()
+  const index = playlists.findIndex((p) => p.id === playlistId)
+  if (index === -1) return { error: "Playlist not found" }
+
+  const playlist = playlists[index]
+  const trackIndex = playlist.tracks.findIndex((t) => t.videoId === videoId)
+  if (trackIndex === -1) return { error: "Track not found" }
+
+  const current = playlist.tracks[trackIndex]
+  const updated = normalizeTrack({
+    ...current,
+    ...metadata,
+    title: metadata.title?.trim() || current.title,
+    artist: metadata.artist?.trim() ?? current.artist,
+    track: metadata.track?.trim() ?? current.track,
+  })
+
+  const tracks = [...playlist.tracks]
+  tracks[trackIndex] = updated
+  const now = new Date().toISOString()
+  playlists[index] = { ...playlist, tracks, updatedAt: now }
+  writePlaylists(playlists)
+  return { playlist: playlists[index] }
 }
 
 export function removeTrackFromPlaylist(
