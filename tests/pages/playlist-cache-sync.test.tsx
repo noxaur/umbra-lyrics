@@ -1,6 +1,7 @@
 import { render, waitFor } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { ThemeProvider } from "@/components/theme-provider"
 import { getLyricsCache, reparseCachedLyrics, setLyricsCache } from "@/lib/lyrics-cache"
 import { parseLrc } from "@/lib/lrc-parser"
 import { usePlayerStore } from "@/stores/player-store"
@@ -126,9 +127,11 @@ describe("playlist cache hydration sync offset", () => {
 
     render(
       <MemoryRouter initialEntries={[`/play/${VIDEO_ID}`]}>
-        <Routes>
-          <Route path="/play/:videoId" element={<PlayerPage />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/play/:videoId" element={<PlayerPage />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>,
     )
 
