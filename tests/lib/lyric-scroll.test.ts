@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest"
 import {
   FAST_LINE_CHANGE_MS,
+  FAST_LINE_HANDOFF_MS,
   getDistanceFromActive,
   getLineHandoffDurationMs,
   getScrollBehavior,
@@ -8,6 +9,7 @@ import {
   isOutsideCenterThird,
   LINE_HANDOFF_MS,
   scrollLineToCenter,
+  scrollLineToCenterEase,
 } from "@/lib/lyric-scroll"
 
 function mockRect(top: number, height: number): DOMRect {
@@ -53,8 +55,13 @@ describe("getLineHandoffDurationMs", () => {
   it("returns full handoff when motion allowed", () => {
     expect(getLineHandoffDurationMs(false)).toBe(LINE_HANDOFF_MS)
     expect(getLineHandoffDurationMs(false, FAST_LINE_CHANGE_MS)).toBe(LINE_HANDOFF_MS)
-    expect(getLineHandoffDurationMs(false, FAST_LINE_CHANGE_MS - 1)).toBe(LINE_HANDOFF_MS)
-    expect(getLineHandoffDurationMs(false, 100)).toBe(LINE_HANDOFF_MS)
+    expect(getLineHandoffDurationMs(false, FAST_LINE_CHANGE_MS + 1)).toBe(LINE_HANDOFF_MS)
+    expect(getLineHandoffDurationMs(false, 1000)).toBe(LINE_HANDOFF_MS)
+  })
+
+  it("returns shorter handoff when lines change quickly", () => {
+    expect(getLineHandoffDurationMs(false, FAST_LINE_CHANGE_MS - 1)).toBe(FAST_LINE_HANDOFF_MS)
+    expect(getLineHandoffDurationMs(false, 100)).toBe(FAST_LINE_HANDOFF_MS)
   })
 })
 
@@ -138,5 +145,59 @@ describe("scrollLineToCenter", () => {
     const bottomElement = { getBoundingClientRect: () => mockRect(700, 40) } as HTMLElement
     scrollLineToCenter(bottomElement, container, "auto", { force: true })
     expect(container.scrollTop).toBe(300)
+  })
+})
+
+describe("scrollLineToCenterEase", () => {
+  function mockScrollContainer(top = 0, height = 300, scrollHeight = 900) {
+    const state = { scrollTop: top }
+    return {
+      getBoundingClientRect: () => mockRect(0, height),
+      clientHeight: height,
+      scrollHeight,
+      get scrollTop() {
+        return state.scrollTop
+      },
+      set scrollTop(v: number) {
+        state.scrollTop = v
+      },
+      _state: state,
+    } as unknown as HTMLElement
+  }
+
+  it("cancels an in-flight ease when a new one starts", () => {
+    vi.useFakeTimers()
+    const raf = new Map<number, FrameRequestCallback>()
+    let nextId = 0
+    vi.stubGlobal("performance", { now: () => 0 })
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      const id = ++nextId
+      raf.set(id, cb)
+      return id
+    })
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+      raf.delete(id)
+    })
+
+    const container = mockScrollContainer(0, 300, 900)
+    const first = { getBoundingClientRect: () => mockRect(220, 40) } as HTMLElement
+    const second = { getBoundingClientRect: () => mockRect(420, 40) } as HTMLElement
+
+    scrollLineToCenterEase(first, container, 200, { force: true })
+    const firstStartTop = container.scrollTop
+
+    scrollLineToCenterEase(second, container, 200, { force: true })
+    const secondStartTop = container.scrollTop
+
+    const firstCb = raf.values().next().value
+    firstCb?.(50)
+    expect(container.scrollTop).toBe(secondStartTop)
+
+    const secondCb = [...raf.values()].at(-1)
+    secondCb?.(100)
+    expect(container.scrollTop).not.toBe(firstStartTop)
+
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
   })
 })

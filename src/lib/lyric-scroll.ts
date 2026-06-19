@@ -1,6 +1,9 @@
 /** Line changes faster than this use a shorter handoff animation. */
 export const FAST_LINE_CHANGE_MS = 450
 
+/** Shorter handoff when lines advance faster than FAST_LINE_CHANGE_MS. */
+export const FAST_LINE_HANDOFF_MS = 160
+
 /** Single timing for lyric scroll handoffs and re-sync snaps. */
 export const LYRICS_HANDOFF_MS = 360
 
@@ -30,9 +33,16 @@ export function getDistanceFromActive(lineIndex: number, activeIndex: number): n
 
 export function getLineHandoffDurationMs(
   prefersReducedMotion: boolean,
-  _msSinceLastLineChange?: number,
+  msSinceLastLineChange?: number,
 ): number {
   if (prefersReducedMotion) return 0
+  if (
+    msSinceLastLineChange != null &&
+    msSinceLastLineChange > 0 &&
+    msSinceLastLineChange < FAST_LINE_CHANGE_MS
+  ) {
+    return FAST_LINE_HANDOFF_MS
+  }
   return LYRICS_HANDOFF_MS
 }
 
@@ -80,6 +90,8 @@ function easeOutCubic(t: number): number {
   return 1 - (1 - t) ** 3
 }
 
+const scrollEaseRuns = new WeakMap<HTMLElement, number>()
+
 /** Eased scroll to center — used for lyric handoffs and manual re-sync snaps. */
 export function scrollLineToCenterEase(
   element: HTMLElement,
@@ -105,8 +117,13 @@ export function scrollLineToCenterEase(
     return
   }
 
+  const runId = (scrollEaseRuns.get(container) ?? 0) + 1
+  scrollEaseRuns.set(container, runId)
+
   const startTime = performance.now()
   const tick = (now: number) => {
+    if (scrollEaseRuns.get(container) !== runId) return
+
     const t = Math.min(1, (now - startTime) / durationMs)
     container.scrollTop = startTop + delta * easeOutCubic(t)
     onTick?.()

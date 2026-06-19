@@ -329,8 +329,14 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
   const { available, translating } = useTranslation(languageCode)
 
-  const getTime = useCallback(() => currentTime, [currentTime])
-  useLyricsSync(getTime)
+  const playbackRef = useRef({ timeSec: currentTime, isPlaying })
+  playbackRef.current = { timeSec: currentTime, isPlaying }
+
+  const getPlayback = useCallback(
+    () => playbackRef.current,
+    [],
+  )
+  useLyricsSync(getPlayback)
   useKeyboardShortcuts({ onToggleStageFullscreen: toggleStageFullscreen })
 
   useEffect(() => {
