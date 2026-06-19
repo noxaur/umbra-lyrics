@@ -36,6 +36,17 @@ describe("AppShell", () => {
     expect(playlistsLink).toHaveAttribute("href", "/playlists")
   })
 
+  it("links to blog and changelog pages from header", () => {
+    renderShell(
+      <AppShell>
+        <div>content</div>
+      </AppShell>,
+    )
+
+    expect(screen.getByRole("link", { name: "Blog" })).toHaveAttribute("href", "/blog")
+    expect(screen.getByRole("link", { name: "Changelog" })).toHaveAttribute("href", "/changelog")
+  })
+
   it("exposes a random song button in the header", () => {
     renderShell(
       <AppShell>
