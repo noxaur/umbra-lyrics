@@ -55,7 +55,7 @@ describe("orchestrateLyricsSearch", () => {
     expect(PROVIDER_FALLBACK_ORDER).not.toContain("transcription")
   })
 
-  it("does not sample-transcribe when provider lyrics exist", async () => {
+  it("does not full-transcribe when provider lyrics exist", async () => {
     const transcriptionService = await import("@/lib/transcription-service")
 
     vi.stubGlobal(
@@ -99,7 +99,7 @@ describe("orchestrateLyricsSearch", () => {
     })
 
     expect(result.status).toBe("found")
-    expect(transcriptionService.sampleTranscribeForVerification).not.toHaveBeenCalled()
+    expect(transcriptionService.sampleTranscribeForVerification).toHaveBeenCalledOnce()
     expect(transcriptionService.fullTranscribeAsProvider).not.toHaveBeenCalled()
   })
 
@@ -132,7 +132,7 @@ describe("orchestrateLyricsSearch", () => {
     })
 
     expect(result.providerId).toBe("transcription")
-    expect(transcriptionService.sampleTranscribeForVerification).not.toHaveBeenCalled()
+    expect(transcriptionService.sampleTranscribeForVerification).toHaveBeenCalledOnce()
     expect(transcriptionService.fullTranscribeAsProvider).toHaveBeenCalledOnce()
   })
 
@@ -224,7 +224,7 @@ describe("orchestrateLyricsSearch", () => {
     })
 
     expect(result.status).toBe("found")
-    expect(result.strategy).toBe("parallel_ranked")
+    expect(result.strategy).toBe("parallel_ranked_verified")
     expect(result.lyrics?.plainLyrics).toContain("作詞の空白")
     expect(result.providersTried).toContain("lrclib")
   })
@@ -442,8 +442,83 @@ describe("orchestrateLyricsSearch", () => {
     expect(result.alternates?.length).toBeGreaterThan(0)
   })
 
-  it("accepts provider lyrics without eager audio verification", async () => {
+  it("does not start long-tail providers when stage-one has a definitive synced match", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("/api/lyrics/lrclib")) {
+        return new Response(
+          JSON.stringify([
+            {
+              id: 1,
+              trackName: "Song",
+              artistName: "Artist",
+              duration: 200,
+              plainLyrics: "One\nTwo\nThree\nFour",
+              syncedLyrics: "[00:00.00] One\n[00:05.00] Two\n[00:10.00] Three\n[00:15.00] Four",
+            },
+          ]),
+          { status: 200 },
+        )
+      }
+      if (url.includes("/api/lyrics/ovh/")) {
+        return new Response(
+          JSON.stringify({ lyrics: "Long tail should not be requested" }),
+          { status: 200 },
+        )
+      }
+      return new Response("[]", { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const result = await orchestrateLyricsSearch({
+      track: "Song",
+      artist: "Artist",
+      title: "Artist - Song",
+      durationSec: 200,
+      providerIds: ["lrclib", "lyrics-ovh"],
+    })
+
+    expect(result.status).toBe("found")
+    expect(result.providerId).toBe("lrclib")
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/api/lyrics/ovh/"))).toBe(
+      false,
+    )
+    expect(result.providersTried).toEqual(["lrclib"])
+  })
+
+  it("promotes transcription when provider lyrics fail verification", async () => {
     const transcriptionService = await import("@/lib/transcription-service")
+
+    vi.mocked(transcriptionService.sampleTranscribeForVerification).mockImplementationOnce(
+      async () => ({
+        text: "actual lyrics from the audio track",
+        segments: [
+          { start: 0, end: 25, text: "actual lyrics from the audio track" },
+          { start: 30, end: 55, text: "second verse continues here now" },
+        ],
+        language: "en",
+        source: "whisper",
+        coverageSec: 60,
+        vocalDensity: 0.75,
+        mode: "sample",
+      }),
+    )
+
+    vi.mocked(transcriptionService.fullTranscribeAsProvider).mockImplementationOnce(
+      async () => ({
+        candidate: {
+          providerId: "transcription",
+          externalId: "transcription:abc123",
+          trackName: "Song",
+          artistName: "Artist",
+          plainLyrics: "actual lyrics from the audio track\nsecond line here",
+          syncedLyrics: null,
+          synced: false,
+          confidence: 1,
+        },
+        partial: false,
+        language: "en",
+      }),
+    )
 
     vi.stubGlobal(
       "fetch",
@@ -486,14 +561,97 @@ describe("orchestrateLyricsSearch", () => {
     })
 
     expect(result.status).toBe("found")
-    expect(result.strategy).toBe("parallel_ranked")
-    expect(result.providerId).toBe("lrclib")
+    expect(result.strategy).toBe("transcription_primary")
+    expect(result.providerId).toBe("transcription")
+    expect(result.verificationScore).toBe(1)
+    expect(result.lyrics?.plainLyrics).toContain("actual lyrics from the audio")
+  })
+
+  it("does not return weak provider lyrics when transcription promotion fails", async () => {
+    const transcriptionService = await import("@/lib/transcription-service")
+
+    vi.mocked(transcriptionService.sampleTranscribeForVerification).mockImplementationOnce(
+      async () => ({
+        text: "actual lyrics from the audio track",
+        segments: [{ start: 0, end: 25, text: "actual lyrics from the audio track" }],
+        language: "en",
+        source: "whisper",
+        coverageSec: 60,
+        vocalDensity: 0.75,
+        mode: "sample",
+      }),
+    )
+
+    vi.mocked(transcriptionService.fullTranscribeAsProvider).mockResolvedValueOnce(null)
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/api/lyrics/lrclib")) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: 1,
+                trackName: "Song",
+                artistName: "Artist",
+                duration: 200,
+                plainLyrics: "completely wrong lyrics from another song",
+              },
+            ]),
+            { status: 200 },
+          )
+        }
+        if (url.includes("/get/1")) {
+          return new Response(
+            JSON.stringify({
+              id: 1,
+              plainLyrics: "completely wrong lyrics from another song",
+              syncedLyrics: null,
+            }),
+            { status: 200 },
+          )
+        }
+        return new Response("[]", { status: 200 })
+      }),
+    )
+
+    const result = await orchestrateLyricsSearch({
+      track: "Song",
+      artist: "Artist",
+      title: "Artist - Song",
+      durationSec: 200,
+      videoId: "abc123",
+      providerIds: ["lrclib"],
+    })
+
+    expect(result.status).toBe("not_found")
+    expect(result.providerId).not.toBe("lrclib")
+    expect(result.lyrics).toBeUndefined()
+  })
+
+  it("skips all transcription when skipTranscription is set", async () => {
+    const transcriptionService = await import("@/lib/transcription-service")
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("[]", { status: 200 })))
+
+    const result = await orchestrateLyricsSearch({
+      track: "Missing Song",
+      artist: "Artist",
+      title: "Artist - Missing Song",
+      durationSec: 200,
+      videoId: "dQw4w9WgXcQ",
+      skipTranscription: true,
+      providerIds: ["lrclib"],
+    })
+
+    expect(result.status).toBe("not_found")
     expect(transcriptionService.sampleTranscribeForVerification).not.toHaveBeenCalled()
     expect(transcriptionService.fullTranscribeAsProvider).not.toHaveBeenCalled()
   })
 
-  it("does not invoke browser transcription when provider has lyric text", async () => {
+  it("does not invoke full browser transcription when provider has lyric text", async () => {
     const transcriptionService = await import("@/lib/transcription-service")
+    vi.mocked(transcriptionService.sampleTranscribeForVerification).mockResolvedValueOnce(null)
 
     vi.stubGlobal(
       "fetch",

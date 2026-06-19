@@ -60,7 +60,7 @@ describe("handoff-demo parity (lyrics stage structure)", () => {
     })
   })
 
-  it("uses handoff v3 stage chrome, spacing, and line styling hooks", async () => {
+  it("uses flat stage layout, spacing, and line styling hooks", async () => {
     const { container } = render(
       <div className="flex h-[402px] min-h-0 flex-col">
         <LyricsStage durationMs={60_000} />
@@ -85,7 +85,8 @@ describe("handoff-demo parity (lyrics stage structure)", () => {
     expect(stage.className).toContain("scroll-py-10")
     expect(stage.className).toContain("max-h-full")
     expect(inner?.className).toContain("gap-[0.65rem]")
-    expect(inner?.parentElement?.className).toContain("max-w-xl")
+    expect(inner?.className).toContain("max-w-xl")
+    expect(getComputedStyle(stage).perspective).toBe("1200px")
 
     expect(active?.className).toContain("text-karaoke-active-line")
     expect(inactive?.className).toContain("text-karaoke-ink")

@@ -106,6 +106,25 @@ describe("match-utils", () => {
     expect(best?.plainLyrics).toBe("correct")
   })
 
+  it("prefers original over remix when API order is reversed", () => {
+    const results = [
+      {
+        trackName: "Despacito Remix",
+        artistName: "Luis Fonsi",
+        duration: 229,
+        plainLyrics: "wrong",
+      },
+      {
+        trackName: "Despacito (feat. Daddy Yankee)",
+        artistName: "Luis Fonsi",
+        duration: 229,
+        plainLyrics: "correct",
+      },
+    ]
+    const best = pickBestCandidate(results, 229, "Luis Fonsi", "Despacito")
+    expect(best?.plainLyrics).toBe("correct")
+  })
+
   it("detects lyrics text presence", () => {
     expect(hasLyricsText({ trackName: "a", artistName: "b", plainLyrics: "x" })).toBe(true)
     expect(hasLyricsText({ trackName: "a", artistName: "b", syncedLyrics: "[00:00.00] x" })).toBe(

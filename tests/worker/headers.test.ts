@@ -10,6 +10,11 @@ describe("worker security headers", () => {
     expect(response?.headers.get("Location")).toBe("https://song.opsec.rent/player")
   })
 
+  it("does not redirect http api requests", () => {
+    const request = new Request("http://song.opsec.rent/api/youtube/playlist?id=PLabc")
+    expect(httpsRedirect(request)).toBeNull()
+  })
+
   it("adds HSTS to responses", () => {
     const response = withSecurityHeaders(new Response("ok", { status: 200 }))
     expect(response.headers.get("Strict-Transport-Security")).toBe(

@@ -1,8 +1,5 @@
-import { proxyFetch } from "@/lib/lyrics-providers/api-base"
-import { artistMatchScore, trackMatchScore } from "@/lib/lyrics-providers/match-utils"
-import { ensureSpotifyAccessToken, spotifyAuthHeaders } from "@/lib/spotify-auth"
+import { resolveCanonicalMusicVideo } from "@/lib/canonical-music-video"
 import { extractSpotifyTrackId } from "@/lib/spotify-url"
-import { searchSongs, type SongSearchHit } from "@/lib/youtube-search"
 
 export type SpotifyTrackHit = {
   id: string
@@ -16,73 +13,26 @@ export type SpotifyResolveResult =
   | { ok: true; videoId: string; track: SpotifyTrackHit }
   | { ok: false; reason: "invalid_url" | "spotify_unavailable" | "no_youtube_match" }
 
-function durationDeltaScore(candidateSec: number | null, targetSec: number): number {
-  if (!targetSec || !candidateSec) return 20
-  const delta = Math.abs(candidateSec - targetSec)
-  if (delta <= 3) return 0
-  if (delta <= 10) return 5
-  if (delta <= 30) return 15
-  return 40
-}
-
-function scoreYouTubeHit(hit: SongSearchHit, track: SpotifyTrackHit): number {
-  const matchable = {
-    artistName: hit.channel,
-    trackName: hit.title,
-    duration: hit.durationSec ?? undefined,
-  }
-  let score = durationDeltaScore(hit.durationSec, track.durationSec)
-  score += artistMatchScore(matchable, track.artist)
-  score += trackMatchScore(matchable, track.name)
-  return score
-}
-
-/** Reject matches where artist and track both miss badly (see match-utils thresholds). */
-const MAX_ACCEPTABLE_YOUTUBE_MATCH_SCORE = 100
-
-function pickBestYouTubeHit(hits: SongSearchHit[], track: SpotifyTrackHit): SongSearchHit | null {
-  if (hits.length === 0) return null
-
-  const scored = hits
-    .map((hit) => ({ hit, score: scoreYouTubeHit(hit, track) }))
-    .sort((a, b) => a.score - b.score)
-
-  const best = scored[0]
-  if (!best || best.score > MAX_ACCEPTABLE_YOUTUBE_MATCH_SCORE) return null
-
-  return best.hit
-}
-
-async function fetchSpotifyTrackById(
-  trackId: string,
-  signal?: AbortSignal,
-): Promise<SpotifyTrackHit | null> {
-  const params = new URLSearchParams({ id: trackId })
-  const accessToken = await ensureSpotifyAccessToken()
-  const res = await proxyFetch(`/api/metadata/spotify/track?${params}`, {
-    signal,
-    headers: spotifyAuthHeaders(accessToken),
-  })
-  if (!res.ok) return null
-
-  const data = (await res.json()) as { track?: SpotifyTrackHit }
-  return data.track ?? null
-}
-
 export async function resolveSpotifyTrackToYouTube(
   input: string,
   options?: { signal?: AbortSignal },
 ): Promise<SpotifyResolveResult> {
-  const trackId = extractSpotifyTrackId(input)
-  if (!trackId) return { ok: false, reason: "invalid_url" }
-
-  const track = await fetchSpotifyTrackById(trackId, options?.signal)
-  if (!track) return { ok: false, reason: "spotify_unavailable" }
-
-  const query = [track.artist, track.name].filter(Boolean).join(" ")
-  const hits = await searchSongs(query, { limit: 8, signal: options?.signal })
-  const best = pickBestYouTubeHit(hits, track)
-  if (!best) return { ok: false, reason: "no_youtube_match" }
-
-  return { ok: true, videoId: best.videoId, track }
+  const canonical = await resolveCanonicalMusicVideo({ kind: "spotify", input }, options)
+  if (canonical.ok) {
+    return {
+      ok: true,
+      videoId: canonical.videoId,
+      track: {
+        id: extractSpotifyTrackId(input) ?? "",
+        name: canonical.seedMetadata.track,
+        artist: canonical.seedMetadata.artist,
+        durationSec: canonical.seedMetadata.durationSec ?? 0,
+        isrc: canonical.seedMetadata.isrc,
+      },
+    }
+  }
+  if (canonical.reason === "invalid_url" || canonical.reason === "spotify_unavailable") {
+    return { ok: false, reason: canonical.reason }
+  }
+  return { ok: false, reason: "no_youtube_match" }
 }

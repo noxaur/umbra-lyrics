@@ -29,6 +29,7 @@ describe("TransportControls", () => {
       displayMode: "native",
       languageCode: "ja",
       englishLines: [],
+      romajiLines: [],
     })
   })
 
@@ -69,6 +70,15 @@ describe("TransportControls", () => {
     expect(screen.getByRole("option", { name: "English" })).toBeEnabled()
     expect(screen.getByRole("option", { name: "Both" })).toBeEnabled()
     expect(screen.queryByText("No English lyrics found")).not.toBeInTheDocument()
+  })
+
+  it("offers romaji display modes when romaji lines exist", () => {
+    usePlayerStore.setState({ romajiLines: ["hikari no sekai e"] })
+    renderControls()
+
+    expect(screen.getByRole("option", { name: "Romaji" })).toBeEnabled()
+    expect(screen.getByRole("option", { name: "Native + Romaji" })).toBeEnabled()
+    expect(screen.getByRole("option", { name: "All" })).toBeEnabled()
   })
 
   it("resets display mode to native when english lines removed", async () => {

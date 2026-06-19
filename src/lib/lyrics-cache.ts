@@ -2,12 +2,14 @@ import { parseLrc, parsePlainLyrics } from "@/lib/lrc-parser"
 import { prepareLyricsText } from "@/lib/prepare-lyrics-text"
 import type { LyricLine, LyricsAlternate, LyricsProviderId, LyricsResult } from "@/types/lyrics"
 import type { TranslationBackend } from "@/lib/translation-service"
-import type { EnglishSource } from "@/stores/player-store"
+import type { EnglishSource, RomajiLyricsStatus } from "@/stores/player-store"
 import { lyricsLanguageMatchesMetadata } from "@/lib/language-service"
+import { buildRomajiLines } from "@/lib/romaji-service"
 import { lyricsTextLooksLikeJunk } from "@/lib/sanitize-lyrics"
 
 const STORAGE_PREFIX = "song-kara-lyrics:"
-const CACHE_VERSION = 8
+const CACHE_VERSION = 9
+const CJK_RE = /[\u3040-\u30ff\u4e00-\u9fff]/
 
 export type LyricsCacheEntry = {
   v: number
@@ -20,6 +22,8 @@ export type LyricsCacheEntry = {
   aligned?: boolean
   parsedDurationMs?: number
   englishLines: string[]
+  romajiLines?: string[]
+  romajiStatus?: RomajiLyricsStatus
   englishSource?: EnglishSource
   englishStatus?: "ready" | "loading" | "failed" | "skipped" | null
   translationBackend?: TranslationBackend | null
@@ -44,7 +48,8 @@ function isValidEntry(value: unknown): value is LyricsCacheEntry {
       entry.v === 3 ||
       entry.v === 4 ||
       entry.v === 5 ||
-      entry.v === 6) &&
+      entry.v === 6 ||
+      entry.v === 8) &&
     typeof entry.videoId === "string" &&
     Array.isArray(entry.lines) &&
     typeof entry.synced === "boolean" &&
@@ -52,6 +57,13 @@ function isValidEntry(value: unknown): value is LyricsCacheEntry {
     (typeof entry.lyricsResult.id === "number" || typeof entry.lyricsResult.id === "string") &&
     typeof entry.lyricsResult.providerId === "string"
   )
+}
+
+function needsRomajiRebuild(entry: LyricsCacheEntry): boolean {
+  const nativeText = entry.lines.map((line) => line.text).join("\n")
+  if (!CJK_RE.test(nativeText)) return false
+  if (entry.romajiStatus !== "ready" || !entry.romajiLines?.length) return true
+  return entry.romajiLines.some((line) => CJK_RE.test(line))
 }
 
 function isTrustedCacheEntry(entry: LyricsCacheEntry): boolean {
@@ -113,6 +125,17 @@ export function getLyricsCache(videoId: string): LyricsCacheEntry | null {
       localStorage.removeItem(storageKey(videoId))
       return null
     }
+    if (needsRomajiRebuild(parsed)) {
+      const romaji = buildRomajiLines(
+        parsed.lines.map((line) => line.text),
+        { language: parsed.languageCode },
+      )
+      if (romaji.status === "ready") {
+        parsed.romajiLines = romaji.lines
+        parsed.romajiStatus = romaji.status
+        localStorage.setItem(storageKey(videoId), JSON.stringify(parsed))
+      }
+    }
     return parsed
   } catch {
     return null
@@ -128,6 +151,8 @@ export function setLyricsCache(
   if (!entry.videoId || entry.lines.length === 0) return
   const payload: LyricsCacheEntry = {
     ...entry,
+    romajiLines: entry.romajiLines ?? [],
+    romajiStatus: entry.romajiStatus ?? null,
     providerId: entry.providerId ?? entry.lyricsResult.providerId,
     parsedDurationMs: entry.parsedDurationMs,
     v: CACHE_VERSION,

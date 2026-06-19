@@ -65,4 +65,39 @@ describe("resolveTrackMetadata", () => {
     expect(resolved.track).toBe("別世界")
     expect(resolved.artist).toBe("天音かなた")
   })
+
+  it("prefers Topic channel artist when APIs return a match", async () => {
+    mockFetch.mockImplementation(async (path) => {
+      if (path.includes("/api/metadata/spotify")) {
+        return new Response(
+          JSON.stringify({
+            hits: [
+              {
+                id: "sp1",
+                name: "Bohemian Rhapsody",
+                artist: "Queen",
+                durationSec: 355,
+              },
+            ],
+          }),
+        )
+      }
+      if (path.includes("musicbrainz")) {
+        return new Response(JSON.stringify({ recordings: [] }))
+      }
+      return new Response(JSON.stringify({ hits: [] }))
+    })
+
+    const resolved = await resolveTrackMetadata({
+      title: "Bohemian Rhapsody",
+      durationSec: 355,
+      oembedAuthor: "Queen - Topic",
+      roughArtist: "Queen",
+      roughTrack: "Bohemian Rhapsody",
+    })
+
+    expect(resolved.source).toBe("spotify")
+    expect(resolved.artist).toBe("Queen")
+    expect(resolved.track).toBe("Bohemian Rhapsody")
+  })
 })

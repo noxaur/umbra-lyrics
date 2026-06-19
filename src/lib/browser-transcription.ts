@@ -7,11 +7,15 @@ export type BrowserTranscriptionProgress = {
   message: string
 }
 
+const SAMPLE_DURATION_SEC = 90
+const SAMPLE_RATE = 16_000
+
 export type BrowserTranscriptionOptions = {
   videoId: string
   language?: string
   durationSec?: number
   signal?: AbortSignal
+  mode?: "sample" | "full"
   onProgress?: (progress: BrowserTranscriptionProgress) => void
 }
 
@@ -140,14 +144,23 @@ function runWorker(
   })
 }
 
+function trimAudioForSample(audio: Float32Array): Float32Array {
+  const maxSamples = SAMPLE_DURATION_SEC * SAMPLE_RATE
+  return audio.length > maxSamples ? audio.slice(0, maxSamples) : audio
+}
+
+export { trimAudioForSample }
+
 export async function transcribeInBrowser(
   options: BrowserTranscriptionOptions,
 ): Promise<BrowserTranscriptionResult> {
+  const mode = options.mode ?? "full"
   options.onProgress?.({ phase: "audio", message: "Downloading audio in browser…" })
   const stream = await fetchStreamInfo(options.videoId, "audio")
   const bytes = await fetchStreamBytes(stream.streamUrl, undefined, options.signal)
   options.onProgress?.({ phase: "audio", message: "Preparing audio in browser…" })
-  const audio = await decodeAudio(bytes)
+  let audio = await decodeAudio(bytes)
+  if (mode === "sample") audio = trimAudioForSample(audio)
   const result = await runWorker(audio, options)
   const segments = normalizeTranscriptionChunks(result.chunks)
   const text = (segments.map((segment) => segment.text).join(" ") || result.text).trim()
@@ -165,11 +178,14 @@ export async function transcribeInBrowser(
     segments,
     language: result.language,
     source: "whisper",
-    partial: durationSec > 30 && coverageSec < durationSec - 30 || undefined,
+    partial:
+      mode === "sample" ||
+      (durationSec > 30 && coverageSec < durationSec - 30) ||
+      undefined,
     chunks: segments.length,
     vocalDensity: durationSec > 0 ? Math.min(1, vocalDuration / durationSec) : 0,
     coverageSec,
-    mode: "full",
+    mode,
   }
 }
 

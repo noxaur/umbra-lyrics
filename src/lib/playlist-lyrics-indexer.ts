@@ -129,6 +129,7 @@ async function indexTrack(job: QueueJob): Promise<void> {
       durationSec: Math.round(meta.durationSec) || 0,
       videoId: track.videoId,
       oembedAuthor: meta.oembedAuthor,
+      skipTranscription: true,
     })
 
     const cached = cacheLyricsFromPipeline(

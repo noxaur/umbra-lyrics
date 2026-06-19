@@ -52,6 +52,7 @@ export async function fetchYouTubePlaylist(
   params.set("limit", String(limit))
 
   let useBrowserFallback = false
+  let emptyWorkerResult: PlaylistImportResponse | null = null
 
   try {
     const res = await proxyFetch(`/api/youtube/playlist?${params}`, {
@@ -64,18 +65,13 @@ export async function fetchYouTubePlaylist(
 
     if (res.ok) {
       if (body && body.items.length > 0) return body
-      throw new Error(
-        body?.totalReported && body.totalReported !== "N/A"
-          ? "This playlist returned no importable videos. It may be private or require YouTube sign-in."
-          : "This playlist has no importable videos",
-      )
-    }
-
-    if (res.status < 500) {
+      emptyWorkerResult = body
+      useBrowserFallback = true
+    } else if (res.status < 500) {
       throw new Error(body?.error ?? "playlist_fetch_failed")
+    } else {
+      useBrowserFallback = true
     }
-
-    useBrowserFallback = true
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err
     if (options?.signal?.aborted) {
@@ -95,8 +91,19 @@ export async function fetchYouTubePlaylist(
     throw new Error("playlist_fetch_failed")
   }
 
-  return fetchPlaylistInBrowser(playlistId, limit, {
+  const fromBrowser = await fetchPlaylistInBrowser(playlistId, limit, {
     ...options,
     sourceUrl: input.trim(),
   })
+  if (fromBrowser.items.length > 0) return fromBrowser
+
+  if (emptyWorkerResult) {
+    throw new Error(
+      emptyWorkerResult.totalReported && emptyWorkerResult.totalReported !== "N/A"
+        ? "This playlist returned no importable videos. It may be private or require YouTube sign-in."
+        : "This playlist has no importable videos",
+    )
+  }
+
+  return fromBrowser
 }

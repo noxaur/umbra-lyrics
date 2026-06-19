@@ -9,6 +9,7 @@ export type LyricsFollowMode = "follow" | "manual"
 export type LyricsSource = LyricsProviderId | "pasted" | "translated" | null
 export type EnglishSource = "found" | "translated" | null
 export type EnglishLyricsStatus = "ready" | "loading" | "failed" | "skipped" | null
+export type RomajiLyricsStatus = "ready" | "skipped" | null
 
 type PlayerState = {
   videoId: string | null
@@ -19,8 +20,10 @@ type PlayerState = {
   error: string | null
   lyrics: LyricLine[]
   englishLines: string[]
+  romajiLines: string[]
   englishSource: EnglishSource
   englishStatus: EnglishLyricsStatus
+  romajiStatus: RomajiLyricsStatus
   translationBackend: TranslationBackend | null
   contentWarning: string | null
   verificationScore: number | null
@@ -71,6 +74,7 @@ type PlayerState = {
     backend?: TranslationBackend | null,
     status?: EnglishLyricsStatus,
   ) => void
+  setRomajiLines: (lines: string[], status?: RomajiLyricsStatus) => void
   setEnglishStatus: (status: EnglishLyricsStatus) => void
   setContentWarning: (warning: string | null) => void
   setVerificationScore: (score: number | null) => void
@@ -126,8 +130,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   error: null,
   lyrics: [],
   englishLines: [],
+  romajiLines: [],
   englishSource: null,
   englishStatus: null,
+  romajiStatus: null,
   translationBackend: null,
   contentWarning: null,
   verificationScore: null,
@@ -180,6 +186,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       translationBackend: backend,
       englishStatus: status,
     }),
+  setRomajiLines: (lines, status = lines.length > 0 ? "ready" : null) =>
+    set({
+      romajiLines: lines,
+      romajiStatus: status,
+    }),
   setEnglishStatus: (status) => set({ englishStatus: status }),
   setContentWarning: (warning) => set({ contentWarning: warning }),
   setVerificationScore: (score) => set({ verificationScore: score }),
@@ -206,8 +217,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       lrclibTrackId: null,
       lyricsSource: null,
       englishLines: [],
+      romajiLines: [],
       englishSource: null,
       englishStatus: null,
+      romajiStatus: null,
       contentWarning: null,
       verificationScore: null,
       translationBackend: null,

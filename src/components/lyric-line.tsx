@@ -16,6 +16,7 @@ import type { LyricWord } from "@/types/lyrics"
 type LyricLineProps = {
   text: string
   words?: LyricWord[]
+  romajiText?: string
   englishText?: string
   sectionLabel?: string
   kind?: "lyric" | "section"
@@ -28,7 +29,7 @@ type LyricLineProps = {
   progress: number
   wordIndex?: number
   synced: boolean
-  displayMode: "native" | "english" | "both"
+  displayMode: "native" | "romaji" | "english" | "native-romaji" | "both" | "all"
   tvMode?: boolean
   onSeek?: () => void
 }
@@ -138,6 +139,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
   {
     text,
     words,
+    romajiText,
     englishText,
     sectionLabel,
     kind = "lyric",
@@ -158,8 +160,17 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
 ) {
   const reducedMotion = useReducedMotion()
   const isSectionOnly = kind === "section"
-  const showNative = displayMode !== "english"
-  const showEnglish = displayMode !== "native" && englishText
+  const showNative =
+    displayMode === "native" ||
+    displayMode === "native-romaji" ||
+    displayMode === "both" ||
+    displayMode === "all"
+  const showRomaji =
+    (displayMode === "romaji" || displayMode === "native-romaji" || displayMode === "all") &&
+    romajiText
+  const showEnglish =
+    (displayMode === "english" || displayMode === "both" || displayMode === "all") &&
+    englishText
   const visual =
     viewportDistancePx != null && lineHeightPx != null
       ? getLyricLineVisualFromViewport(
@@ -199,7 +210,7 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
       type="button"
       onClick={onSeek}
       className={cn(
-        "mx-auto w-full origin-center py-[0.55rem] will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none",
+        "mx-auto w-full origin-center py-[0.55rem] font-semibold will-change-[transform,opacity,filter] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none",
         showTimestamp
           ? "grid max-w-xl grid-cols-[minmax(3.75rem,4.25rem)_1fr] items-baseline gap-x-2 px-2 sm:gap-x-3 sm:px-3"
           : "max-w-xl px-3 text-center",
@@ -209,7 +220,6 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
       aria-current={active ? "true" : undefined}
       style={{
         transformStyle: "preserve-3d",
-        contain: "layout paint",
         opacity: visual.opacity,
         transform: reducedMotion
           ? undefined
@@ -238,6 +248,21 @@ export const LyricLine = forwardRef<HTMLButtonElement, LyricLineProps>(function 
         {showNative && (
           <span className={cn(LINE_TEXT, "font-semibold", lineSize)}>
             {renderNativeText()}
+          </span>
+        )}
+        {showRomaji && (
+          <span
+            className={cn(
+              LINE_TEXT,
+              tvMode ? "mt-1 text-[clamp(1rem,2vw,2rem)] text-karaoke-ink/80" : "mt-1 text-sm text-karaoke-ink/80",
+              active && synced && "text-karaoke-highlight/80",
+            )}
+          >
+            {active && synced ? (
+              <WordProgressText text={romajiText} progress={progress} />
+            ) : (
+              romajiText
+            )}
           </span>
         )}
         {showEnglish && (

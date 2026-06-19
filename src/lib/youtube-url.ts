@@ -131,6 +131,12 @@ function isYouTubePlaylistHost(hostname: string): boolean {
 
 /**
  * Extract a YouTube playlist ID from common share URL formats.
+ *
+ * Supported formats:
+ * - `youtube.com/playlist?list=PL...`
+ * - `music.youtube.com/playlist?list=PL...`
+ * - `youtube.com/watch?v=...&list=PL...`
+ * - Bare playlist id (e.g. `PLrAXtmRdnEQy6nuLMH...`)
  */
 export function extractYouTubePlaylistId(input: string): string | null {
   const trimmed = input.trim()

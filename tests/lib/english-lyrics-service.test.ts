@@ -219,4 +219,23 @@ describe("resolveEnglishLyrics", () => {
     expect(result.status).toBe("ready")
     expect(maxInFlight).toBeGreaterThan(1)
   })
+
+  it("does not wait indefinitely for a slow English provider", async () => {
+    vi.useFakeTimers()
+    const { lyricstranslateProvider } = await import("@/lib/lyrics-providers/lyricstranslate-provider")
+    const { musixmatchProvider } = await import("@/lib/lyrics-providers/musixmatch-provider")
+    vi.mocked(lyricstranslateProvider.search).mockResolvedValue([])
+    vi.mocked(musixmatchProvider.search).mockResolvedValue([])
+    mockSearch.mockImplementation(() => new Promise(() => {}))
+
+    const { prefetchEnglishCandidates, ENGLISH_CANDIDATE_TIMEOUT_MS } = await import(
+      "@/lib/english-lyrics-service"
+    )
+    const pending = prefetchEnglishCandidates("別世界", "天音かなた", 200)
+
+    await vi.advanceTimersByTimeAsync(ENGLISH_CANDIDATE_TIMEOUT_MS + 1)
+    await expect(pending).resolves.toEqual([])
+
+    vi.useRealTimers()
+  })
 })

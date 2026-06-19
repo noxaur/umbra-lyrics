@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest"
-import { parseTrackTitle, simplifyTrackName, stripDecorativeTitle } from "@/lib/parse-track-title"
+import {
+  parseTrackTitle,
+  parseTrackTitleCandidates,
+  simplifyTrackName,
+  stripChannelSuffix,
+  stripDecorativeTitle,
+} from "@/lib/parse-track-title"
 
 describe("parseTrackTitle", () => {
   it("parses artist - track with suffix", () => {
@@ -81,6 +87,61 @@ describe("parseTrackTitle", () => {
       track: "Kaiju",
     })
   })
+
+  it("uses Topic channel artist when title is track-only", () => {
+    expect(parseTrackTitle("Bohemian Rhapsody", "Queen - Topic")).toEqual({
+      artist: "Queen",
+      track: "Bohemian Rhapsody",
+    })
+  })
+
+  it("strips trailing - Topic from title", () => {
+    expect(parseTrackTitle("Never Gonna Give You Up - Topic", "Rick Astley - Topic")).toEqual({
+      artist: "Rick Astley",
+      track: "Never Gonna Give You Up",
+    })
+  })
+
+  it("strips - Topic from artist-track title", () => {
+    expect(parseTrackTitle("Queen - Bohemian Rhapsody - Topic", "Queen - Topic")).toEqual({
+      artist: "Queen",
+      track: "Bohemian Rhapsody",
+    })
+  })
+
+  it("strips VEVO channel suffix from oEmbed author", () => {
+    expect(parseTrackTitle("Single Ladies", "Beyoncé - VEVO")).toEqual({
+      artist: "Beyoncé",
+      track: "Single Ladies",
+    })
+  })
+})
+
+describe("parseTrackTitleCandidates", () => {
+  it("keeps the current parser result first", () => {
+    expect(parseTrackTitleCandidates("Fleetwood Mac - The Chain (Official Video)")[0]).toMatchObject({
+      artist: "Fleetwood Mac",
+      track: "The Chain",
+    })
+  })
+
+  it("adds swapped artist and title candidates for validation retries", () => {
+    const candidates = parseTrackTitleCandidates("Track Name - Artist Name")
+    expect(candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ artist: "Artist Name", track: "Track Name" }),
+      ]),
+    )
+  })
+
+  it("adds topic-channel candidates for title-only YouTube Music uploads", () => {
+    const candidates = parseTrackTitleCandidates("Bohemian Rhapsody", "Queen - Topic")
+    expect(candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ artist: "Queen", track: "Bohemian Rhapsody" }),
+      ]),
+    )
+  })
 })
 
 describe("stripDecorativeTitle", () => {
@@ -93,10 +154,28 @@ describe("stripDecorativeTitle", () => {
   it("removes corner quotes and fullwidth parens", () => {
     expect(stripDecorativeTitle("「MV」別世界（TV size） - 天音かなた")).toBe("別世界 - 天音かなた")
   })
+
+  it("removes trailing - Topic", () => {
+    expect(stripDecorativeTitle("Song Name - Topic")).toBe("Song Name")
+  })
+})
+
+describe("stripChannelSuffix", () => {
+  it("removes - Topic suffix", () => {
+    expect(stripChannelSuffix("Queen - Topic")).toBe("Queen")
+  })
+
+  it("removes - VEVO suffix", () => {
+    expect(stripChannelSuffix("Beyoncé - VEVO")).toBe("Beyoncé")
+  })
 })
 
 describe("simplifyTrackName", () => {
   it("removes remix suffix", () => {
     expect(simplifyTrackName("Song Name (Remix)")).toBe("Song Name")
+  })
+
+  it("does not truncate words containing ver", () => {
+    expect(simplifyTrackName("Never Gonna Give You Up")).toBe("Never Gonna Give You Up")
   })
 })

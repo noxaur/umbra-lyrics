@@ -34,6 +34,8 @@ type LyricsStageProps = {
   durationMs?: number
 }
 
+const INITIAL_SYNC_MAX_FRAMES = 8
+
 function idleMessage(videoId: string | undefined, videoReady: boolean | undefined): string {
   if (videoId) {
     if (!videoReady) return "Loading video…"
@@ -74,6 +76,7 @@ export function LyricsStage({
   const lyricsOutcome = usePlayerStore((s) => s.lyricsOutcome)
   const lyrics = usePlayerStore((s) => s.lyrics)
   const englishLines = usePlayerStore((s) => s.englishLines)
+  const romajiLines = usePlayerStore((s) => s.romajiLines)
   const displayMode = usePlayerStore((s) => s.displayMode)
   const currentTime = usePlayerStore((s) => s.currentTime)
   const syncOffsetMs = usePlayerStore((s) => s.syncOffsetMs)
@@ -341,13 +344,27 @@ export function LyricsStage({
       lastLineChangeRef.current > 0 ? now - lastLineChangeRef.current : undefined
     lastLineChangeRef.current = now
 
-    let raf2 = 0
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => scrollActiveLine(true, lineChangeIntervalMs))
+    let frame = 0
+    let cancelled = false
+    let attempts = 0
+    const tryScrollActiveLine = () => {
+      if (cancelled) return
+      if (activeRef.current && scrollRef.current) {
+        scrollActiveLine(true, lineChangeIntervalMs)
+        return
+      }
+      attempts += 1
+      if (attempts < INITIAL_SYNC_MAX_FRAMES) {
+        frame = requestAnimationFrame(tryScrollActiveLine)
+      }
+    }
+    frame = requestAnimationFrame(() => {
+      if (cancelled) return
+      frame = requestAnimationFrame(tryScrollActiveLine)
     })
     return () => {
-      cancelAnimationFrame(raf1)
-      cancelAnimationFrame(raf2)
+      cancelled = true
+      cancelAnimationFrame(frame)
     }
   }, [activeIndex, lyricsFollowMode, scrollActiveLine])
 
@@ -453,6 +470,7 @@ export function LyricsStage({
       className={cnStage(tvMode)}
       data-tv-mode={tvMode ? "true" : undefined}
       data-lyrics-follow={lyricsFollowMode}
+      style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
     >
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {activeLineText}
@@ -498,7 +516,8 @@ export function LyricsStage({
         </p>
       ) : null}
 
-      {englishStatus === "loading" && displayMode === "both" ? (
+      {englishStatus === "loading" &&
+      (displayMode === "both" || displayMode === "all") ? (
         <p className="pointer-events-none absolute inset-x-3 bottom-3 z-10 text-center text-xs text-muted-foreground motion-safe:animate-pulse">
           Loading English lyrics…
         </p>
@@ -509,13 +528,9 @@ export function LyricsStage({
       ) : (
         <MotionConfig reducedMotion="user">
           <div
-            className="mx-auto w-full max-w-xl overflow-x-clip overflow-y-visible"
-            style={{ perspective: "1200px", perspectiveOrigin: "50% 50%" }}
+            className="mx-auto flex w-full max-w-xl flex-col gap-[0.65rem]"
+            style={{ transformStyle: "preserve-3d" }}
           >
-            <div
-              className="flex flex-col gap-[0.65rem]"
-              style={{ transformStyle: "preserve-3d" }}
-            >
               <div aria-hidden className="shrink-0" style={{ height: edgeSpacerPx }} />
               {lyrics.map((line, i) => (
                 <LyricLine
@@ -523,6 +538,7 @@ export function LyricsStage({
                   ref={setLineRef(i)}
                   text={line.text}
                   words={line.words}
+                  romajiText={romajiLines[i]}
                   sectionLabel={line.sectionLabel}
                   kind={line.kind}
                   startMs={line.startMs - syncOffsetMs}
@@ -541,7 +557,6 @@ export function LyricsStage({
                 />
               ))}
               <div aria-hidden className="shrink-0" style={{ height: edgeSpacerPx }} />
-            </div>
           </div>
         </MotionConfig>
       )}

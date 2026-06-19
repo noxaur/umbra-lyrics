@@ -186,5 +186,6 @@ describe("playlist lyrics indexer", () => {
       expect(listPlaylistIndexIssues()).toHaveLength(0)
     })
     expect(mockCacheFromPipeline).toHaveBeenCalled()
+    expect(mockPipeline.mock.calls[0]?.[0]).toMatchObject({ skipTranscription: true })
   })
 })

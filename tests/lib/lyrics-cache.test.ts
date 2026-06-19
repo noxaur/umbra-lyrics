@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   clearLyricsCache,
   getLyricsCache,
@@ -18,6 +18,8 @@ const sampleEntry = {
   lines: [{ startMs: 0, endMs: 3000, text: "Line one" }],
   synced: true,
   englishLines: [] as string[],
+  romajiLines: [] as string[],
+  romajiStatus: null,
   languageCode: "jpn",
   title: "Track - Artist",
   artist: "Artist",
@@ -42,6 +44,62 @@ describe("lyrics-cache", () => {
     expect(cached?.lyricsResult.id).toBe(42)
     expect(cached?.artist).toBe("Artist")
     expect(cached?.cachedAt).toBeTypeOf("number")
+  })
+
+  it("round-trips skipped english status for English-only tracks", () => {
+    setLyricsCache({
+      ...sampleEntry,
+      englishLines: ["Hello world"],
+      englishSource: "found",
+      englishStatus: "skipped",
+      languageCode: "en",
+    })
+    const cached = getLyricsCache("abc12345678")
+    expect(cached?.englishStatus).toBe("skipped")
+    expect(cached?.englishLines).toEqual(["Hello world"])
+  })
+
+  it("round-trips romaji lines", () => {
+    setLyricsCache({
+      ...sampleEntry,
+      romajiLines: ["hikari no sekai e"],
+      romajiStatus: "ready",
+    })
+
+    const cached = getLyricsCache("abc12345678")
+    expect(cached?.romajiLines).toEqual(["hikari no sekai e"])
+    expect(cached?.romajiStatus).toBe("ready")
+  })
+
+  it("rebuilds stale romaji lines from cached Japanese lyrics", () => {
+    setLyricsCache({
+      ...sampleEntry,
+      lines: [{ startMs: 0, endMs: 3000, text: "隠していたこの気持ちも" }],
+      romajiLines: ["隠 shiteita ko no 気持 chimo"],
+      romajiStatus: "ready",
+      languageCode: "ja",
+    })
+
+    const cached = getLyricsCache("abc12345678")
+    expect(cached?.romajiLines).toEqual(["kakushiteita kono kimochi mo"])
+    expect(cached?.romajiStatus).toBe("ready")
+  })
+
+  it("does not rewrite cache when romaji lines are already clean", () => {
+    setLyricsCache({
+      ...sampleEntry,
+      lines: [{ startMs: 0, endMs: 3000, text: "隠していたこの気持ちも" }],
+      romajiLines: ["kakushiteita kono kimochi mo"],
+      romajiStatus: "ready",
+      languageCode: "ja",
+      cachedAt: 42,
+    })
+
+    const setItem = vi.spyOn(Storage.prototype, "setItem")
+    const cached = getLyricsCache("abc12345678")
+    expect(cached?.romajiLines).toEqual(["kakushiteita kono kimochi mo"])
+    expect(setItem).not.toHaveBeenCalled()
+    setItem.mockRestore()
   })
 
   it("rejects legacy cache version", () => {

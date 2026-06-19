@@ -143,4 +143,36 @@ describe("playlists", () => {
     expect(playlists).toHaveLength(1)
     expect(playlists[0].name).toBe("Good")
   })
+
+  it("bulk adds tracks while deduping and respecting limits", () => {
+    const { playlist } = createPlaylist("Import target")
+    addTrackToPlaylist(playlist.id, sampleTrack)
+
+    const result = bulkAddTracksToPlaylist(playlist.id, [
+      sampleTrack,
+      sampleTrack2,
+      {
+        videoId: "ghi789",
+        title: "Third - Song",
+        artist: "Third",
+        track: "Song",
+      },
+    ])
+
+    expect(result.added).toBe(2)
+    expect(result.skippedDuplicates).toBe(1)
+    expect(getPlaylistById(playlist.id)?.tracks.map((t) => t.videoId)).toEqual([
+      "abc123",
+      "def456",
+      "ghi789",
+    ])
+  })
+
+  it("creates a playlist from an import", () => {
+    const result = createPlaylistFromImport("Imported set", [sampleTrack, sampleTrack2])
+    expect(result.error).toBeUndefined()
+    expect(result.added).toBe(2)
+    expect(result.playlist?.name).toBe("Imported set")
+    expect(result.playlist?.tracks).toHaveLength(2)
+  })
 })

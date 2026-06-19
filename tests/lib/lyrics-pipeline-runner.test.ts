@@ -29,7 +29,7 @@ describe("runLyricsPipeline", () => {
     })
   })
 
-  it("starts English prefetch alongside native orchestration", async () => {
+  it("starts English prefetch alongside native orchestration when metadata predicts non-English lyrics", async () => {
     let prefetchStarted = false
 
     mockPrefetch.mockImplementation(async () => {
@@ -69,8 +69,44 @@ describe("runLyricsPipeline", () => {
     expect(onNativeReady).toHaveBeenCalledOnce()
     expect(mockPrefetch).toHaveBeenCalled()
     expect(mockResolvePrefetch).toHaveBeenCalled()
+    expect(result.romaji.status).toBe("ready")
+    expect(result.romaji.lines).toEqual(["betsu no sekai e"])
     expect(result.english.status).toBe("ready")
     expect(result.timings.parallelMs).toBeGreaterThan(0)
+  })
+
+  it("skips English prefetch when native lyrics are already English", async () => {
+    mockOrchestrate.mockResolvedValue({
+      status: "found",
+      strategy: "test",
+      attempts: [],
+      providersTried: ["lrclib"],
+      message: "ok",
+      synced: true,
+      lyrics: {
+        id: 1,
+        providerId: "lrclib",
+        plainLyrics: "Never gonna give you up\nNever gonna let you down",
+        syncedLyrics: null,
+      },
+    })
+
+    const result = await runLyricsPipeline({
+      track: "Never Gonna Give You Up",
+      artist: "Rick Astley",
+      title: "Rick Astley - Never Gonna Give You Up",
+      durationSec: 214,
+    })
+
+    expect(mockPrefetch).not.toHaveBeenCalled()
+    expect(mockResolvePrefetch).not.toHaveBeenCalled()
+    expect(result.romaji.status).toBe("skipped")
+    expect(result.romaji.lines).toEqual([])
+    expect(result.english.status).toBe("skipped")
+    expect(result.english.lines).toEqual([
+      "Never gonna give you up",
+      "Never gonna let you down",
+    ])
   })
 
   it("extracts native lines from plain lyrics", () => {
