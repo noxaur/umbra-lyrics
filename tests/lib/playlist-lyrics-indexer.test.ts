@@ -37,10 +37,12 @@ vi.mock("@/lib/youtube-oembed", () => ({
 import { getLyricsCache } from "@/lib/lyrics-cache"
 import { cacheLyricsFromPipeline } from "@/lib/cache-lyrics-from-pipeline"
 import { runLyricsPipeline } from "@/lib/lyrics-pipeline"
+import { resolveTrackMetadata } from "@/lib/track-metadata-resolver"
 
 const mockGetCache = vi.mocked(getLyricsCache)
 const mockCacheFromPipeline = vi.mocked(cacheLyricsFromPipeline)
 const mockPipeline = vi.mocked(runLyricsPipeline)
+const mockResolveTrackMetadata = vi.mocked(resolveTrackMetadata)
 
 describe("playlist lyrics indexer", () => {
   beforeEach(() => {
@@ -49,6 +51,74 @@ describe("playlist lyrics indexer", () => {
     vi.clearAllMocks()
     mockGetCache.mockReturnValue(null)
     mockCacheFromPipeline.mockReturnValue(true)
+  })
+
+  it("resolves metadata once per track before indexing", async () => {
+    mockPipeline.mockResolvedValue({
+      native: {
+        status: "found",
+        strategy: "test",
+        attempts: [],
+        providersTried: ["lrclib"],
+        message: "ok",
+        synced: true,
+        lyrics: {
+          id: 1,
+          providerId: "lrclib",
+          plainLyrics: "Hello",
+          syncedLyrics: null,
+        },
+      },
+      english: { lines: [], source: "translated", status: "failed" },
+      timings: { nativeMs: 1, englishMs: 0, parallelMs: 1 },
+    })
+
+    const { playlist } = createPlaylist("Resolve once")
+    enqueuePlaylistLyricsIndexing(playlist.id, [
+      {
+        videoId: "abc123def45",
+        title: "Artist - Song",
+        artist: "",
+        track: "",
+        durationSec: 200,
+      },
+    ])
+
+    await vi.waitFor(() => {
+      expect(mockResolveTrackMetadata).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it("stores resolved metadata on partial needs_metadata issues", async () => {
+    mockResolveTrackMetadata.mockImplementationOnce(async () => ({
+      artist: "",
+      track: "Resolved Track",
+      source: "parse",
+      confidence: 0.3,
+      alternates: [],
+    }))
+
+    const { playlist } = createPlaylist("Partial metadata")
+    enqueuePlaylistLyricsIndexing(playlist.id, [
+      {
+        videoId: "abc123def45",
+        title: "Old Track",
+        artist: "",
+        track: "Old Track",
+        durationSec: 200,
+      },
+    ])
+
+    await vi.waitFor(() => {
+      expect(listPlaylistIndexIssues()).toHaveLength(1)
+    })
+
+    const issue = listPlaylistIndexIssues()[0]
+    expect(issue.reason).toBe("needs_metadata")
+    expect(issue.artist).toBe("")
+    expect(issue.track).toBe("Resolved Track")
+    expect(issue.message).toContain("Artist name is missing")
+    expect(mockPipeline).not.toHaveBeenCalled()
   })
 
   it("records needs_metadata when artist and track cannot be resolved", async () => {
