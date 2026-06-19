@@ -1,5 +1,6 @@
 import { MoreHorizontal, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -54,7 +55,10 @@ export function PlayerViewMenu({
                 onRefreshLyrics()
               }}
             >
-              <RefreshCw className="size-4" aria-hidden />
+              <RefreshCw
+                className={cn("size-4", lyricsRefreshing && "motion-safe:animate-spin")}
+                aria-hidden
+              />
               {lyricsRefreshing ? "Searching for lyrics…" : "Re-search lyrics"}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
