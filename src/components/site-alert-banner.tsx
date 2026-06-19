@@ -42,7 +42,7 @@ export function SiteAlertBanner({ alert: alertProp }: SiteAlertBannerProps = {})
   const alert = activeAlerts[0]
   if (!alert) return null
 
-  const styles = SEVERITY_STYLES[alert.severity]
+  const styles = SEVERITY_STYLES[alert.severity] ?? SEVERITY_STYLES.info
   const Icon = styles.icon
   const isAssertive = alert.severity === "warning" || alert.severity === "alert"
 

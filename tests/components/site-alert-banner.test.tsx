@@ -54,4 +54,9 @@ describe("SiteAlertBanner", () => {
     expect(screen.queryByText("Under the hood")).not.toBeInTheDocument()
     expect(localStorage.getItem("umbra:site-alert-dismissed:test-banner")).toBe("1")
   })
+
+  it("falls back to info styles for unknown severity", () => {
+    renderBanner({ ...testAlert, severity: "warn" as SiteAlert["severity"] })
+    expect(screen.getByRole("status")).toHaveClass("border-sky-500/40")
+  })
 })
