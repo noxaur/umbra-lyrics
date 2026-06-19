@@ -200,6 +200,46 @@ describe("resolveCanonicalMusicVideo", () => {
     )
   })
 
+  it("keeps a competitively scored official MV when YouTube Music returns a worse match", async () => {
+    mockResolveTrackMetadata.mockResolvedValue({
+      artist: "milet",
+      track: "Anytime Anywhere",
+      source: "deezer",
+      confidence: 0.9,
+      durationSec: 231,
+      alternates: [],
+    })
+    mockSearchYouTubeMusicSongs.mockResolvedValue([
+      {
+        videoId: "worseMatch1",
+        title: "Anytime Anywhere (Live)",
+        channel: "Bootleg Channel",
+        durationSec: 231,
+        resultType: "video",
+        isOfficialAudio: false,
+      },
+    ])
+
+    const result = await resolveCanonicalMusicVideo({
+      kind: "youtube",
+      videoId: "officialMv01",
+      title: "【MV】milet「Anytime Anywhere」MUSIC VIDEO",
+      oembedAuthor: "milet Official YouTube Channel",
+      durationSec: 231,
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      videoId: "officialMv01",
+      seedMetadata: {
+        artist: "milet",
+        track: "Anytime Anywhere",
+        durationSec: 231,
+        source: "music-api",
+      },
+    })
+  })
+
   it("uses Spotify metadata as validated and searches YouTube Music", async () => {
     mockProxyFetch.mockResolvedValue(
       new Response(
