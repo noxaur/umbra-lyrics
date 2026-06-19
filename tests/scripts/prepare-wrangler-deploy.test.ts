@@ -42,7 +42,7 @@ describe("prepare-wrangler-deploy.mjs", () => {
 
   it("keeps zone routes by default", () => {
     const result = runPrepare({
-      name: "umbra",
+      name: "song-kara",
       routes: [{ pattern: "song.opsec.rent/*", zone_name: "opsec.rent" }],
       containers: [{ class_name: "RomajiContainer" }],
     })
@@ -56,7 +56,7 @@ describe("prepare-wrangler-deploy.mjs", () => {
   it("strips routes only when STRIP_ZONE_ROUTES=true", () => {
     const result = runPrepare(
       {
-        name: "umbra",
+        name: "song-kara",
         routes: [{ pattern: "song.opsec.rent/*", zone_name: "opsec.rent" }],
       },
       { STRIP_ZONE_ROUTES: "true" },
