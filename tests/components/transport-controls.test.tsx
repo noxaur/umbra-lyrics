@@ -110,6 +110,18 @@ describe("TransportControls", () => {
     expect(usePlayerStore.getState().syncOffsetMs).toBe(0)
   })
 
+  it("hides bilingual mode picker for English-primary tracks even if stale English lines exist", () => {
+    usePlayerStore.setState({
+      languageCode: "en",
+      englishLines: ["Hello", "World"],
+      englishStatus: "skipped",
+    })
+
+    renderControls()
+
+    expect(screen.queryByRole("combobox", { name: "Lyric display mode" })).not.toBeInTheDocument()
+  })
+
   it("auto-switches to both when translated english arrives", () => {
     usePlayerStore.setState({ displayMode: "native", englishLines: [], englishSource: null })
     const { rerender } = renderControls()

@@ -380,10 +380,9 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       setLanguageCode(lang)
 
       if (!english || english.status === "skipped") {
+        setDisplayMode("native")
         setEnglishStatus("skipped")
-        if (english?.lines.length) {
-          setEnglishLines(english.lines, "found", null, "skipped")
-        }
+        setEnglishLines([], null, null, "skipped")
         return
       }
 
