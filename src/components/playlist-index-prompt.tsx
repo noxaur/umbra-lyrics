@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { AlertTriangle } from "lucide-react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Button } from "@/components/ui/button"
 import {
   listPlaylistIndexIssues,
@@ -30,7 +30,7 @@ export function PlaylistIndexPrompt() {
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-sm font-medium text-amber-950 dark:text-amber-50">
-            <AlertTriangle className="size-4 shrink-0" aria-hidden />
+            <LottieIcon name="alert-triangle" className="size-4 shrink-0" aria-hidden />
             Lyrics indexing needs help
           </p>
           <p className="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">

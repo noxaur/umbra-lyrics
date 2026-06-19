@@ -1,7 +1,6 @@
-import { AlertTriangle, Flag, Languages, RefreshCw } from "lucide-react"
 import { useMemo, useState } from "react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { getLyricsCache } from "@/lib/lyrics-cache"
 import {
   buildLyricsRejectionUrl,
@@ -282,8 +281,10 @@ export function NowPlayingHeader({
                 aria-label={lyricsRefreshing ? "Searching for lyrics" : "Re-search lyrics"}
                 title="Re-parse title, search providers, and verify against audio"
               >
-                <RefreshCw
-                  className={cn("size-4", lyricsRefreshing && "motion-safe:animate-spin")}
+                <LottieIcon
+                  name="refresh"
+                  className="size-4"
+                  spin={lyricsRefreshing}
                   aria-hidden
                 />
               </Button>
@@ -297,7 +298,7 @@ export function NowPlayingHeader({
                 aria-label="Report lyrics"
                 title="Report lyrics issue"
               >
-                <Flag className="size-4" aria-hidden />
+                <LottieIcon name="flag" className="size-4" aria-hidden />
               </Button>
             ) : null}
             {showTranslate && onTranslate ? (
@@ -310,7 +311,7 @@ export function NowPlayingHeader({
                 aria-label={translating ? "Translating lyrics" : "Translate lyrics"}
                 title={translating ? "Translating…" : "Translate lyrics to English"}
               >
-                <Languages className="size-4" aria-hidden />
+                <LottieIcon name="languages" className="size-4" aria-hidden />
               </Button>
             ) : null}
             {onSelectAlternate ? (
@@ -347,7 +348,7 @@ export function NowPlayingHeader({
           className="mt-1 flex min-w-0 items-start gap-1.5 text-[0.6875rem] text-foreground/90 sm:text-xs"
           role="status"
         >
-          <AlertTriangle
+          <LottieIcon name="alert-triangle"
             className="mt-0.5 size-3.5 shrink-0 text-amber-600 sm:size-4 dark:text-amber-400"
             aria-hidden
           />

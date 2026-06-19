@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Download, Loader2 } from "lucide-react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useMkvExport } from "@/hooks/use-mkv-export"
@@ -173,7 +173,7 @@ export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogP
               className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"
               role="status"
             >
-              {isExporting ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+              {isExporting ? <LottieIcon name="loader" className="size-4" spin aria-hidden /> : null}
               <span>{PROGRESS_LABELS[progress]}</span>
             </div>
           ) : null}
@@ -197,7 +197,7 @@ export function MkvExportDialog({ open, durationSec, onClose }: MkvExportDialogP
                   Close
                 </Button>
                 <Button className="w-full sm:w-auto" onClick={handleExport} disabled={!videoId}>
-                  <Download className="size-4" aria-hidden />
+                  <LottieIcon name="download" className="size-4" aria-hidden />
                   Export MKV
                 </Button>
               </>
@@ -232,7 +232,7 @@ export function MkvExportButton({ durationSec, className }: MkvExportButtonProps
         aria-label="Download MKV with synced lyrics (beta)"
         title="Download MKV with synced lyrics (beta)"
       >
-        <Download className="size-3.5" aria-hidden />
+        <LottieIcon name="download" className="size-3.5" aria-hidden />
         <span className="hidden sm:inline">MKV</span>
         <span className="rounded bg-violet-500/15 px-1 py-px text-[0.55rem] font-semibold uppercase leading-none text-violet-700 dark:text-violet-300">
           Beta

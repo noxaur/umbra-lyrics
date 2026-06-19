@@ -1,14 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import {
-  ArrowDown,
-  ArrowUp,
-  ListMusic,
-  Loader2,
-  Play,
-  Trash2,
-  X,
-} from "lucide-react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -97,7 +89,7 @@ export function QueueMenu({ className }: { className?: string }) {
           aria-label={`Queue${queue.length > 0 ? `, ${queue.length} songs` : ""}`}
           title="Playback queue"
         >
-          <ListMusic className="size-3.5" aria-hidden />
+          <LottieIcon name="list-music" className="size-3.5" aria-hidden />
           {queue.length > 0 ? (
             <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-primary text-[0.625rem] font-medium text-primary-foreground">
               {queue.length > 9 ? "9+" : queue.length}
@@ -142,7 +134,7 @@ export function QueueMenu({ className }: { className?: string }) {
                     </span>
                     <span className="flex items-center gap-1 text-[0.6875rem] text-muted-foreground">
                       {track.status === "prefetching" ? (
-                        <Loader2 className="size-3 motion-safe:animate-spin" aria-hidden />
+                        <LottieIcon name="loader" spin className="size-3" aria-hidden />
                       ) : null}
                       {statusLabel(track.status)}
                       {isCurrent ? " · Now playing" : null}
@@ -157,7 +149,7 @@ export function QueueMenu({ className }: { className?: string }) {
                     aria-label={`Play ${formatTrackLabel(track)}`}
                     title="Play now"
                   >
-                    <Play className="size-3" aria-hidden />
+                    <LottieIcon name="play" className="size-3" aria-hidden />
                   </Button>
                   <Button
                     type="button"
@@ -168,7 +160,7 @@ export function QueueMenu({ className }: { className?: string }) {
                     onClick={() => moveQueueTrack(track.videoId, "up")}
                     aria-label="Move up"
                   >
-                    <ArrowUp className="size-3" aria-hidden />
+                    <LottieIcon name="arrow-up" className="size-3" aria-hidden />
                   </Button>
                   <Button
                     type="button"
@@ -179,7 +171,7 @@ export function QueueMenu({ className }: { className?: string }) {
                     onClick={() => moveQueueTrack(track.videoId, "down")}
                     aria-label="Move down"
                   >
-                    <ArrowDown className="size-3" aria-hidden />
+                    <LottieIcon name="arrow-down" className="size-3" aria-hidden />
                   </Button>
                   <Button
                     type="button"
@@ -189,7 +181,7 @@ export function QueueMenu({ className }: { className?: string }) {
                     onClick={() => handleRemove(track.videoId)}
                     aria-label={`Remove ${formatTrackLabel(track)}`}
                   >
-                    <Trash2 className="size-3" aria-hidden />
+                    <LottieIcon name="trash-2" className="size-3" aria-hidden />
                   </Button>
                 </div>
               )
@@ -215,7 +207,7 @@ export function QueueMenu({ className }: { className?: string }) {
                 handleClear()
               }}
             >
-              <X className="size-4" aria-hidden />
+              <LottieIcon name="x" className="size-4" aria-hidden />
               Clear queue
             </DropdownMenuItem>
           </>

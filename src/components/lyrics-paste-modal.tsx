@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Upload } from "lucide-react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -91,7 +91,7 @@ export function LyricsPasteModal({ open, onClose, onSubmit }: LyricsPasteModalPr
           size="sm"
           onClick={() => fileInputRef.current?.click()}
         >
-          <Upload className="size-4" aria-hidden />
+          <LottieIcon name="upload" className="size-4" aria-hidden />
           Import file
         </Button>
         {importName ? (

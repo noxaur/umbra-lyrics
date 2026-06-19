@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
-import { HelpCircle, Maximize2, Minimize2, Pause, Play, RotateCcw, SkipBack, SkipForward } from "lucide-react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { Button } from "@/components/ui/button"
-import { AnimatedIcon } from "@/components/icons/animated-icon"
 import { formatDuration } from "@/lib/format-time"
 import { usePlayerStore } from "@/stores/player-store"
 import { ShortcutsHelp } from "@/components/shortcuts-help"
@@ -167,7 +166,7 @@ export function TransportControls({
                 aria-label={playlistContext ? "Previous track in playlist" : "Previous track in queue"}
                 title={playlistContext ? "Previous track (Shift+←)" : "Previous in queue"}
               >
-                <SkipBack className="size-3.5" aria-hidden />
+                <LottieIcon name="skip-back" hover className="size-3.5" aria-hidden />
               </Button>
             ) : null}
             <Button
@@ -177,7 +176,13 @@ export function TransportControls({
               onClick={isPlaying ? onPause : onPlay}
               aria-label={isPlaying ? "Pause" : "Play"}
             >
-              <AnimatedIcon icon={isPlaying ? Pause : Play} active={isPlaying} />
+              <LottieIcon
+                name={isPlaying ? "pause" : "play"}
+                hover
+                active={isPlaying}
+                className="size-5"
+                aria-hidden
+              />
             </Button>
             {showSkipControls ? (
               <Button
@@ -189,7 +194,7 @@ export function TransportControls({
                 aria-label={playlistContext ? "Next track in playlist" : "Next track in queue"}
                 title={playlistContext ? "Next track (Shift+→)" : "Next in queue"}
               >
-                <SkipForward className="size-3.5" aria-hidden />
+                <LottieIcon name="skip-forward" hover className="size-3.5" aria-hidden />
               </Button>
             ) : null}
 
@@ -267,7 +272,7 @@ export function TransportControls({
               aria-label="Reset lyrics timing"
               title="Reset timing"
             >
-              <RotateCcw className="size-3" aria-hidden />
+              <LottieIcon name="rotate-ccw" hover className="size-3" aria-hidden />
             </Button>
             <span
               className="w-8 shrink-0 text-right text-[0.625rem] tabular-nums text-muted-foreground"
@@ -292,9 +297,9 @@ export function TransportControls({
                 title={stageFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen lyrics and video (F)"}
               >
                 {stageFullscreen ? (
-                  <Minimize2 className="size-3.5" aria-hidden />
+                  <LottieIcon name="minimize-2" hover className="size-3.5" aria-hidden />
                 ) : (
-                  <Maximize2 className="size-3.5" aria-hidden />
+                  <LottieIcon name="maximize-2" hover className="size-3.5" aria-hidden />
                 )}
               </Button>
             ) : null}
@@ -306,7 +311,7 @@ export function TransportControls({
             />
             <ShortcutsHelp>
               <Button variant="ghost" size="icon" className={ICON_BTN} aria-label="Keyboard shortcuts">
-                <HelpCircle className="size-3.5" />
+                <LottieIcon name="help-circle" hover className="size-3.5" />
               </Button>
             </ShortcutsHelp>
             <MkvExportButton durationSec={duration} className="hidden sm:inline-flex" />

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react"
-import { Loader2, X } from "lucide-react"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import { LyricsReportModal } from "@/components/lyrics-report-modal"
 import { LyricsPasteModal } from "@/components/lyrics-paste-modal"
 import { PlaylistLyricsImportRowView } from "@/components/playlist-lyrics-import-row"
@@ -353,13 +353,13 @@ export function PlaylistLyricsImportDialog({
               disabled={busy}
               aria-label="Close"
             >
-              <X className="size-4" aria-hidden />
+              <LottieIcon name="x" className="size-4" aria-hidden />
             </Button>
           </div>
 
           {step === "scanning" ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
-              <Loader2 className="size-8 animate-spin text-muted-foreground" aria-hidden />
+              <LottieIcon name="loader" className="size-8 text-muted-foreground" spin aria-hidden />
               <p className="text-sm text-muted-foreground">
                 Searching lyrics for {scanProgress.total} tracks…
               </p>
@@ -523,7 +523,7 @@ export function PlaylistLyricsImportDialog({
 
           {step === "importing" ? (
             <div className="flex items-center gap-2 border-t border-border px-4 py-3 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" aria-hidden />
+              <LottieIcon name="loader" className="size-4" spin aria-hidden />
               Importing lyrics…
             </div>
           ) : null}

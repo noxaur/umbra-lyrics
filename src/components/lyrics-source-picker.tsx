@@ -1,5 +1,5 @@
-import { ChevronDown, Layers2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { LottieIcon } from "@/components/icons/lottie-icon"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,12 +41,12 @@ export function LyricsSourcePicker({ onSelectAlternate, compact = false }: Lyric
             aria-label={pickerTitle}
             title={pickerTitle}
           >
-            <Layers2 className="size-4" aria-hidden />
+            <LottieIcon name="layers-2" className="size-4" aria-hidden />
           </Button>
         ) : (
           <Button type="button" variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs">
             Used {sourceLabel} ({altCount} alternative{altCount === 1 ? "" : "s"})
-            <ChevronDown className="size-3 opacity-60" aria-hidden />
+            <LottieIcon name="chevron-down" className="size-3 opacity-60" aria-hidden />
           </Button>
         )}
       </DropdownMenuTrigger>
