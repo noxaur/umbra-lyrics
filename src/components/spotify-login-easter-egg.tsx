@@ -77,7 +77,7 @@ export function SpotifyLoginEasterEgg({ anchor, onComplete }: SpotifyLoginEaster
       "--spotify-shift-exit": `${-80 - centerX}px`,
       "--spotify-btn-shift-start": `${Math.max(viewportWidth, centerX) + 128 - centerX}px`,
     }),
-    [anchor.height, anchor.width, centerX, viewportWidth],
+    [anchor.height, anchor.left, anchor.top, anchor.width, centerX, centerY, viewportWidth],
   )
 
   const overlay = (

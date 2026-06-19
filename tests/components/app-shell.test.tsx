@@ -63,7 +63,13 @@ describe("AppShell", () => {
       </AppShell>,
     )
 
-    expect(screen.getByRole("link", { name: "← Home" })).toHaveAttribute("href", "/")
+    const homeLink = screen.getByRole("link", { name: "← Home" })
+    expect(homeLink).toHaveAttribute("href", "/")
+    const mobileHeader = homeLink.closest("header")
+    expect(mobileHeader).not.toBeNull()
+    expect(
+      mobileHeader!.querySelector("button[title='Spotify login is currently disabled — click for details']"),
+    ).toHaveTextContent("Spotify")
     const desktopHeader = screen.getByRole("link", { name: "umbra" }).closest("header")
     expect(desktopHeader).toHaveClass("hidden")
   })
