@@ -55,7 +55,10 @@ describe("SongSearch", () => {
     fireEvent.click(screen.getByRole("button", { name: /search/i }))
 
     await waitFor(() => {
-      expect(mockSearchSongs).toHaveBeenCalledWith("queen bohemian", { limit: 10 })
+      expect(mockSearchSongs).toHaveBeenCalledWith(
+        "queen bohemian",
+        expect.objectContaining({ limit: 10 }),
+      )
     })
 
     await waitFor(() => {
@@ -274,6 +277,30 @@ describe("SongSearch", () => {
     expect(mockSearchSongs).toHaveBeenCalledWith("queen bohemian", {
       limit: 10,
       signal: expect.any(AbortSignal),
+    })
+  })
+
+  it("resolves pasted YouTube links on debounce without searching", async () => {
+    vi.useFakeTimers()
+
+    render(
+      <MemoryRouter>
+        <SongSearch />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText(/search songs/i), {
+      target: { value: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+    })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+      await Promise.resolve()
+    })
+
+    expect(mockSearchSongs).not.toHaveBeenCalled()
+    expect(mockNavigate).toHaveBeenCalledWith("/play/dQw4w9WgXcQ", {
+      state: { fromHome: true },
     })
   })
 

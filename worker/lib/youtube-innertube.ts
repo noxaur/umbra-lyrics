@@ -12,10 +12,15 @@ import {
   type PlaylistImportItem,
 } from "./youtube-playlist-map"
 import { fetchPlaylistViaRss } from "./youtube-playlist-rss"
+import { withPromiseTimeout } from "./promise-timeout"
 import {
   collectMusicHits,
   searchSongsMusicFirst,
 } from "./youtube-music-search-shared"
+import {
+  searchCacheKey,
+  withSearchDedup,
+} from "./youtube-search-cache"
 import { type SongSearchHit } from "./youtube-search-rank"
 import {
   pickBestYouTubeMusicHit,
@@ -38,6 +43,9 @@ type StreamKind = "audio" | "video"
 const memCache: Record<string, ArrayBuffer> = {}
 
 const innertubeCache = new Map<string, Promise<Innertube>>()
+
+const SEARCH_TIMEOUT_MS = 15_000
+const SEARCH_CLIENT_CHAIN = [ClientType.MUSIC, ClientType.WEB] as const
 
 function clientTypeFromName(name: InnertubeClientName): ClientType {
   return ClientType[name as keyof typeof ClientType] ?? ClientType.WEB
@@ -103,9 +111,32 @@ export async function resolveStreamViaInnertubeDetailed(
   return { stream: null, attempts }
 }
 
+async function searchViaInnertubeOnce(
+  query: string,
+  limit: number,
+): Promise<SongSearchHit[]> {
+  let lastError: unknown
+
+  for (const clientType of SEARCH_CLIENT_CHAIN) {
+    try {
+      const yt = await createInnertube(clientType)
+      const results = await withPromiseTimeout(
+        searchSongsMusicFirst(yt, query, limit),
+        SEARCH_TIMEOUT_MS,
+      )
+      if (results.length > 0) return results
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  if (lastError instanceof Error) throw lastError
+  return []
+}
+
 export async function searchViaInnertube(query: string, limit: number): Promise<SongSearchHit[]> {
-  const yt = await createInnertube(ClientType.MUSIC)
-  return searchSongsMusicFirst(yt, query, limit)
+  const key = searchCacheKey(query, limit)
+  return withSearchDedup(key, () => searchViaInnertubeOnce(query, limit))
 }
 
 export async function searchYouTubeMusicViaInnertube(
