@@ -1,7 +1,9 @@
-import { AlertTriangle, RefreshCw } from "lucide-react"
+import { AlertTriangle, Flag, RefreshCw } from "lucide-react"
 import { useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { getLyricsCache } from "@/lib/lyrics-cache"
+import { buildLyricsRejectionUrl } from "@/lib/lyrics-rejection-report"
 import { usePlayerStore } from "@/stores/player-store"
 import { LYRICS_PROVIDER_LABELS, type LyricsAlternate, type LyricsProviderId } from "@/types/lyrics"
 import { LyricsSourcePicker } from "@/components/lyrics-source-picker"
@@ -94,6 +96,9 @@ export function NowPlayingHeader({
   const lyricsAligned = usePlayerStore((s) => s.lyricsAligned)
   const lyricsSource = usePlayerStore((s) => s.lyricsSource)
   const lyrics = usePlayerStore((s) => s.lyrics)
+  const lyricsAlternates = usePlayerStore((s) => s.lyricsAlternates)
+  const lyricsProvidersSearched = usePlayerStore((s) => s.lyricsProvidersSearched)
+  const lyricsAttempts = usePlayerStore((s) => s.lyricsAttempts)
   const englishSource = usePlayerStore((s) => s.englishSource)
   const translationBackend = usePlayerStore((s) => s.translationBackend)
   const englishLines = usePlayerStore((s) => s.englishLines)
@@ -117,6 +122,48 @@ export function NowPlayingHeader({
   const timingNotice = showTimingNotice
     ? getTimingNoticeText(lyricsAutoTimed, lyricsSource, lyricsAligned)
     : null
+  const rejectionUrl = useMemo(() => {
+    if (
+      !videoId ||
+      lyrics.length === 0 ||
+      !lyricsSource ||
+      lyricsSource === "pasted" ||
+      lyricsSource === "translated"
+    ) {
+      return null
+    }
+
+    const cached = getLyricsCache(videoId)
+    return buildLyricsRejectionUrl({
+      videoId,
+      title,
+      artist,
+      track,
+      providerId: lyricsSource,
+      synced: lyricsSynced,
+      autoTimed: lyricsAutoTimed,
+      aligned: lyricsAligned,
+      currentLyrics:
+        cached?.lyricsResult.providerId === lyricsSource ? cached.lyricsResult : undefined,
+      displayedLines: lyrics.map((line) => line.text),
+      alternates: lyricsAlternates,
+      providersSearched: lyricsProvidersSearched,
+      attempts: lyricsAttempts,
+    })
+  }, [
+    artist,
+    lyrics,
+    lyricsAligned,
+    lyricsAlternates,
+    lyricsAttempts,
+    lyricsAutoTimed,
+    lyricsProvidersSearched,
+    lyricsSource,
+    lyricsSynced,
+    title,
+    track,
+    videoId,
+  ])
 
   const recentEnglish = useMemo(
     () => (videoId ? getRecentSongs().find((song) => song.videoId === videoId) : undefined),
@@ -172,6 +219,19 @@ export function NowPlayingHeader({
             >
               <RefreshCw className={cn("size-3", lyricsRefreshing && "motion-safe:animate-spin")} aria-hidden />
               {lyricsRefreshing ? "Searching…" : "Re-search"}
+            </Button>
+          ) : null}
+          {rejectionUrl ? (
+            <Button asChild variant="outline" size="sm" className="h-7 gap-1 text-xs">
+              <a
+                href={rejectionUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Report incorrect lyrics on GitHub"
+              >
+                <Flag className="size-3" aria-hidden />
+                Reject lyrics
+              </a>
             </Button>
           ) : null}
           {showTranslate && onTranslate ? (
