@@ -3,6 +3,7 @@ import { getLyricsCache } from "@/lib/lyrics-cache"
 import { runLyricsPipeline } from "@/lib/lyrics-pipeline"
 import {
   clearPlaylistIndexIssue,
+  listPlaylistIndexIssues,
   upsertPlaylistIndexIssue,
   type PlaylistIndexIssueReason,
 } from "@/lib/playlist-index-issues"
@@ -23,12 +24,133 @@ type QueueJob = {
   track: PlaylistIndexTrack
 }
 
+export type PlaylistIndexingState = {
+  activeCount: number
+  queuedCount: number
+  lastFinishedAt: number | null
+}
+
+export type PlaylistIndexingSummary = {
+  total: number
+  cached: number
+  failed: number
+  needsMetadata: number
+  pending: number
+}
+
+type IndexingListener = (playlistId: string, state: PlaylistIndexingState) => void
+
 const queue: QueueJob[] = []
 const queuedKeys = new Set<string>()
 let activeCount = 0
+const activeByPlaylist = new Map<string, number>()
+const queuedByPlaylist = new Map<string, number>()
+const lastFinishedAt = new Map<string, number>()
+const idleResolvers = new Map<string, Array<() => void>>()
+const listeners = new Set<IndexingListener>()
 
 function queueKey(playlistId: string, videoId: string): string {
   return `${playlistId}:${videoId}`
+}
+
+function getPlaylistState(playlistId: string): PlaylistIndexingState {
+  return {
+    activeCount: activeByPlaylist.get(playlistId) ?? 0,
+    queuedCount: queuedByPlaylist.get(playlistId) ?? 0,
+    lastFinishedAt: lastFinishedAt.get(playlistId) ?? null,
+  }
+}
+
+function notifyListeners(playlistId: string): void {
+  const state = getPlaylistState(playlistId)
+  for (const listener of listeners) {
+    listener(playlistId, state)
+  }
+}
+
+function incrementActive(playlistId: string): void {
+  activeCount += 1
+  activeByPlaylist.set(playlistId, (activeByPlaylist.get(playlistId) ?? 0) + 1)
+  notifyListeners(playlistId)
+}
+
+function decrementActive(playlistId: string): void {
+  activeCount -= 1
+  const next = (activeByPlaylist.get(playlistId) ?? 1) - 1
+  if (next <= 0) {
+    activeByPlaylist.delete(playlistId)
+  } else {
+    activeByPlaylist.set(playlistId, next)
+  }
+  lastFinishedAt.set(playlistId, Date.now())
+  notifyListeners(playlistId)
+
+  const state = getPlaylistState(playlistId)
+  if (state.activeCount === 0 && state.queuedCount === 0) {
+    const resolvers = idleResolvers.get(playlistId) ?? []
+    idleResolvers.delete(playlistId)
+    for (const resolve of resolvers) resolve()
+  }
+}
+
+function incrementQueued(playlistId: string): void {
+  queuedByPlaylist.set(playlistId, (queuedByPlaylist.get(playlistId) ?? 0) + 1)
+  notifyListeners(playlistId)
+}
+
+function decrementQueued(playlistId: string): void {
+  const next = (queuedByPlaylist.get(playlistId) ?? 1) - 1
+  if (next <= 0) {
+    queuedByPlaylist.delete(playlistId)
+  } else {
+    queuedByPlaylist.set(playlistId, next)
+  }
+  notifyListeners(playlistId)
+}
+
+export function subscribePlaylistIndexing(listener: IndexingListener): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
+export function getPlaylistIndexingState(playlistId: string): PlaylistIndexingState {
+  return getPlaylistState(playlistId)
+}
+
+export function waitForPlaylistIndexingIdle(playlistId: string): Promise<void> {
+  const state = getPlaylistState(playlistId)
+  if (state.activeCount === 0 && state.queuedCount === 0) {
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => {
+    const list = idleResolvers.get(playlistId) ?? []
+    list.push(resolve)
+    idleResolvers.set(playlistId, list)
+  })
+}
+
+export function getPlaylistIndexingSummary(playlistId: string): PlaylistIndexingSummary {
+  const playlist = getPlaylistById(playlistId)
+  const tracks = playlist?.tracks ?? []
+  const issues = listPlaylistIndexIssues().filter((i) => i.playlistId === playlistId)
+
+  let cached = 0
+  for (const track of tracks) {
+    if (getLyricsCache(track.videoId)) cached += 1
+  }
+
+  const failed = issues.filter((i) => i.reason === "index_failed").length
+  const needsMetadata = issues.filter((i) => i.reason === "needs_metadata").length
+  const state = getPlaylistState(playlistId)
+  const pending = state.activeCount + state.queuedCount
+
+  return {
+    total: tracks.length,
+    cached,
+    failed,
+    needsMetadata,
+    pending,
+  }
 }
 
 function recordIssue(
@@ -176,9 +298,10 @@ function pumpQueue(): void {
     const job = queue.shift()
     if (!job) break
     queuedKeys.delete(queueKey(job.playlistId, job.track.videoId))
-    activeCount += 1
+    decrementQueued(job.playlistId)
+    incrementActive(job.playlistId)
     void indexTrack(job).finally(() => {
-      activeCount -= 1
+      decrementActive(job.playlistId)
       pumpQueue()
     })
   }
@@ -198,6 +321,7 @@ export function enqueuePlaylistLyricsIndexing(
     if (queuedKeys.has(key)) continue
     if (getLyricsCache(track.videoId)) continue
     queuedKeys.add(key)
+    incrementQueued(playlistId)
     queue.push({ playlistId, track: { ...track } })
   }
 
@@ -212,6 +336,20 @@ export async function retryPlaylistTrackIndexing(
   const key = queueKey(playlistId, track.videoId)
   if (queuedKeys.has(key)) return
   queuedKeys.add(key)
+  incrementQueued(playlistId)
   queue.unshift({ playlistId, track: { ...track } })
   pumpQueue()
+}
+
+export async function runAutomaticPlaylistLyricsIndexing(
+  playlistId: string,
+  tracks?: PlaylistIndexTrack[],
+): Promise<{ hasIssues: boolean; summary: PlaylistIndexingSummary }> {
+  enqueuePlaylistLyricsIndexing(playlistId, tracks)
+  await waitForPlaylistIndexingIdle(playlistId)
+  const summary = getPlaylistIndexingSummary(playlistId)
+  return {
+    hasIssues: summary.failed + summary.needsMetadata > 0,
+    summary,
+  }
 }

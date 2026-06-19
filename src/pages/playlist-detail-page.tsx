@@ -1,12 +1,25 @@
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, Download, Pencil, Play, Trash2 } from "lucide-react"
+import { ArrowLeft, ChevronDown, Download, FileMusic, Pencil, Play, Trash2 } from "lucide-react"
 import { AppShell } from "@/components/app-shell"
 import { NotFoundPage } from "@/pages/not-found-page"
 import { PlaylistFormDialog } from "@/components/playlist-form-dialog"
 import { PlaylistImportDialog } from "@/components/playlist-import-dialog"
 import { PlaylistTrackRow } from "@/components/playlist-track-row"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { openPlaylistLyricsImport } from "@/lib/playlist-lyrics-import-open"
+import {
+  getPlaylistIndexingState,
+  runAutomaticPlaylistLyricsIndexing,
+  subscribePlaylistIndexing,
+} from "@/lib/playlist-lyrics-indexer"
+import { listPlaylistIndexIssues } from "@/lib/playlist-index-issues"
 import {
   deletePlaylist,
   getPlaylistById,
@@ -42,9 +55,23 @@ function PlaylistDetailContent({
   const [importOpen, setImportOpen] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [indexingStatus, setIndexingStatus] = useState<string | null>(null)
+  const [fetchBusy, setFetchBusy] = useState(false)
 
   const refresh = useCallback(() => {
     setPlaylist(getPlaylistById(playlistId))
+  }, [playlistId])
+
+  useEffect(() => {
+    return subscribePlaylistIndexing((id, state) => {
+      if (id !== playlistId) return
+      const remaining = state.activeCount + state.queuedCount
+      if (remaining > 0) {
+        setIndexingStatus(`Indexing lyrics… ${remaining} remaining`)
+      } else {
+        setIndexingStatus(null)
+      }
+    })
   }, [playlistId])
 
   if (!playlist) {
@@ -63,6 +90,31 @@ function PlaylistDetailContent({
     const first = playlist.tracks[0]
     if (!first) return
     void navigate(`/play/${first.videoId}`, { state: playState(0) })
+  }
+
+  const handleAutomaticFetch = async () => {
+    setFetchBusy(true)
+    setError(null)
+    setIndexingStatus("Indexing lyrics…")
+    try {
+      const { hasIssues } = await runAutomaticPlaylistLyricsIndexing(playlistId)
+      if (hasIssues) {
+        const issueIds = listPlaylistIndexIssues()
+          .filter((issue) => issue.playlistId === playlistId)
+          .map((issue) => issue.videoId)
+        openPlaylistLyricsImport({ playlistId, videoIds: issueIds })
+      }
+    } finally {
+      setFetchBusy(false)
+      const state = getPlaylistIndexingState(playlistId)
+      if (state.activeCount + state.queuedCount === 0) {
+        setIndexingStatus(null)
+      }
+    }
+  }
+
+  const handleInteractiveFetch = () => {
+    openPlaylistLyricsImport({ playlistId })
   }
 
   const handleRemove = (videoId: string) => {
@@ -125,6 +177,11 @@ function PlaylistDetailContent({
             <p className="mt-1 text-sm text-muted-foreground">
               {playlist.tracks.length} {playlist.tracks.length === 1 ? "song" : "songs"}
             </p>
+            {indexingStatus ? (
+              <p className="mt-1 text-xs text-muted-foreground" role="status">
+                {indexingStatus}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -136,6 +193,28 @@ function PlaylistDetailContent({
               <Download className="size-3.5" aria-hidden />
               Import
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={playlist.tracks.length === 0 || fetchBusy}
+                >
+                  <FileMusic className="size-3.5" aria-hidden />
+                  Fetch lyrics
+                  <ChevronDown className="size-3 opacity-60" aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => void handleAutomaticFetch()}>
+                  Try automatically
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleInteractiveFetch}>
+                  Interactive import
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="outline"
               size="sm"
@@ -195,6 +274,7 @@ function PlaylistDetailContent({
                 <PlaylistTrackRow
                   track={track}
                   index={index}
+                  playlistId={playlist.id}
                   to={`/play/${track.videoId}`}
                   state={playState(index)}
                   draggable

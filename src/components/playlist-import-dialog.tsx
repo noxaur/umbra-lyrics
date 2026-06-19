@@ -13,6 +13,7 @@ import {
   type PlaylistImportResponse,
 } from "@/lib/youtube-playlist"
 import { enqueuePlaylistLyricsIndexing } from "@/lib/playlist-lyrics-indexer"
+import { openPlaylistLyricsImport } from "@/lib/playlist-lyrics-import-open"
 import { extractYouTubePlaylistId, youTubeMusicPlaylistUrl } from "@/lib/youtube-url"
 
 type PlaylistImportDialogProps = {
@@ -24,6 +25,8 @@ type PlaylistImportDialogProps = {
 }
 
 type DialogStep = "input" | "preview" | "importing"
+
+export type PlaylistImportLyricsMode = "automatic" | "interactive" | "skip"
 
 function formatImportSummary(response: PlaylistImportResponse): string {
   const count = response.items.length
@@ -49,6 +52,7 @@ export function PlaylistImportDialog({
   const [preview, setPreview] = useState<PlaylistImportResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
+  const [lyricsMode, setLyricsMode] = useState<PlaylistImportLyricsMode>("automatic")
   const urlId = useId()
   const nameId = useId()
   const urlRef = useRef<HTMLInputElement>(null)
@@ -66,6 +70,7 @@ export function PlaylistImportDialog({
     setPreview(null)
     setError(null)
     setStatus(null)
+    setLyricsMode("automatic")
     requestAnimationFrame(() => urlRef.current?.focus())
   }, [open])
 
@@ -152,12 +157,16 @@ export function PlaylistImportDialog({
     setStatus(parts.join(". ") + ".")
     const playlistId =
       mode === "existing" && targetPlaylistId ? targetPlaylistId : result.playlist?.id
-    if (playlistId) {
+    if (playlistId && lyricsMode !== "skip") {
       const indexTracks = preview.items.map((item) => {
         const [track] = playlistItemsToTracks([item])
         return { ...track, durationSec: item.durationSec }
       })
-      enqueuePlaylistLyricsIndexing(playlistId, indexTracks)
+      if (lyricsMode === "interactive") {
+        openPlaylistLyricsImport({ playlistId })
+      } else {
+        enqueuePlaylistLyricsIndexing(playlistId, indexTracks)
+      }
     }
     onImported()
     onClose()
@@ -250,6 +259,45 @@ export function PlaylistImportDialog({
                 ) : null}
               </ul>
             </div>
+          ) : null}
+
+          {step === "preview" ? (
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">Lyrics</legend>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="lyrics-mode"
+                  value="automatic"
+                  checked={lyricsMode === "automatic"}
+                  onChange={() => setLyricsMode("automatic")}
+                  disabled={busy}
+                />
+                Try automatically after import
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="lyrics-mode"
+                  value="interactive"
+                  checked={lyricsMode === "interactive"}
+                  onChange={() => setLyricsMode("interactive")}
+                  disabled={busy}
+                />
+                Interactive import after import
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="lyrics-mode"
+                  value="skip"
+                  checked={lyricsMode === "skip"}
+                  onChange={() => setLyricsMode("skip")}
+                  disabled={busy}
+                />
+                Skip lyrics for now
+              </label>
+            </fieldset>
           ) : null}
 
           {error ? (

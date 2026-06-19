@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom"
 import { ChevronDown, ChevronUp, GripVertical, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { getLyricsCache } from "@/lib/lyrics-cache"
+import { getPlaylistIndexIssue } from "@/lib/playlist-index-issues"
 import { formatTrackLabel } from "@/lib/track-label"
 import type { PlaylistTrack } from "@/lib/playlists"
 import { youtubeThumbnailUrl } from "@/lib/youtube-thumbnail"
@@ -8,6 +10,7 @@ import { cn } from "@/lib/utils"
 
 type PlaylistTrackRowProps = {
   track: PlaylistTrack
+  playlistId?: string
   index?: number
   to?: string
   state?: unknown
@@ -22,8 +25,26 @@ type PlaylistTrackRowProps = {
   className?: string
 }
 
+function lyricsStatusDot(videoId: string, playlistId?: string): {
+  className: string
+  label: string
+} {
+  if (getLyricsCache(videoId)) {
+    return { className: "bg-emerald-500", label: "Lyrics indexed" }
+  }
+  const issue = playlistId ? getPlaylistIndexIssue(videoId) : undefined
+  if (issue) {
+    return {
+      className: issue.reason === "needs_metadata" ? "bg-amber-500" : "bg-destructive",
+      label: issue.message,
+    }
+  }
+  return { className: "bg-muted-foreground/40", label: "Lyrics not indexed" }
+}
+
 export function PlaylistTrackRow({
   track,
+  playlistId,
   index,
   to,
   state,
@@ -38,6 +59,8 @@ export function PlaylistTrackRow({
   className,
 }: PlaylistTrackRowProps) {
   const label = formatTrackLabel(track)
+  const status = lyricsStatusDot(track.videoId, playlistId)
+
   const content = (
     <>
       {draggable && index != null ? (
@@ -62,6 +85,11 @@ export function PlaylistTrackRow({
         decoding="async"
         className="h-[2.375rem] w-[4.25rem] shrink-0 rounded-md border border-border/60 bg-muted object-cover"
         aria-hidden
+      />
+      <span
+        className={cn("size-2 shrink-0 rounded-full", status.className)}
+        title={status.label}
+        aria-label={status.label}
       />
       <span className="min-w-0 flex-1 truncate">{label}</span>
     </>
