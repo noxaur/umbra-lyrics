@@ -1,0 +1,18 @@
+{
+  "missing-track": {
+    "status": 400,
+    "body": { "error": "Missing track" }
+  },
+  "missing-video-id": {
+    "status": 400,
+    "body": { "error": "Missing videoId" }
+  },
+  "invalid-json": {
+    "status": 400,
+    "body": { "error": "Invalid JSON body" }
+  },
+  "spotify-unconfigured": {
+    "status": 503,
+    "body": { "error": "Spotify not configured" }
+  }
+}

@@ -1,0 +1,89 @@
+[
+  {
+    "id": "unavailable-video",
+    "category": "unavailable_video",
+    "videoId": "deleted0001",
+    "title": "Unavailable fixture video",
+    "author": "Fixture",
+    "expectedOutcome": "error",
+    "mode": "deterministic",
+    "assertions": { "forbiddenMarkers": ["document.write", "<script"] },
+    "provenance": "Synthetic contract fixture",
+    "capturedAt": "2026-06-19"
+  },
+  {
+    "id": "wrong-youtube-metadata",
+    "category": "wrong_metadata",
+    "videoId": "Rbgw_rduQpM",
+    "title": "Cyberpunk: Edgerunners | I Really Want to Stay At Your House | Music Video",
+    "author": "Netflix",
+    "durationSec": 247,
+    "language": "en",
+    "expectedOutcome": "found",
+    "mode": "live",
+    "assertions": {
+      "canonicalArtist": "Rosa Walton",
+      "canonicalTrack": "I Really Want to Stay at Your House",
+      "minimumLines": 4,
+      "forbiddenMarkers": ["document.write", "<script"]
+    },
+    "provenance": "Existing reported-track regression fixture",
+    "capturedAt": "2026-06-19"
+  },
+  {
+    "id": "no-lyrics",
+    "category": "no_lyrics",
+    "videoId": "nolyrics001",
+    "title": "No lyrics fixture",
+    "author": "Fixture",
+    "expectedOutcome": "not_found",
+    "mode": "deterministic",
+    "assertions": { "maximumLines": 0 },
+    "provenance": "Synthetic contract fixture",
+    "capturedAt": "2026-06-19"
+  },
+  {
+    "id": "instrumental",
+    "category": "instrumental",
+    "videoId": "instrumnt001",
+    "title": "Instrumental fixture",
+    "author": "Fixture",
+    "expectedOutcome": "instrumental",
+    "mode": "deterministic",
+    "assertions": { "maximumLines": 0 },
+    "provenance": "Synthetic contract fixture",
+    "capturedAt": "2026-06-19"
+  },
+  {
+    "id": "scraper-junk",
+    "category": "scraper_junk",
+    "title": "Scraper quality fixture",
+    "expectedOutcome": "not_found",
+    "mode": "deterministic",
+    "fixturePath": "tests/fixtures/lyrics-quality/scraper-junk.txt",
+    "assertions": {
+      "forbiddenMarkers": ["document.write", "og:description", "<script", "cookie policy"]
+    },
+    "provenance": "Existing scraper quality fixture",
+    "capturedAt": "2026-06-19"
+  },
+  {
+    "id": "non-english-native",
+    "category": "non_english_output",
+    "videoId": "Ktk_EDLDPeY",
+    "title": "別世界 - 天音かなた",
+    "author": "天音かなた",
+    "durationSec": 246,
+    "language": "ja",
+    "expectedOutcome": "found",
+    "mode": "both",
+    "assertions": {
+      "nativeLanguage": "ja",
+      "minimumLines": 4,
+      "mustContain": ["別世界"],
+      "forbiddenMarkers": ["document.write", "<script"]
+    },
+    "provenance": "Existing six-track reference corpus",
+    "capturedAt": "2026-06-19"
+  }
+]
