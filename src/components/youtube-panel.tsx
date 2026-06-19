@@ -36,7 +36,7 @@ export function YouTubePanel({
           resolvedLayout === "split" &&
           cn(
             "mx-auto h-[100px] max-w-3xl rounded-lg border border-border sm:h-[140px]",
-            "lg:mx-0 lg:h-auto lg:max-w-none lg:min-h-0 lg:flex-1 lg:aspect-video lg:border-0 lg:shadow-none",
+            "lg:mx-0 lg:h-full lg:max-h-full lg:w-auto lg:max-w-full lg:min-h-0 lg:flex-none lg:aspect-video lg:border-0 lg:shadow-none",
           ),
       )}
       aria-hidden={hidden}

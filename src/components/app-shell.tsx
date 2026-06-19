@@ -4,11 +4,17 @@ import { SpotifyLoginButton } from "@/components/spotify-login-button"
 import { cn } from "@/lib/utils"
 import { usePlayerStore } from "@/stores/player-store"
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  viewportLock = false,
+}: {
+  children: React.ReactNode
+  viewportLock?: boolean
+}) {
   const focusMode = usePlayerStore((s) => s.focusMode)
 
   return (
-    <div className="flex min-h-svh flex-col">
+    <div className="flex h-dvh flex-col overflow-hidden">
       <a
         href="#main-content"
         className={cn(
@@ -41,7 +47,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
       )}
-      <main id="main-content" className="flex min-h-0 flex-1 flex-col">
+      <main
+        id="main-content"
+        className={cn(
+          "flex min-h-0 flex-1 flex-col",
+          viewportLock ? "overflow-hidden" : "overflow-y-auto",
+        )}
+      >
         {children}
       </main>
     </div>

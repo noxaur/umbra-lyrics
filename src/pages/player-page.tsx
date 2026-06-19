@@ -1458,7 +1458,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const showOpening = (fromHome || status === "idle") && !ready && lyrics.length === 0
 
   return (
-    <AppShell>
+    <AppShell viewportLock>
       {showOpening && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
@@ -1468,12 +1468,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           <p className="text-sm text-muted-foreground">Opening player…</p>
         </div>
       )}
-      <div
-        className={cn(
-          "flex min-h-0 flex-col overflow-hidden",
-          focusMode ? "h-dvh" : "h-[calc(100dvh-3.25rem)]",
-        )}
-      >
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {focusMode && (
           <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5 text-sm">
             <Link to="/" className="text-muted-foreground hover:text-foreground">
@@ -1492,10 +1487,10 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           </div>
         )}
 
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
           <div
             className={cn(
-              "flex shrink-0 flex-col lg:w-[42%] lg:min-h-0",
+              "flex shrink-0 flex-col lg:w-[42%] lg:min-h-0 lg:max-h-full lg:shrink lg:overflow-hidden",
               videoHidden &&
                 `pointer-events-none fixed top-0 overflow-hidden opacity-0 -left-[9999px] ${HIDDEN_EMBED_CLASS}`,
               !videoHidden && "px-4 py-2 lg:border-r lg:border-border lg:p-4",
@@ -1504,7 +1499,8 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           >
             <div
               className={cn(
-                !videoHidden && "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:justify-center",
+                !videoHidden &&
+                  "lg:flex lg:h-full lg:min-h-0 lg:max-h-full lg:flex-col lg:items-center lg:justify-center",
               )}
             >
               <YouTubePanel

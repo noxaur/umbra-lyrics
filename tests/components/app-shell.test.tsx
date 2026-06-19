@@ -1,38 +1,38 @@
 import { render, screen } from "@testing-library/react"
-import { describe, it, expect } from "vitest"
 import { MemoryRouter } from "react-router-dom"
+import { describe, it, expect } from "vitest"
 import { AppShell } from "@/components/app-shell"
 import { ThemeProvider } from "@/components/theme-provider"
 
+function renderShell(ui: React.ReactElement) {
+  return render(
+    <MemoryRouter>
+      <ThemeProvider>{ui}</ThemeProvider>
+    </MemoryRouter>,
+  )
+}
+
 describe("AppShell", () => {
-  it("uses React Router Link for brand navigation", () => {
-    render(
-      <MemoryRouter>
-        <ThemeProvider>
-          <AppShell>
-            <div>content</div>
-          </AppShell>
-        </ThemeProvider>
-      </MemoryRouter>,
+  it("locks the viewport when requested", () => {
+    renderShell(
+      <AppShell viewportLock>
+        <p>Player content</p>
+      </AppShell>,
     )
 
-    const brand = screen.getByRole("link", { name: "song-kara" })
-    expect(brand).toHaveAttribute("href", "/")
-    expect(brand.tagName).toBe("A")
+    const main = screen.getByRole("main")
+    expect(main).toHaveClass("overflow-hidden")
+    expect(main).not.toHaveClass("overflow-y-auto")
   })
 
-  it("links to themes page from header", () => {
-    render(
-      <MemoryRouter>
-        <ThemeProvider>
-          <AppShell>
-            <div>content</div>
-          </AppShell>
-        </ThemeProvider>
-      </MemoryRouter>,
+  it("allows main to scroll on regular pages", () => {
+    renderShell(
+      <AppShell>
+        <p>Home content</p>
+      </AppShell>,
     )
 
-    const themesLink = screen.getByRole("link", { name: "Browse themes" })
-    expect(themesLink).toHaveAttribute("href", "/themes")
+    const main = screen.getByRole("main")
+    expect(main).toHaveClass("overflow-y-auto")
   })
 })
