@@ -474,12 +474,4 @@ export async function orchestrateLyricsSearch(
   }
 }
 
-/** @deprecated Use parallel orchestration; kept for tests importing pick flow */
-export async function orchestrateSingleProvider(
-  params: OrchestratorParams,
-  providerId: LyricsProviderId,
-): Promise<LyricsOrchestratorResult> {
-  return orchestrateLyricsSearch({ ...params, providerIds: [providerId] })
-}
-
 export { pickBestHit }
