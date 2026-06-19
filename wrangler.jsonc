@@ -23,32 +23,10 @@
   },
   "ai": {
     "binding": "AI"
-  },
-  "containers": [
-    {
-      "class_name": "RomajiContainer",
-      "image": "./services/romaji/Dockerfile",
-      "max_instances": 3,
-      "instance_type": "basic"
-    }
-  ],
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "ROMAJI_CONTAINER",
-        "class_name": "RomajiContainer"
-      }
-    ]
-  },
-  "migrations": [
-    {
-      "tag": "v1-romaji-container",
-      "new_sqlite_classes": ["RomajiContainer"]
-    }
-  ]
+  }
   // Optional secrets (set via `wrangler secret put`):
   // SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, MUSIXMATCH_API_KEY, LIBRETRANSLATE_API_KEY
-  // ROMAJI_SERVICE_API_KEY (optional bearer auth for the cutlet container)
-  // ROMAJI_SERVICE_URL (optional external cutlet URL; defaults to ROMAJI_CONTAINER)
+  // ROMAJI_SERVICE_URL (Fly.io cutlet URL, e.g. https://song-kara-romaji.fly.dev)
+  // ROMAJI_SERVICE_API_KEY (optional bearer auth for the cutlet service)
   // Spotify login redirect URI: https://song.opsec.rent/auth/spotify/callback (and localhost in dev)
 }

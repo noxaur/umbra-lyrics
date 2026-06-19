@@ -65,7 +65,6 @@ type ApiEnv = {
   MUSIXMATCH_API_KEY?: string
   ROMAJI_SERVICE_URL?: string
   ROMAJI_SERVICE_API_KEY?: string
-  ROMAJI_CONTAINER?: import("./handlers/romaji").RomajiContainerBinding
 }
 
 /** Shared API routing for Cloudflare Worker and Vite dev proxy. */

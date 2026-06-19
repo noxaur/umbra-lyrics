@@ -6,29 +6,11 @@ describe("romaji worker handler", () => {
     vi.restoreAllMocks()
   })
 
-  it("returns 503 when romaji service URL and container are not configured", async () => {
+  it("returns 503 when romaji service URL is not configured", async () => {
     const res = await handleRomaji({ lines: ["こんにちは"] })
     expect(res.status).toBe(503)
     const body = (await res.json()) as { code: string }
     expect(body.code).toBe("upstream_unconfigured")
-  })
-
-  it("proxies lines to the romaji container binding", async () => {
-    const fetchMock = vi.fn(async () =>
-      Response.json({ lines: ["betsu no sekai e"], system: "hepburn" }),
-    )
-    const res = await handleRomaji(
-      { lines: ["別の世界へ"], system: "hepburn" },
-      {
-        ROMAJI_CONTAINER: {
-          getByName: () => ({ fetch: fetchMock }),
-        },
-      },
-    )
-    expect(res.status).toBe(200)
-    expect(fetchMock).toHaveBeenCalledOnce()
-    const body = (await res.json()) as { lines: string[] }
-    expect(body.lines).toEqual(["betsu no sekai e"])
   })
 
   it("proxies lines to the romaji service", async () => {

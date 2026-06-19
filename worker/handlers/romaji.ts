@@ -3,16 +3,9 @@ import { jsonResponse } from "../cors"
 const USER_AGENT =
   "Mozilla/5.0 (compatible; song-kara/1.0.0; +https://github.com/song-kara)"
 
-export type RomajiContainerBinding = {
-  getByName: (name: string) => {
-    fetch: (input: string | URL, init?: RequestInit) => Promise<Response>
-  }
-}
-
 export type RomajiEnv = {
   ROMAJI_SERVICE_URL?: string
   ROMAJI_SERVICE_API_KEY?: string
-  ROMAJI_CONTAINER?: RomajiContainerBinding
 }
 
 export type RomajiBody = {
@@ -49,11 +42,7 @@ export async function handleRomaji(
   }
 
   const baseUrl = serviceBaseUrl(env)
-  const apiKey = env.ROMAJI_SERVICE_API_KEY?.trim()
-  const system = body.system ?? "hepburn"
-  const payload = JSON.stringify({ lines, system })
-
-  if (!baseUrl && !env.ROMAJI_CONTAINER) {
+  if (!baseUrl) {
     return romajiError(
       {
         error: "Romaji service not configured",
@@ -64,29 +53,22 @@ export async function handleRomaji(
     )
   }
 
+  const apiKey = env.ROMAJI_SERVICE_API_KEY?.trim()
+  const system = body.system ?? "hepburn"
+  const payload = JSON.stringify({ lines, system })
+
   try {
-    const res = baseUrl
-      ? await fetch(`${baseUrl}/romaji`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "User-Agent": USER_AGENT,
-            Accept: "application/json",
-            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-          },
-          body: payload,
-          signal: AbortSignal.timeout(30_000),
-        })
-      : await env.ROMAJI_CONTAINER!.getByName("default").fetch("http://romaji/romaji", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-          },
-          body: payload,
-          signal: AbortSignal.timeout(30_000),
-        })
+    const res = await fetch(`${baseUrl}/romaji`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": USER_AGENT,
+        Accept: "application/json",
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
+      body: payload,
+      signal: AbortSignal.timeout(30_000),
+    })
 
     if (!res.ok) {
       const detail = (await res.text()).slice(0, 200)
