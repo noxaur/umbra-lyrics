@@ -46,19 +46,22 @@ export function PlaylistIndexPrompt() {
     if (!nextTrack) return
 
     setBusy(true)
-    updatePlaylistTrackMetadata(active.playlistId, active.videoId, {
-      title: active.title,
-      artist: nextArtist,
-      track: nextTrack,
-    })
+    try {
+      updatePlaylistTrackMetadata(active.playlistId, active.videoId, {
+        title: active.title,
+        artist: nextArtist,
+        track: nextTrack,
+      })
 
-    await retryPlaylistTrackIndexing(active.playlistId, {
-      videoId: active.videoId,
-      title: active.title,
-      artist: nextArtist,
-      track: nextTrack,
-    })
-    setBusy(false)
+      await retryPlaylistTrackIndexing(active.playlistId, {
+        videoId: active.videoId,
+        title: active.title,
+        artist: nextArtist,
+        track: nextTrack,
+      })
+    } finally {
+      setBusy(false)
+    }
   }
 
   const needsMetadata = active.reason === "needs_metadata"
