@@ -19,4 +19,6 @@ worker = "0.8.5"
 codegen-units = 1
 lto = true
 opt-level = "s"
-strip = true
+# Keep debug symbols only: `strip = true` drops the wasm `target_features`
+# section that wasm-bindgen needs for externref/catch wrappers.
+strip = "debuginfo"
