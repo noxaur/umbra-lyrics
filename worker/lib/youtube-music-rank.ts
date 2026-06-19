@@ -9,7 +9,7 @@ export type YouTubeMusicHit = {
 }
 
 const BAD_CANONICAL_RE =
-  /\b(cover|reaction|tutorial|lesson|behind the scenes|interview|live|remix|karaoke|instrumental)\b/i
+  /\b(cover|reaction|tutorial|lesson|behind the scenes|interview|live|remix|karaoke|instrumental|guitar|fingerstyle|acoustic|piano)\b|(?:\ba\.?\s*gt\b|gt\s+session|piano\s+session)/i
 const VIDEO_RE = /\b(official\s+music\s+video|music\s+video|mv|lyric\s+video|lyrics?)\b/i
 const TOPIC_RE = /\s-\sTopic$/i
 
@@ -70,6 +70,8 @@ export function scoreYouTubeMusicHit(
 }
 
 const MAX_CANONICAL_SCORE = 74
+
+export { MAX_CANONICAL_SCORE }
 
 export function pickBestYouTubeMusicHit(
   hits: YouTubeMusicHit[],

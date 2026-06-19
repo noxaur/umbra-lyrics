@@ -64,6 +64,14 @@ export function simplifyTrackName(track: string): string {
   )
 }
 
+export function stripSessionVariantSuffix(track: string): string {
+  const stripped = track
+    .replace(/\s*-\s*(a\.?\s*gt|piano|acoustic|guitar)\s+session\s*$/i, "")
+    .replace(/\s*-\s*(a\.?\s*gt|piano|acoustic|guitar)\s+ver\.?\s*$/i, "")
+    .trim()
+  return stripped ? simplifyTrackName(stripped) : simplifyTrackName(track)
+}
+
 function shouldSwapTrackArtist(left: string, originalTitle: string, separator: string): boolean {
   const sepIndex = originalTitle.indexOf(separator)
   if (sepIndex <= 0) return false
@@ -188,10 +196,31 @@ function parseSeparatedTitle(
   return null
 }
 
+/** `Artist「Track」` — common on Japanese official MV uploads. */
+function extractArtistCornerQuotedTrack(title: string): { artist: string; track: string } | null {
+  const match = title.match(/^(.+?)「([^」]+)」/)
+  if (!match?.[1]?.trim() || !match[2]?.trim()) return null
+
+  const artist = simplifyTrackName(match[1].trim())
+  const track = simplifyTrackName(match[2].trim())
+  if (!artist || !track) return null
+  return { artist, track }
+}
+
 export function parseTrackTitle(
   title: string,
   oembedAuthor?: string,
 ): { artist: string; track: string } {
+  const fromCornerQuote = extractArtistCornerQuotedTrack(title)
+  if (fromCornerQuote) return finalizeParsedPair(fromCornerQuote, oembedAuthor)
+
+  const topicArtist = extractTopicChannelArtist(oembedAuthor)
+  if (topicArtist && /\b(a\.?\s*gt|piano|acoustic|guitar)\s+session\b/i.test(title)) {
+    const cleaned = stripDecorativeTitle(title)
+    const track = stripSessionVariantSuffix(cleaned) || simplifyTrackName(cleaned)
+    if (track) return finalizeParsedPair({ artist: topicArtist, track }, oembedAuthor)
+  }
+
   const fromPipe = tryPipeSegments(title)
   if (fromPipe) return finalizeParsedPair(fromPipe, oembedAuthor)
 
@@ -258,6 +287,12 @@ export function parseTrackTitleCandidates(
   oembedAuthor?: string,
 ): ParseTrackTitleCandidate[] {
   const candidates: ParseTrackTitleCandidate[] = []
+
+  const fromCornerQuote = extractArtistCornerQuotedTrack(title)
+  if (fromCornerQuote) {
+    addCandidate(candidates, { ...fromCornerQuote, source: "primary" })
+  }
+
   const primary = parseTrackTitle(title, oembedAuthor)
   addCandidate(candidates, { ...primary, source: "primary" })
 
