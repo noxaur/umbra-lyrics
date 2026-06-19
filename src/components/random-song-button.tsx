@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Shuffle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,13 +11,29 @@ export function RandomSongButton() {
   const { videoId: currentVideoId } = useParams<{ videoId?: string }>()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const fetchAbortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => {
+      fetchAbortRef.current?.abort()
+      fetchAbortRef.current = null
+    }
+  }, [])
 
   const playRandomSong = useCallback(async () => {
+    fetchAbortRef.current?.abort()
+    const controller = new AbortController()
+    fetchAbortRef.current = controller
+
     setLoading(true)
     setError(null)
 
     try {
-      const song = await resolveRandomSong({ excludeVideoId: currentVideoId })
+      const song = await resolveRandomSong({
+        excludeVideoId: currentVideoId,
+        signal: controller.signal,
+      })
+      if (controller.signal.aborted) return
       if (!song) {
         setError("No random song found")
         return
@@ -29,9 +45,12 @@ export function RandomSongButton() {
         }),
       })
     } catch {
+      if (controller.signal.aborted) return
       setError("Random song unavailable")
     } finally {
-      setLoading(false)
+      if (!controller.signal.aborted) {
+        setLoading(false)
+      }
     }
   }, [currentVideoId, navigate])
 

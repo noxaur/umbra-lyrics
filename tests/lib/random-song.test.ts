@@ -94,6 +94,26 @@ describe("random-song", () => {
     })
   })
 
+  it("excludes the current video from search results", async () => {
+    mockSearchSongs.mockResolvedValue([
+      {
+        videoId: "current",
+        title: "Current - Song",
+        channel: "Current",
+        durationSec: 200,
+      },
+      {
+        videoId: "other",
+        title: "Other - Song",
+        channel: "Other",
+        durationSec: 210,
+      },
+    ])
+
+    const song = await resolveRandomSong({ excludeVideoId: "current" })
+    expect(song?.videoId).toBe("other")
+  })
+
   it("falls back to local candidates when search fails", async () => {
     mockSearchSongs.mockRejectedValue(new Error("search down"))
     addRecentSong({
