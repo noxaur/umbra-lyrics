@@ -11,8 +11,8 @@ export async function handleYouTubeOEmbed(videoId: string): Promise<Response> {
 
   const watchUrls = youTubeOEmbedWatchUrls(trimmed)
 
-  try {
-    for (const watchUrl of watchUrls) {
+  for (const watchUrl of watchUrls) {
+    try {
       const res = await fetchOEmbed(watchUrl)
       if (!res.ok) continue
 
@@ -24,10 +24,10 @@ export async function handleYouTubeOEmbed(videoId: string): Promise<Response> {
           ...CORS_HEADERS,
         },
       })
+    } catch {
+      // Try the next watch URL.
     }
-
-    return jsonResponse({ error: "YouTube oEmbed unavailable" }, 502)
-  } catch {
-    return jsonResponse({ error: "YouTube oEmbed unavailable" }, 502)
   }
+
+  return jsonResponse({ error: "YouTube oEmbed unavailable" }, 502)
 }

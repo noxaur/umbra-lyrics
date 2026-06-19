@@ -14,6 +14,20 @@ describe("handleYouTubeOEmbed", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it("falls back when the music oEmbed request throws", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes(encodeURIComponent("music.youtube.com"))) {
+        throw new Error("network timeout")
+      }
+      return Response.json({ title: "Track", author_name: "Artist" }, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const res = await handleYouTubeOEmbed("abc123")
+    expect(res.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it("falls back to a regular YouTube watch URL when music oEmbed fails", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url.includes(encodeURIComponent("music.youtube.com"))) {
