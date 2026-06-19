@@ -8,6 +8,7 @@ const SHORTCUTS = [
   { key: "Space", action: "Play / Pause" },
   { key: "← / →", action: "Seek ±5s" },
   { key: "Shift + ← / →", action: "Previous / next playlist track" },
+  { key: "F", action: "Fullscreen lyrics and video" },
   { key: "+ / −", action: "Sync offset ±0.5s" },
 ]
 

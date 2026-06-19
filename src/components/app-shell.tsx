@@ -12,6 +12,7 @@ export function AppShell({
   viewportLock?: boolean
 }) {
   const focusMode = usePlayerStore((s) => s.focusMode)
+  const stageFullscreen = usePlayerStore((s) => s.stageFullscreen)
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
@@ -25,7 +26,7 @@ export function AppShell({
       >
         Skip to content
       </a>
-      {!focusMode && (
+      {!focusMode && !stageFullscreen && (
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-4">
             <Link
