@@ -55,6 +55,34 @@ export function useStageFullscreen(containerRef: RefObject<HTMLElement | null>) 
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange)
   }, [containerRef, setStageFullscreen])
 
+  useEffect(() => {
+    if (!stageFullscreen) return
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+
+      const target = e.target as HTMLElement
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return
+      }
+
+      e.preventDefault()
+      void exit()
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [exit, stageFullscreen])
+
+  useEffect(() => {
+    return () => {
+      if (document.fullscreenElement === containerRef.current) {
+        void document.exitFullscreen().catch(() => {})
+      }
+      setStageFullscreen(false)
+    }
+  }, [containerRef, setStageFullscreen])
+
   return {
     stageFullscreen,
     nativeFullscreen,

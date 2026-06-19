@@ -82,4 +82,40 @@ describe("useStageFullscreen", () => {
     expect(document.exitFullscreen).not.toHaveBeenCalled()
     expect(usePlayerStore.getState().stageFullscreen).toBe(false)
   })
+
+  it("exits immersive mode on Escape", async () => {
+    usePlayerStore.setState({ stageFullscreen: true })
+    const ref = createRef<HTMLDivElement>()
+    ref.current = document.createElement("div")
+
+    renderHook(() => useStageFullscreen(ref))
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+    })
+
+    expect(usePlayerStore.getState().stageFullscreen).toBe(false)
+  })
+
+  it("clears stage fullscreen state on unmount", () => {
+    const el = document.createElement("div")
+    el.requestFullscreen = vi.fn().mockResolvedValue(undefined)
+    const ref = createRef<HTMLDivElement>()
+    ref.current = el
+
+    const { unmount } = renderHook(() => useStageFullscreen(ref))
+
+    act(() => {
+      Object.defineProperty(document, "fullscreenElement", {
+        configurable: true,
+        value: el,
+      })
+      usePlayerStore.setState({ stageFullscreen: true })
+    })
+
+    unmount()
+
+    expect(document.exitFullscreen).toHaveBeenCalled()
+    expect(usePlayerStore.getState().stageFullscreen).toBe(false)
+  })
 })
