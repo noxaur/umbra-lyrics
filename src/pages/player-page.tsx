@@ -1434,9 +1434,6 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     navigate,
     location.state,
     resetLyricsSearch,
-    setLyrics,
-    setSyncOffset,
-    resetSyncOffset,
   ])
 
   useEffect(() => {
@@ -1444,17 +1441,18 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
     const state = usePlayerStore.getState()
     if (state.videoId !== videoId || state.lyrics.length === 0) return
+    if (!state.loadedFromCache) return
     if (!getLyricsCache(videoId)) return
 
     const timingKey = `${videoId}:${Math.round(duration)}`
     if (cachedTimingAppliedRef.current === timingKey) return
-    cachedTimingAppliedRef.current = timingKey
 
-    applyCachedLyricsTiming(videoId, duration, {
+    const result = applyCachedLyricsTiming(videoId, duration, {
       setLyrics,
       setSyncOffset,
       resetSyncOffset,
     })
+    if (result.applied) cachedTimingAppliedRef.current = timingKey
   }, [videoId, duration, setLyrics, setSyncOffset, resetSyncOffset])
 
   const handleRetry = useCallback(
