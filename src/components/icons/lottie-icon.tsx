@@ -1,8 +1,10 @@
 import Lottie from "lottie-react"
-import { useCallback, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { cn } from "@/lib/utils"
 import type { IconName } from "./icon-names"
 import { getIconAnimation } from "./icon-registry"
+
+const TOGGLE_FRAME_ICONS = new Set<IconName>(["play", "pause"])
 
 type LottieIconProps = {
   name: IconName
@@ -46,6 +48,12 @@ export function LottieIcon({
     if (!shouldHover) return
     lottieRef.current?.goToAndStop(0, true)
   }, [shouldHover])
+
+  useEffect(() => {
+    if (!TOGGLE_FRAME_ICONS.has(name)) return
+    const totalFrames = (animationData as { op?: number }).op ?? 1
+    lottieRef.current?.goToAndStop(active ? totalFrames - 1 : 0, true)
+  }, [active, animationData, name])
 
   return (
     <div

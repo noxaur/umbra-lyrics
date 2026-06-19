@@ -12,6 +12,8 @@
     "test:watch": "vp test --watch",
     "benchmark:legacy-lyrics": "node scripts/benchmark-legacy-lyrics.mjs",
     "sync:themes": "node scripts/sync-tinted-themes.mjs",
+    "icons:copy": "node scripts/copy-useanimations-icons.mjs",
+    "icons:registry": "node scripts/generate-icon-registry.mjs",
     "deploy": "npm run build && node scripts/prepare-wrangler-deploy.mjs && node scripts/deploy-wrangler.mjs dist/song_kara/wrangler.json",
     "fix-dns": "node scripts/fix-dns.mjs",
     "cf-typegen": "wrangler types"
