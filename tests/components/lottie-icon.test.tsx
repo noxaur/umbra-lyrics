@@ -72,4 +72,25 @@ describe("LottieIcon", () => {
     render(<LottieIcon name="x" className="size-4" aria-hidden />)
     expect(goToAndStopMock).toHaveBeenCalledWith(7, true)
   })
+
+  it("resolves lottie-react when default export is the module namespace", async () => {
+    vi.resetModules()
+    vi.doMock("lottie-react", () => {
+      const LottieComponent = ({
+        lottieRef,
+        onDOMLoaded,
+      }: {
+        lottieRef?: { current: unknown }
+        onDOMLoaded?: () => void
+      }) => {
+        onDOMLoaded?.()
+        return <div data-testid="lottie-namespace-mock" />
+      }
+      return { default: LottieComponent, useLottie: vi.fn() }
+    })
+
+    const { LottieIcon: LottieIconFresh } = await import("@/components/icons/lottie-icon")
+    render(<LottieIconFresh name="home" />)
+    expect(screen.getByTestId("lottie-namespace-mock")).toBeInTheDocument()
+  })
 })

@@ -1,8 +1,15 @@
-import Lottie from "lottie-react"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import LottieImport from "lottie-react"
+import type { LottieComponentProps, LottieRefCurrentProps } from "lottie-react"
+import { useCallback, useEffect, useMemo, useRef, type ComponentType } from "react"
 import { cn } from "@/lib/utils"
 import type { IconName } from "./icon-names"
 import { getIconAnimation } from "./icon-registry"
+
+/** Rolldown __toESM(mod, 1) can set default to the module namespace instead of the component. */
+const Lottie: ComponentType<LottieComponentProps> =
+  typeof LottieImport === "function"
+    ? LottieImport
+    : (LottieImport as { default: ComponentType<LottieComponentProps> }).default
 
 const TOGGLE_FRAME_ICONS = new Set<IconName>(["play", "pause"])
 /** Shared toggle animations that always rest on the final frame (close, etc.). */
@@ -28,7 +35,7 @@ function prefersReducedMotion(): boolean {
 }
 
 function seekStaticFrame(
-  lottieRef: import("lottie-react").LottieRefCurrentProps | null,
+  lottieRef: LottieRefCurrentProps | null,
   name: IconName,
   {
     spin,
@@ -67,7 +74,7 @@ export function LottieIcon({
   "aria-hidden": ariaHidden,
   "aria-label": ariaLabel,
 }: LottieIconProps) {
-  const lottieRef = useRef<import("lottie-react").LottieRefCurrentProps | null>(null)
+  const lottieRef = useRef<LottieRefCurrentProps | null>(null)
   const reducedMotion = useMemo(() => prefersReducedMotion(), [])
   const animationData = getIconAnimation(name)
 
