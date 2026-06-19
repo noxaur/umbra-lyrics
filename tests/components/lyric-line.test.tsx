@@ -16,7 +16,7 @@ describe("LyricLine", () => {
     )
     expect(screen.getByRole("button", { name: "Hello world" })).toBeInTheDocument()
     expect(container.querySelector(".bg-clip-text")).toBeNull()
-    expect(container.querySelector("[style*='clip-path']")).not.toBeNull()
+    expect(container.querySelector("[style*='clip-path']")).toBeNull()
   })
 
   it("skips word-progress wipe when unsynced", () => {

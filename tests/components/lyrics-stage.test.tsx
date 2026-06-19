@@ -59,7 +59,7 @@ describe("LyricsStage scroll", () => {
   })
 
   it("recenters after active line index changes", async () => {
-    const easeSpy = vi.spyOn(lyricScroll, "scrollLineToCenterEase")
+    const scrollSpy = vi.spyOn(lyricScroll, "scrollLineToCenter")
 
     render(
       <div className="flex h-96 min-h-0 flex-col">
@@ -71,21 +71,21 @@ describe("LyricsStage scroll", () => {
       await flushFrames()
     })
 
-    easeSpy.mockClear()
+    scrollSpy.mockClear()
 
     await act(async () => {
       usePlayerStore.setState({ currentTime: 28 })
       await flushFrames()
     })
 
-    expect(easeSpy).toHaveBeenCalled()
-    const lastCall = easeSpy.mock.calls.at(-1)
+    expect(scrollSpy).toHaveBeenCalled()
+    const lastCall = scrollSpy.mock.calls.at(-1)
+    expect(lastCall?.[2]).toBe("auto")
     expect(lastCall?.[3]).toMatchObject({ force: true })
-    expect(typeof lastCall?.[3]?.onTick).toBe("function")
   })
 
   it("recenters when bilingual display mode changes line height", async () => {
-    const easeSpy = vi.spyOn(lyricScroll, "scrollLineToCenterEase")
+    const scrollSpy = vi.spyOn(lyricScroll, "scrollLineToCenter")
 
     render(
       <div className="flex h-96 min-h-0 flex-col">
@@ -98,7 +98,7 @@ describe("LyricsStage scroll", () => {
       await flushFrames()
     })
 
-    easeSpy.mockClear()
+    scrollSpy.mockClear()
 
     await act(async () => {
       usePlayerStore.setState({
@@ -108,6 +108,6 @@ describe("LyricsStage scroll", () => {
       await flushFrames()
     })
 
-    expect(easeSpy).toHaveBeenCalled()
+    expect(scrollSpy).toHaveBeenCalled()
   })
 })
