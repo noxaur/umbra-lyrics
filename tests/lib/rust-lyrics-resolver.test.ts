@@ -38,10 +38,9 @@ describe("resolveLyricsWithRust", () => {
   it("parses events across chunk boundaries and returns terminal result", async () => {
     const body =
       event("phase", { phase: "accepted", message: "Accepted" }) +
-      event("warning", { code: "placeholder_resolution", message: "Prototype" }) +
       event("result", {
-        outcome: "not_found",
-        resolution: "placeholder",
+        outcome: "found",
+        resolution: "native",
         videoId: "dQw4w9WgXcQ",
         metadata: {
           title: "Never Gonna Give You Up",
@@ -49,7 +48,31 @@ describe("resolveLyricsWithRust", () => {
           duration: 212.4,
           language: "en",
         },
-        lyrics: null,
+        lyrics: {
+          id: "42",
+          providerId: "lrclib",
+          artist: "Rick Astley",
+          track: "Never Gonna Give You Up",
+          duration: 212.4,
+          plainLyrics: "We're no strangers to love",
+          syncedLyrics: "[00:18.00] We're no strangers to love",
+          synced: true,
+          approximateTiming: false,
+          lines: [
+            {
+              startMs: 18_000,
+              endMs: 22_000,
+              text: "We're no strangers to love",
+              approximate: false,
+              kind: "lyric",
+            },
+          ],
+          score: 0,
+          confidence: 100,
+          scoringReasons: [{ code: "synced_lrc", points: -120 }],
+        },
+        alternates: [],
+        message: "Found native lyrics",
       })
     const seen: RustLyricsEventName[] = []
     const fetchImpl = vi.fn(async () =>
@@ -64,10 +87,10 @@ describe("resolveLyricsWithRust", () => {
       },
     )
 
-    expect(seen).toEqual(["phase", "warning"])
+    expect(seen).toEqual(["phase"])
     expect(result).toMatchObject({
-      outcome: "not_found",
-      resolution: "placeholder",
+      outcome: "found",
+      resolution: "native",
       videoId: "dQw4w9WgXcQ",
     })
     expect(fetchImpl).toHaveBeenCalledWith(
@@ -111,13 +134,15 @@ describe("resolveLyricsWithRust", () => {
     const fetchImpl = vi.fn(async () =>
       streamResponse([
         "data: missing-event\n\n",
-        event("result", {
-          outcome: "not_found",
-          resolution: "placeholder",
-          videoId: "dQw4w9WgXcQ",
-          metadata: { title: null, author: null, duration: null, language: null },
-          lyrics: null,
-        }),
+      event("result", {
+        outcome: "not_found",
+        resolution: "native",
+        videoId: "dQw4w9WgXcQ",
+        metadata: { title: null, author: null, duration: null, language: null },
+        lyrics: null,
+        alternates: [],
+        message: "No native lyrics found",
+      }),
       ]),
     )
 
@@ -151,17 +176,19 @@ describe("resolveLyricsWithRust", () => {
       event("phase", { phase: "accepted", message: "Accepted" }) +
       event("result", {
         outcome: "not_found",
-        resolution: "placeholder",
+        resolution: "native",
         videoId: "dQw4w9WgXcQ",
         metadata: { title: null, author: null, duration: null, language: null },
         lyrics: null,
+        alternates: [],
+        message: "No native lyrics found",
       })
     ).replaceAll("\n", "\r\n")
     const fetchImpl = vi.fn(async () => streamResponse([body.slice(0, 23), body.slice(23)]))
 
     await expect(
       resolveLyricsWithRust({ videoId: "dQw4w9WgXcQ" }, { fetchImpl }),
-    ).resolves.toMatchObject({ resolution: "placeholder" })
+    ).resolves.toMatchObject({ resolution: "native" })
   })
 
   it("passes abort signals to fetch", async () => {

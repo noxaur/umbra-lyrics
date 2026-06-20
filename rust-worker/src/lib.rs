@@ -6,6 +6,7 @@ use worker::{console_error, event, Context, Env, Headers, Request, RequestInit, 
 
 mod lyrics;
 mod metadata;
+mod native_lyrics;
 mod observability;
 mod resolution;
 mod result_cache;

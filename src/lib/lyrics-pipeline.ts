@@ -81,26 +81,57 @@ export async function runLyricsPipeline(
         signal: params.resolutionSignal,
         onEvent: (event) => {
           params.onResolutionEvent?.(event)
-          if (event.event !== "phase" && event.event !== "warning") return
+          if (event.event !== "phase" && event.event !== "warning" && event.event !== "result") {
+            return
+          }
           const message =
             typeof event.data.message === "string" ? event.data.message : "Resolving lyrics…"
-          const phase = event.data.phase
+          const phase = event.event === "result" ? "ready" : event.data.phase
           params.onProgress?.({
             phase: message,
-            step: phase === "accepted" ? "parse" : "search",
+            step: phase === "accepted" ? "parse" : phase === "ready" ? "ready" : "search",
             providersTotal: 0,
             providersTried: [],
           })
         },
       },
     )
+    const nativeStatus =
+      result.outcome === "low_confidence" ? "partial" : (result.outcome as "found" | "instrumental" | "not_found")
+    const lyrics = result.lyrics
+      ? {
+          id: result.lyrics.id ?? result.videoId,
+          providerId: (result.lyrics.providerId ?? "lrclib") as LyricsResult["providerId"],
+          plainLyrics: result.lyrics.plainLyrics,
+          syncedLyrics: result.lyrics.syncedLyrics,
+        }
+      : undefined
     const native: LyricsOrchestratorResult = {
-      status: result.outcome,
+      status: nativeStatus,
       strategy: `rust-sse-v${RUST_LYRICS_PROTOCOL_VERSION}`,
       attempts: [],
       providersTried: [],
-      message: "Rust prototype returned no lyrics",
-      synced: false,
+      message: result.message,
+      lyrics,
+      alternates: result.alternates.map((alternate) => ({
+        providerId: alternate.providerId as LyricsResult["providerId"],
+        id: alternate.id,
+        trackName: alternate.trackName,
+        artistName: alternate.artistName,
+        synced: alternate.synced,
+        lineCount: alternate.lineCount,
+        rankScore: alternate.rankScore,
+        lyricsResult: {
+          id: alternate.lyricsResult.id,
+          providerId: alternate.lyricsResult.providerId as LyricsResult["providerId"],
+          plainLyrics: alternate.lyricsResult.plainLyrics,
+          syncedLyrics: alternate.lyricsResult.syncedLyrics,
+        },
+      })),
+      providerId: lyrics?.providerId,
+      matchId: lyrics?.id,
+      synced: Boolean(lyrics?.syncedLyrics?.trim()),
+      instrumental: result.outcome === "instrumental",
     }
     params.onNativeReady?.(native)
     return {

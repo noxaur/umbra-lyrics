@@ -19,6 +19,52 @@ export type RustLyricsEventName =
   | "result"
   | "error"
 
+export type RustLyricsLine = {
+  startMs: number
+  endMs: number
+  text: string
+  approximate: boolean
+  kind?: "lyric" | "section"
+}
+
+export type RustLyricsScoringReason = {
+  code: string
+  points: number
+}
+
+export type RustLyricsSelected = {
+  id: string | number | null
+  providerId: string | null
+  artist: string | null
+  track: string | null
+  duration: number | null
+  plainLyrics: string | null
+  syncedLyrics: string | null
+  synced: boolean
+  approximateTiming: boolean
+  lines: RustLyricsLine[]
+  score: number | null
+  confidence: number | null
+  scoringReasons: RustLyricsScoringReason[]
+}
+
+export type RustLyricsAlternate = {
+  providerId: string
+  id: string | number
+  trackName: string
+  artistName: string
+  synced: boolean
+  lineCount: number
+  rankScore: number
+  lyricsResult: {
+    id: string | number
+    providerId: string
+    plainLyrics: string | null
+    syncedLyrics: string | null
+    synced: boolean
+  }
+}
+
 export type RustLyricsEvent<T = Record<string, unknown>> = {
   event: RustLyricsEventName
   protocolVersion: typeof RUST_LYRICS_PROTOCOL_VERSION
@@ -28,8 +74,8 @@ export type RustLyricsEvent<T = Record<string, unknown>> = {
 }
 
 export type RustLyricsResult = {
-  outcome: "not_found"
-  resolution: "placeholder"
+  outcome: "found" | "instrumental" | "low_confidence" | "not_found"
+  resolution: "native"
   videoId: string
   metadata: {
     title: string | null
@@ -37,7 +83,9 @@ export type RustLyricsResult = {
     duration: number | null
     language: string | null
   }
-  lyrics: null
+  lyrics: RustLyricsSelected | null
+  alternates: RustLyricsAlternate[]
+  message: string
 }
 
 export type RustLyricsProtocolErrorData = {
@@ -193,18 +241,18 @@ function parseSseRecord(record: string): RustLyricsEvent | null {
 
 function parseResultData(data: Record<string, unknown>): RustLyricsResult {
   if (
-    data.outcome !== "not_found" ||
-    data.resolution !== "placeholder" ||
+    !["found", "instrumental", "low_confidence", "not_found"].includes(String(data.outcome)) ||
+    data.resolution !== "native" ||
     typeof data.videoId !== "string" ||
     !isRecord(data.metadata) ||
-    data.lyrics !== null
+    typeof data.message !== "string"
   ) {
     throw new Error("Rust lyrics resolver emitted an invalid result")
   }
 
   return {
-    outcome: "not_found",
-    resolution: "placeholder",
+    outcome: data.outcome as RustLyricsResult["outcome"],
+    resolution: "native",
     videoId: data.videoId,
     metadata: {
       title: optionalString(data.metadata.title),
@@ -212,7 +260,69 @@ function parseResultData(data: Record<string, unknown>): RustLyricsResult {
       duration: optionalNumber(data.metadata.duration),
       language: optionalString(data.metadata.language),
     },
-    lyrics: null,
+    lyrics: data.lyrics === null ? null : parseRustLyricsSelected(data.lyrics),
+    alternates: Array.isArray(data.alternates)
+      ? data.alternates.filter(isRecord).map(parseRustLyricsAlternate)
+      : [],
+    message: data.message,
+  }
+}
+
+function parseRustLyricsSelected(data: Record<string, unknown>): RustLyricsSelected {
+  if (!isRecord(data) || !Array.isArray(data.lines) || !Array.isArray(data.scoringReasons)) {
+    throw new Error("Rust lyrics resolver emitted an invalid native lyrics payload")
+  }
+  return {
+    id: optionalId(data.id),
+    providerId: optionalString(data.providerId),
+    artist: optionalString(data.artist),
+    track: optionalString(data.track),
+    duration: optionalNumber(data.duration),
+    plainLyrics: optionalStringOrNull(data.plainLyrics),
+    syncedLyrics: optionalStringOrNull(data.syncedLyrics),
+    synced: Boolean(data.synced),
+    approximateTiming: Boolean(data.approximateTiming),
+    lines: data.lines.filter(isRecord).map((line) => ({
+      startMs: optionalNumber(line.startMs) ?? 0,
+      endMs: optionalNumber(line.endMs) ?? 0,
+      text: optionalString(line.text) ?? "",
+      approximate: Boolean(line.approximate),
+      kind: line.kind === "section" ? "section" : "lyric",
+    })),
+    score: optionalNumberOrNull(data.score),
+    confidence: optionalNumberOrNull(data.confidence),
+    scoringReasons: data.scoringReasons.filter(isRecord).map((reason) => ({
+      code: optionalString(reason.code) ?? "",
+      points: optionalNumber(reason.points) ?? 0,
+    })),
+  }
+}
+
+function parseRustLyricsAlternate(data: Record<string, unknown>): RustLyricsAlternate {
+  if (
+    !isRecord(data) ||
+    typeof data.providerId !== "string" ||
+    typeof data.trackName !== "string" ||
+    typeof data.artistName !== "string" ||
+    !isRecord(data.lyricsResult)
+  ) {
+    throw new Error("Rust lyrics resolver emitted an invalid native alternate payload")
+  }
+  return {
+    providerId: data.providerId,
+    id: requiredId(data.id),
+    trackName: data.trackName,
+    artistName: data.artistName,
+    synced: Boolean(data.synced),
+    lineCount: optionalNumber(data.lineCount) ?? 0,
+    rankScore: optionalNumber(data.rankScore) ?? 0,
+    lyricsResult: {
+      id: requiredId(data.lyricsResult.id),
+      providerId: optionalString(data.lyricsResult.providerId) ?? data.providerId,
+      plainLyrics: optionalStringOrNull(data.lyricsResult.plainLyrics),
+      syncedLyrics: optionalStringOrNull(data.lyricsResult.syncedLyrics),
+      synced: Boolean(data.lyricsResult.synced),
+    },
   }
 }
 
@@ -239,10 +349,36 @@ function optionalString(value: unknown): string | null {
   throw new Error("Rust lyrics resolver emitted invalid metadata")
 }
 
+function optionalStringOrNull(value: unknown): string | null {
+  if (value === null || value === undefined) return null
+  if (typeof value === "string") return value
+  throw new Error("Rust lyrics resolver emitted invalid native lyrics")
+}
+
 function optionalNumber(value: unknown): number | null {
   if (value === null) return null
   if (typeof value === "number" && Number.isFinite(value)) return value
   throw new Error("Rust lyrics resolver emitted invalid metadata")
+}
+
+function optionalNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined) return null
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  throw new Error("Rust lyrics resolver emitted invalid native lyrics")
+}
+
+function optionalId(value: unknown): string | number | null {
+  if (value === null || value === undefined) return null
+  if (typeof value === "string" || typeof value === "number") return value
+  throw new Error("Rust lyrics resolver emitted invalid native id")
+}
+
+function requiredId(value: unknown): string | number {
+  const id = optionalId(value)
+  if (id === null) {
+    throw new Error("Rust lyrics resolver emitted invalid native id")
+  }
+  return id
 }
 
 function isEventName(value: string): value is RustLyricsEventName {

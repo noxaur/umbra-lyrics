@@ -137,7 +137,7 @@ describe("runLyricsPipeline", () => {
     expect(lines).toEqual(["Hello", "World"])
   })
 
-  it("forwards cancellation and surfaces Rust metadata and warning events", async () => {
+  it("forwards cancellation and surfaces Rust metadata and result events", async () => {
     const controller = new AbortController()
     const onResolutionEvent = vi.fn()
     const onProgress = vi.fn()
@@ -151,18 +151,28 @@ describe("runLyricsPipeline", () => {
         data: { title: "Resolved title", author: "Resolved artist" },
       })
       options.onEvent?.({
-        event: "warning",
+        event: "result",
         protocolVersion: "1",
         requestId: "request-123",
         timestamp: "2026-06-19T12:00:00.000Z",
         data: {
-          code: "placeholder_resolution",
-          message: "Intelligent Rust resolution is not implemented yet",
+          outcome: "not_found",
+          resolution: "native",
+          videoId: "dQw4w9WgXcQ",
+          metadata: {
+            title: "Resolved title",
+            author: "Resolved artist",
+            duration: 214,
+            language: "en",
+          },
+          lyrics: null,
+          alternates: [],
+          message: "No native lyrics found",
         },
       })
       return {
         outcome: "not_found",
-        resolution: "placeholder",
+        resolution: "native",
         videoId: "dQw4w9WgXcQ",
         metadata: {
           title: "Resolved title",
@@ -171,6 +181,8 @@ describe("runLyricsPipeline", () => {
           language: "en",
         },
         lyrics: null,
+        alternates: [],
+        message: "No native lyrics found",
       }
     })
 
@@ -189,8 +201,8 @@ describe("runLyricsPipeline", () => {
     expect(onResolutionEvent).toHaveBeenCalledTimes(2)
     expect(onProgress).toHaveBeenCalledWith(
       expect.objectContaining({
-        phase: "Intelligent Rust resolution is not implemented yet",
-        step: "search",
+        phase: "No native lyrics found",
+        step: "ready",
       }),
     )
   })
