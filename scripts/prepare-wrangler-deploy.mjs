@@ -39,6 +39,31 @@ if (process.env.DEPLOY_CONTAINERS !== "true") {
   delete config.durable_objects
 }
 
+if (Array.isArray(config.kv_namespaces)) {
+  const resultCache = config.kv_namespaces.find(
+    (namespace) => namespace?.binding === "RESULT_CACHE",
+  )
+  if (resultCache) {
+    const productionId = process.env.RESULT_CACHE_NAMESPACE_ID?.trim()
+    const previewId = process.env.RESULT_CACHE_PREVIEW_ID?.trim()
+    if (productionId) {
+      resultCache.id = productionId
+      if (previewId) resultCache.preview_id = previewId
+    } else if (
+      String(resultCache.id).includes("_PLACEHOLDER") ||
+      String(resultCache.preview_id).includes("_PLACEHOLDER")
+    ) {
+      config.kv_namespaces = config.kv_namespaces.filter(
+        (namespace) => namespace?.binding !== "RESULT_CACHE",
+      )
+      console.warn(
+        "Prepared wrangler config without RESULT_CACHE; set RESULT_CACHE_NAMESPACE_ID to enable it",
+      )
+    }
+  }
+  if (config.kv_namespaces.length === 0) delete config.kv_namespaces
+}
+
 fs.mkdirSync(path.dirname(destinationPath), { recursive: true })
 fs.writeFileSync(destinationPath, JSON.stringify(config))
 

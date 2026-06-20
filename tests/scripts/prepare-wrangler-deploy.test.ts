@@ -17,6 +17,8 @@ describe("prepare-wrangler-deploy.mjs", () => {
     if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true })
     delete process.env.STRIP_ZONE_ROUTES
     delete process.env.DEPLOY_CONTAINERS
+    delete process.env.RESULT_CACHE_NAMESPACE_ID
+    delete process.env.RESULT_CACHE_PREVIEW_ID
   })
 
   function runPrepare(
@@ -32,6 +34,8 @@ describe("prepare-wrangler-deploy.mjs", () => {
     const env = { ...process.env, ...extraEnv }
     delete env.STRIP_ZONE_ROUTES
     delete env.DEPLOY_CONTAINERS
+    delete env.RESULT_CACHE_NAMESPACE_ID
+    delete env.RESULT_CACHE_PREVIEW_ID
     Object.assign(env, extraEnv)
     execFileSync("node", [scriptPath, configPath, destinationPath], {
       cwd: process.cwd(),
@@ -43,6 +47,7 @@ describe("prepare-wrangler-deploy.mjs", () => {
       containers?: unknown
       main?: string
       assets?: { directory?: string }
+      kv_namespaces?: Array<{ binding: string; id: string; preview_id?: string }>
     }
   }
 
@@ -84,5 +89,47 @@ describe("prepare-wrangler-deploy.mjs", () => {
 
     expect(result.main).toBe("../../rust-worker/build/worker/shim.mjs")
     expect(result.assets?.directory).toBe("../client")
+  })
+
+  it("strips placeholder KV bindings from deploy configs", () => {
+    const result = runPrepare({
+      name: "song-kara",
+      kv_namespaces: [
+        {
+          binding: "RESULT_CACHE",
+          id: "PRODUCTION_RESULT_CACHE_NAMESPACE_ID_PLACEHOLDER",
+          preview_id: "PRODUCTION_RESULT_CACHE_PREVIEW_ID_PLACEHOLDER",
+        },
+      ],
+    })
+
+    expect(result.kv_namespaces).toBeUndefined()
+  })
+
+  it("injects configured KV namespace IDs", () => {
+    const result = runPrepare(
+      {
+        name: "song-kara",
+        kv_namespaces: [
+          {
+            binding: "RESULT_CACHE",
+            id: "PRODUCTION_RESULT_CACHE_NAMESPACE_ID_PLACEHOLDER",
+            preview_id: "PRODUCTION_RESULT_CACHE_PREVIEW_ID_PLACEHOLDER",
+          },
+        ],
+      },
+      {
+        RESULT_CACHE_NAMESPACE_ID: "0123456789abcdef0123456789abcdef",
+        RESULT_CACHE_PREVIEW_ID: "fedcba9876543210fedcba9876543210",
+      },
+    )
+
+    expect(result.kv_namespaces).toEqual([
+      {
+        binding: "RESULT_CACHE",
+        id: "0123456789abcdef0123456789abcdef",
+        preview_id: "fedcba9876543210fedcba9876543210",
+      },
+    ])
   })
 })

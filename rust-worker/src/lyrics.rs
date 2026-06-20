@@ -1008,6 +1008,8 @@ pub async fn run_trusted_lyrics_cascade(
 
 #[cfg(test)]
 mod tests {
+    use std::{cell::RefCell, rc::Rc};
+
     use super::*;
 
     fn candidate(source: LyricsSource, synced: bool, plain_lyrics: &str) -> LyricsCandidate {
