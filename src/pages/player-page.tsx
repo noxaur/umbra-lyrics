@@ -179,7 +179,9 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     }
   } | null>(null)
   const debugPlayer = searchParams.get("debug") === "1"
+  const requestedLyricsResolver = searchParams.get("lyricsResolver")?.trim().toLowerCase()
   const useRustLyricsResolver = getLyricsResolverMode(searchParams) === "rust"
+  const fallbackToBrowserOnRustFailure = requestedLyricsResolver !== "rust"
   const location = useLocation()
   const navigate = useNavigate()
   const navigationState = location.state as PlayerNavigationState | null
@@ -1172,6 +1174,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           }),
           providerIds: options?.providerIds,
           useExperimentalRustResolver: useRustLyricsResolver,
+          fallbackToBrowserOnRustFailure,
           resolutionSignal: resolutionController?.signal,
           onResolutionEvent: (event) => {
             if (isUiStale() || event.event !== "metadata") return

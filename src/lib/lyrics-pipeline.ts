@@ -36,6 +36,7 @@ export type LyricsPipelineParams = OrchestratorParams & {
   onNativeReady?: (result: LyricsOrchestratorResult) => void
   onEnglishProgress?: (phase: string) => void
   useExperimentalRustResolver?: boolean
+  fallbackToBrowserOnRustFailure?: boolean
   resolutionSignal?: AbortSignal
   onResolutionEvent?: (event: RustLyricsEvent) => void
 }
@@ -68,113 +69,116 @@ export async function runLyricsPipeline(
   const wallT0 = performance.now()
 
   if (params.useExperimentalRustResolver && params.videoId) {
-    const result = await resolveLyricsWithRust(
-      {
-        videoId: params.videoId,
-        title: params.title,
-        author: params.oembedAuthor || params.artist,
-        duration: params.durationSec,
-        language: params.preferredLanguage,
-        forceRefresh: params.skipCache,
-      },
-      {
-        signal: params.resolutionSignal,
-        onEvent: (event) => {
-          params.onResolutionEvent?.(event)
-          if (event.event !== "phase" && event.event !== "warning" && event.event !== "result") {
-            return
-          }
-          const message =
-            typeof event.data.message === "string" ? event.data.message : "Resolving lyrics…"
-          const phase = event.event === "result" ? "ready" : event.data.phase
-          params.onProgress?.({
-            phase: message,
-            step: phase === "accepted" ? "parse" : phase === "ready" ? "ready" : "search",
-            providersTotal: 0,
-            providersTried: [],
-          })
+    try {
+      const result = await resolveLyricsWithRust(
+        {
+          videoId: params.videoId,
+          title: params.title,
+          author: params.oembedAuthor || params.artist,
+          duration: params.durationSec,
+          language: params.preferredLanguage,
+          forceRefresh: params.skipCache,
         },
-      },
-    )
-    const nativeStatus =
-      result.outcome === "low_confidence" ? "partial" : (result.outcome as "found" | "instrumental" | "not_found")
-    const lyrics = result.lyrics
-      ? {
-          id: result.lyrics.id ?? result.videoId,
-          providerId: (result.lyrics.providerId ?? "lrclib") as LyricsResult["providerId"],
-          plainLyrics: result.lyrics.plainLyrics,
-          syncedLyrics: result.lyrics.syncedLyrics,
-        }
-      : undefined
-    const native: LyricsOrchestratorResult = {
-      status: nativeStatus,
-      strategy: `rust-sse-v${RUST_LYRICS_PROTOCOL_VERSION}`,
-      attempts: [],
-      providersTried: [],
-      message: result.message,
-      lyrics,
-      alternates: result.alternates.map((alternate) => ({
-        providerId: alternate.providerId as LyricsResult["providerId"],
-        id: alternate.id,
-        trackName: alternate.trackName,
-        artistName: alternate.artistName,
-        synced: alternate.synced,
-        lineCount: alternate.lineCount,
-        rankScore: alternate.rankScore,
-        lyricsResult: {
-          id: alternate.lyricsResult.id,
-          providerId: alternate.lyricsResult.providerId as LyricsResult["providerId"],
-          plainLyrics: alternate.lyricsResult.plainLyrics,
-          syncedLyrics: alternate.lyricsResult.syncedLyrics,
+        {
+          signal: params.resolutionSignal,
+          onEvent: (event) => {
+            params.onResolutionEvent?.(event)
+            if (event.event !== "phase" && event.event !== "warning" && event.event !== "result") {
+              return
+            }
+            const message =
+              typeof event.data.message === "string" ? event.data.message : "Resolving lyrics…"
+            const phase = event.event === "result" ? "ready" : event.data.phase
+            params.onProgress?.({
+              phase: message,
+              step: phase === "accepted" ? "parse" : phase === "ready" ? "ready" : "search",
+              providersTotal: 0,
+              providersTried: [],
+            })
+          },
         },
-      })),
-      providerId: lyrics?.providerId,
-      matchId: lyrics?.id,
-      synced: Boolean(lyrics?.syncedLyrics?.trim()),
-      instrumental: result.outcome === "instrumental",
-    }
-    const english =
-      result.english?.status === "ready"
+      )
+      const nativeStatus =
+        result.outcome === "low_confidence" ? "partial" : (result.outcome as "found" | "instrumental" | "not_found")
+      const lyrics = result.lyrics
         ? {
-            lines: result.english.lines ?? [],
-            source:
-              result.english.source ??
-              (result.english.providerId ? "found" : "translated"),
-            translationBackend: result.english.translationBackend ?? undefined,
-            status: "ready" as const,
+            id: result.lyrics.id ?? result.videoId,
+            providerId: (result.lyrics.providerId ?? "lrclib") as LyricsResult["providerId"],
+            plainLyrics: result.lyrics.plainLyrics,
+            syncedLyrics: result.lyrics.syncedLyrics,
           }
-        : result.english?.status === "skipped"
+        : undefined
+      const native: LyricsOrchestratorResult = {
+        status: nativeStatus,
+        strategy: `rust-sse-v${RUST_LYRICS_PROTOCOL_VERSION}`,
+        attempts: [],
+        providersTried: [],
+        message: result.message,
+        lyrics,
+        alternates: result.alternates.map((alternate) => ({
+          providerId: alternate.providerId as LyricsResult["providerId"],
+          id: alternate.id,
+          trackName: alternate.trackName,
+          artistName: alternate.artistName,
+          synced: alternate.synced,
+          lineCount: alternate.lineCount,
+          rankScore: alternate.rankScore,
+          lyricsResult: {
+            id: alternate.lyricsResult.id,
+            providerId: alternate.lyricsResult.providerId as LyricsResult["providerId"],
+            plainLyrics: alternate.lyricsResult.plainLyrics,
+            syncedLyrics: alternate.lyricsResult.syncedLyrics,
+          },
+        })),
+        providerId: lyrics?.providerId,
+        matchId: lyrics?.id,
+        synced: Boolean(lyrics?.syncedLyrics?.trim()),
+        instrumental: result.outcome === "instrumental",
+      }
+      const english =
+        result.english?.status === "ready"
           ? {
-              lines: [],
-              source: "found" as const,
-              status: "skipped" as const,
+              lines: result.english.lines ?? [],
+              source: result.english.source ?? (result.english.providerId ? "found" : "translated"),
+              translationBackend: result.english.translationBackend ?? undefined,
+              status: "ready" as const,
+            }
+          : result.english?.status === "skipped"
+            ? {
+                lines: [],
+                source: "found" as const,
+                status: "skipped" as const,
+              }
+            : {
+                lines: [],
+                source: "translated" as const,
+                status: "failed" as const,
+              }
+      const romaji =
+        result.romaji?.status === "ready"
+          ? {
+              lines: result.romaji.lines ?? [],
+              status: "ready" as const,
             }
           : {
               lines: [],
-              source: "translated" as const,
-              status: "failed" as const,
+              status: "skipped" as const,
             }
-    const romaji =
-      result.romaji?.status === "ready"
-        ? {
-            lines: result.romaji.lines ?? [],
-            status: "ready" as const,
-          }
-        : {
-            lines: [],
-            status: "skipped" as const,
-          }
-    params.onNativeReady?.(native)
-    return {
-      native,
-      romaji,
-      english,
-      timings: {
-        nativeMs: Math.round(performance.now() - wallT0),
-        romajiMs: 0,
-        englishMs: 0,
-        parallelMs: Math.round(performance.now() - wallT0),
-      },
+      params.onNativeReady?.(native)
+      return {
+        native,
+        romaji,
+        english,
+        timings: {
+          nativeMs: Math.round(performance.now() - wallT0),
+          romajiMs: 0,
+          englishMs: 0,
+          parallelMs: Math.round(performance.now() - wallT0),
+        },
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") throw error
+      if (!params.fallbackToBrowserOnRustFailure) throw error
     }
   }
 

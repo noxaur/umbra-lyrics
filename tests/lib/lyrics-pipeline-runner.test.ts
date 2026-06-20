@@ -206,4 +206,70 @@ describe("runLyricsPipeline", () => {
       }),
     )
   })
+
+  it("falls back to the browser orchestrator when the default Rust transport fails", async () => {
+    mockResolveRust.mockRejectedValue(new Error("Rust gateway down"))
+    mockOrchestrate.mockResolvedValue({
+      status: "found",
+      strategy: "browser",
+      attempts: [],
+      providersTried: ["lrclib"],
+      message: "browser ok",
+      synced: true,
+      lyrics: {
+        id: 1,
+        providerId: "lrclib",
+        plainLyrics: "Hello\nWorld",
+        syncedLyrics: null,
+      },
+    })
+
+    const result = await runLyricsPipeline({
+      track: "Never Gonna Give You Up",
+      artist: "Rick Astley",
+      title: "Rick Astley - Never Gonna Give You Up",
+      durationSec: 214,
+      videoId: "dQw4w9WgXcQ",
+      useExperimentalRustResolver: true,
+      fallbackToBrowserOnRustFailure: true,
+    })
+
+    expect(mockResolveRust).toHaveBeenCalledOnce()
+    expect(mockOrchestrate).toHaveBeenCalledOnce()
+    expect(result.native.strategy).toBe("browser")
+    expect(result.native.message).toBe("browser ok")
+  })
+
+  it("keeps explicit Rust mode strict on transport failure", async () => {
+    mockResolveRust.mockRejectedValue(new Error("Rust gateway down"))
+    mockOrchestrate.mockResolvedValue({
+      status: "found",
+      strategy: "browser",
+      attempts: [],
+      providersTried: ["lrclib"],
+      message: "browser ok",
+      synced: true,
+      lyrics: {
+        id: 1,
+        providerId: "lrclib",
+        plainLyrics: "Hello\nWorld",
+        syncedLyrics: null,
+      },
+    })
+
+    await expect(
+      runLyricsPipeline({
+        track: "Never Gonna Give You Up",
+        artist: "Rick Astley",
+        title: "Rick Astley - Never Gonna Give You Up",
+        durationSec: 214,
+        videoId: "dQw4w9WgXcQ",
+        useExperimentalRustResolver: true,
+        fallbackToBrowserOnRustFailure: false,
+      }),
+    ).rejects.toThrow("Rust gateway down")
+
+    expect(mockResolveRust).toHaveBeenCalledOnce()
+    expect(mockOrchestrate).not.toHaveBeenCalled()
+  })
 })
