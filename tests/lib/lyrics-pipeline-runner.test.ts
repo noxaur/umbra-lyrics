@@ -240,6 +240,39 @@ describe("runLyricsPipeline", () => {
     expect(result.native.message).toBe("browser ok")
   })
 
+  it("does not fall back when Rust resolution is aborted", async () => {
+    mockResolveRust.mockRejectedValue(new DOMException("Aborted", "AbortError"))
+    mockOrchestrate.mockResolvedValue({
+      status: "found",
+      strategy: "browser",
+      attempts: [],
+      providersTried: ["lrclib"],
+      message: "browser ok",
+      synced: true,
+      lyrics: {
+        id: 1,
+        providerId: "lrclib",
+        plainLyrics: "Hello\nWorld",
+        syncedLyrics: null,
+      },
+    })
+
+    await expect(
+      runLyricsPipeline({
+        track: "Never Gonna Give You Up",
+        artist: "Rick Astley",
+        title: "Rick Astley - Never Gonna Give You Up",
+        durationSec: 214,
+        videoId: "dQw4w9WgXcQ",
+        useExperimentalRustResolver: true,
+        fallbackToBrowserOnRustFailure: true,
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" })
+
+    expect(mockResolveRust).toHaveBeenCalledOnce()
+    expect(mockOrchestrate).not.toHaveBeenCalled()
+  })
+
   it("keeps explicit Rust mode strict on transport failure", async () => {
     mockResolveRust.mockRejectedValue(new Error("Rust gateway down"))
     mockOrchestrate.mockResolvedValue({

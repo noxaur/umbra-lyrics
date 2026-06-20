@@ -1,3 +1,4 @@
+import { isAbortError } from "@/lib/abort-signal"
 import {
   prefetchEnglishCandidates,
   resolveEnglishFromPrefetch,
@@ -177,7 +178,7 @@ export async function runLyricsPipeline(
         },
       }
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") throw error
+      if (isAbortError(error)) throw error
       if (!params.fallbackToBrowserOnRustFailure) throw error
     }
   }
