@@ -690,7 +690,7 @@ async fn call_legacy_romaji(
     init.with_headers(request_headers);
     init.with_body(Some(body.into_bytes().into()));
     let request = Request::new_with_init("https://song.example/api/romaji", &init).ok()?;
-    let response = service.fetch_request(request).await.ok()?;
+    let mut response = service.fetch_request(request).await.ok()?;
     if !(200..300).contains(&response.status_code()) {
         return None;
     }
@@ -824,7 +824,7 @@ async fn call_legacy_translate(
         init.with_body(Some(body.into_bytes().into()));
     }
     let request = Request::new_with_init(&url, &init).ok()?;
-    let response = service.fetch_request(request).await.ok()?;
+    let mut response = service.fetch_request(request).await.ok()?;
     if !(200..300).contains(&response.status_code()) {
         return None;
     }
@@ -938,6 +938,7 @@ mod tests {
                 plain_lyrics: "To another world\nFar sky".into(),
                 synced_lyrics: None,
                 synced: false,
+                instrumental: false,
                 diagnostics: vec![],
             }],
             warnings: vec![],

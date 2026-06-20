@@ -1,4 +1,4 @@
-use std::{cell::RefCell, future::Future, rc::Rc, time::Duration};
+use std::{future::Future, time::Duration};
 
 use futures_util::{
     future::{select, Either},
@@ -56,10 +56,11 @@ pub struct LyricsCandidate {
     pub plain_lyrics: String,
     pub synced_lyrics: Option<String>,
     pub synced: bool,
+    pub instrumental: bool,
     pub diagnostics: Vec<LyricsDiagnostic>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LyricsInput {
     pub artist: String,
     pub track: String,
@@ -349,6 +350,7 @@ fn lyrics_candidate(
     duration: Option<f64>,
     plain_lyrics: String,
     synced_lyrics: Option<String>,
+    instrumental: bool,
     diagnostics: Vec<LyricsDiagnostic>,
 ) -> Option<LyricsCandidate> {
     let plain_lyrics = cleaned_plain_lyrics(&plain_lyrics).or_else(|| {
@@ -356,7 +358,11 @@ fn lyrics_candidate(
             .as_deref()
             .map(strip_lrc_timestamps)
             .and_then(|text| cleaned_plain_lyrics(&text))
-    })?;
+    });
+    if plain_lyrics.is_none() && !instrumental {
+        return None;
+    }
+    let plain_lyrics = plain_lyrics.unwrap_or_default();
     let synced = synced_lyrics
         .as_deref()
         .is_some_and(|value| !value.trim().is_empty());
@@ -369,6 +375,7 @@ fn lyrics_candidate(
         plain_lyrics,
         synced_lyrics: synced_lyrics.map(|value| value.trim().to_owned()),
         synced,
+        instrumental,
         diagnostics,
     })
 }
@@ -521,8 +528,9 @@ async fn fetch_json<T: for<'de> Deserialize<'de>>(
 
         let controller = AbortController::default();
         let signal = controller.signal();
-        let fetch = Fetch::Request(request).send_with_signal(&signal);
-        let response = match fetch.await {
+        let fetch_request = Fetch::Request(request);
+        let fetch = fetch_request.send_with_signal(&signal);
+        let mut response = match fetch.await {
             Ok(response) => response,
             Err(error) => {
                 controller.abort();
@@ -573,8 +581,9 @@ async fn fetch_text(
 
         let controller = AbortController::default();
         let signal = controller.signal();
-        let fetch = Fetch::Request(request).send_with_signal(&signal);
-        let response = match fetch.await {
+        let fetch_request = Fetch::Request(request);
+        let fetch = fetch_request.send_with_signal(&signal);
+        let mut response = match fetch.await {
             Ok(response) => response,
             Err(error) => {
                 controller.abort();
@@ -674,9 +683,6 @@ async fn convert_lrclib_results(
 ) -> Result<Vec<LyricsCandidate>, LyricsSourceFailure> {
     let mut candidates = Vec::new();
     for result in results.into_iter().take(MAX_SEARCH_RESULTS) {
-        if result.instrumental {
-            continue;
-        }
         let diagnostics = vec![LyricsDiagnostic {
             code: match source {
                 LyricsSource::LrclibExact => "lrclib_exact",
@@ -710,6 +716,7 @@ async fn convert_lrclib_results(
             result.duration.or(input.duration),
             plain_lyrics,
             synced_lyrics,
+            result.instrumental,
             diagnostics,
         ) {
             candidates.push(candidate);
@@ -750,6 +757,7 @@ async fn search_lyrics_ovh(
         input.duration,
         lyrics,
         None,
+        false,
         vec![LyricsDiagnostic {
             code: "lyrics_ovh",
             message: "lyrics.ovh candidate".into(),
@@ -836,6 +844,7 @@ async fn search_genius(
             input.duration,
             lyrics,
             None,
+            false,
             vec![LyricsDiagnostic {
                 code: "genius",
                 message: "Genius page lyrics".into(),
@@ -1013,6 +1022,7 @@ mod tests {
                 "[00:00.00] One\n[00:01.00] Two\n[00:02.00] Three\n[00:03.00] Four".into(),
             ),
             synced,
+            instrumental: false,
             diagnostics: vec![LyricsDiagnostic {
                 code: "test",
                 message: "test".into(),
@@ -1075,6 +1085,7 @@ mod tests {
                                 .into(),
                         ),
                         synced: true,
+                        instrumental: false,
                         diagnostics: vec![],
                     }])
                 }

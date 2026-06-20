@@ -468,7 +468,8 @@ async fn probe_audio_size_from_url(stream_url: &str) -> Result<Option<usize>, wo
     let head_request = Request::new_with_init(stream_url, &head_init)?;
     let controller = AbortController::default();
     let signal = controller.signal();
-    let fetch = Fetch::Request(head_request).send_with_signal(&signal);
+    let fetch_request = Fetch::Request(head_request);
+    let fetch = fetch_request.send_with_signal(&signal);
     let timeout = Delay::from(Duration::from_millis(30_000));
     pin_mut!(fetch, timeout);
     let mut head_response = match select(fetch, timeout).await {
@@ -502,7 +503,8 @@ async fn probe_audio_size_from_url(stream_url: &str) -> Result<Option<usize>, wo
     let range_request = Request::new_with_init(stream_url, &range_init)?;
     let controller = AbortController::default();
     let signal = controller.signal();
-    let fetch = Fetch::Request(range_request).send_with_signal(&signal);
+    let fetch_request = Fetch::Request(range_request);
+    let fetch = fetch_request.send_with_signal(&signal);
     let timeout = Delay::from(Duration::from_millis(30_000));
     pin_mut!(fetch, timeout);
     let mut range_response = match select(fetch, timeout).await {
@@ -569,7 +571,8 @@ async fn fetch_audio_range_from_url(
     let request = Request::new_with_init(stream_url, &init)?;
     let controller = AbortController::default();
     let signal = controller.signal();
-    let fetch = Fetch::Request(request).send_with_signal(&signal);
+    let fetch_request = Fetch::Request(request);
+    let fetch = fetch_request.send_with_signal(&signal);
     let timeout = Delay::from(Duration::from_millis(120_000));
     pin_mut!(fetch, timeout);
     let mut response = match select(fetch, timeout).await {
@@ -831,6 +834,7 @@ async fn transcribe_chunked_stream(
     let mut whisper_calls = 0u32;
     let mut partial = total_bytes > MAX_AUDIO_BYTES;
 
+    let planned_chunks = plans.len() as u32;
     for (index, (start, end)) in plans.into_iter().enumerate() {
         let bytes = fetch_audio_range(legacy, video_id, start, end).await?;
         if bytes.is_empty() {
@@ -875,7 +879,7 @@ async fn transcribe_chunked_stream(
         segments,
         partial,
         whisper_calls,
-        plans.len() as u32,
+        planned_chunks,
     ))
 }
 
