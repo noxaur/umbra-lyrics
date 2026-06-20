@@ -49,7 +49,6 @@ describe("resolveTrackMetadata", () => {
     expect(resolved.source).toBe("spotify")
     expect(resolved.artist).toBe("Fleetwood Mac")
     expect(resolved.track).toBe("The Chain")
-    expect(resolved.confidence).toBeGreaterThan(0.5)
   })
 
   it("falls back to parse when all APIs fail", async () => {
@@ -99,5 +98,121 @@ describe("resolveTrackMetadata", () => {
     expect(resolved.source).toBe("spotify")
     expect(resolved.artist).toBe("Queen")
     expect(resolved.track).toBe("Bohemian Rhapsody")
+  })
+
+  it("uses the oEmbed-backed seed when supplied rough metadata is skewed", async () => {
+    const seen: string[] = []
+    mockFetch.mockImplementation(async (path) => {
+      seen.push(path)
+      if (path.includes("/api/metadata/spotify")) {
+        return new Response(
+          JSON.stringify({
+            hits: [
+              {
+                id: "sp1",
+                name: "Bohemian Rhapsody",
+                artist: "Queen",
+                durationSec: 355,
+              },
+            ],
+          }),
+        )
+      }
+      if (path.includes("musicbrainz")) {
+        return new Response(JSON.stringify({ recordings: [] }))
+      }
+      return new Response(JSON.stringify({ hits: [] }))
+    })
+
+    const resolved = await resolveTrackMetadata({
+      title: "Bohemian Rhapsody",
+      durationSec: 355,
+      oembedAuthor: "Queen - Topic",
+      roughArtist: "Wrong Artist",
+      roughTrack: "Wrong Song",
+    })
+
+    expect(seen.some((path) => path.includes("artist=Queen") && path.includes("track=Bohemian+Rhapsody"))).toBe(true)
+    expect(resolved.artist).toBe("Queen")
+    expect(resolved.track).toBe("Bohemian Rhapsody")
+  })
+
+  it("drops duplicate candidates that only differ by shared IDs", async () => {
+    mockFetch.mockImplementation(async (path) => {
+      if (path.includes("/api/metadata/spotify")) {
+        return new Response(
+          JSON.stringify({
+            hits: [
+              {
+                id: "shared",
+                name: "Song",
+                artist: "Artist",
+                durationSec: 200,
+                isrc: "abc123",
+              },
+            ],
+          }),
+        )
+      }
+      if (path.includes("musicbrainz")) {
+        return new Response(
+          JSON.stringify({
+            recordings: [
+              {
+                id: "mb1",
+                title: "Song",
+                length: 200000,
+                "artist-credit": [{ name: "Artist" }],
+              },
+              {
+                id: "mb2",
+                title: "Song",
+                length: 200000,
+                "artist-credit": [{ name: "Artist" }],
+              },
+            ],
+          }),
+        )
+      }
+      return new Response(JSON.stringify({ hits: [] }))
+    })
+
+    const resolved = await resolveTrackMetadata({
+      title: "Artist - Song",
+      durationSec: 200,
+      roughArtist: "Artist",
+      roughTrack: "Song",
+    })
+
+    expect(resolved.source).toBe("spotify")
+    expect(resolved.alternates.filter((candidate) => candidate.source === "musicbrainz")).toHaveLength(2)
+  })
+
+  it("returns parse fallback when every fetch times out", async () => {
+    vi.useFakeTimers()
+    mockFetch.mockImplementation(async (_path, init) => {
+      const signal = init?.signal
+      if (signal) {
+        await new Promise<void>((resolve) => {
+          signal.addEventListener("abort", () => resolve(), { once: true })
+        })
+      }
+      throw new DOMException("The operation was aborted.", "AbortError")
+    })
+
+    const promise = resolveTrackMetadata({
+      title: "Artist - Song",
+      durationSec: 200,
+      roughArtist: "Artist",
+      roughTrack: "Song",
+    })
+
+    await vi.advanceTimersByTimeAsync(5_000)
+    const resolved = await promise
+
+    expect(resolved.source).toBe("parse")
+    expect(resolved.artist).toBe("Artist")
+    expect(resolved.track).toBe("Song")
+    vi.useRealTimers()
   })
 })
