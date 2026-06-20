@@ -133,11 +133,42 @@ export async function runLyricsPipeline(
       synced: Boolean(lyrics?.syncedLyrics?.trim()),
       instrumental: result.outcome === "instrumental",
     }
+    const english =
+      result.english?.status === "ready"
+        ? {
+            lines: result.english.lines ?? [],
+            source:
+              result.english.source ??
+              (result.english.providerId ? "found" : "translated"),
+            translationBackend: result.english.translationBackend ?? null,
+            status: "ready" as const,
+          }
+        : result.english?.status === "skipped"
+          ? {
+              lines: [],
+              source: "found" as const,
+              status: "skipped" as const,
+            }
+          : {
+              lines: [],
+              source: "translated" as const,
+              status: "failed" as const,
+            }
+    const romaji =
+      result.romaji?.status === "ready"
+        ? {
+            lines: result.romaji.lines ?? [],
+            status: "ready" as const,
+          }
+        : {
+            lines: [],
+            status: "skipped" as const,
+          }
     params.onNativeReady?.(native)
     return {
       native,
-      romaji: { lines: [], status: "skipped" },
-      english: { lines: [], source: "translated", status: "failed" },
+      romaji,
+      english,
       timings: {
         nativeMs: Math.round(performance.now() - wallT0),
         romajiMs: 0,

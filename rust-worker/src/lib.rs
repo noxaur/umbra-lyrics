@@ -10,6 +10,7 @@ mod native_lyrics;
 mod observability;
 mod resolution;
 mod result_cache;
+mod task8;
 
 const ASSETS_BINDING: &str = "ASSETS";
 const LEGACY_BINDING: &str = "LEGACY";

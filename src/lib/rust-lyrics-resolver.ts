@@ -73,6 +73,22 @@ export type RustLyricsEvent<T = Record<string, unknown>> = {
   data: T
 }
 
+export type RustLyricsEnglish = {
+  status: "ready" | "skipped" | "failed"
+  source?: "found" | "translated" | null
+  providerId?: string | null
+  translationBackend?: string | null
+  alignment?: "aligned" | "degraded" | "skipped"
+  lines?: string[]
+}
+
+export type RustLyricsRomaji = {
+  status: "ready" | "skipped" | "unsupported"
+  system?: string | null
+  reason?: string | null
+  lines?: string[]
+}
+
 export type RustLyricsResult = {
   outcome: "found" | "instrumental" | "low_confidence" | "not_found"
   resolution: "native"
@@ -86,6 +102,8 @@ export type RustLyricsResult = {
   lyrics: RustLyricsSelected | null
   alternates: RustLyricsAlternate[]
   message: string
+  english?: RustLyricsEnglish
+  romaji?: RustLyricsRomaji
 }
 
 export type RustLyricsProtocolErrorData = {
@@ -251,6 +269,45 @@ function parseResultData(data: Record<string, unknown>): RustLyricsResult {
     throw new Error("Rust lyrics resolver emitted an invalid result")
   }
 
+  const english = isRecord(data.english)
+    ? {
+        status: ["ready", "skipped", "failed"].includes(String(data.english.status))
+          ? (data.english.status as RustLyricsEnglish["status"])
+          : "failed",
+        source:
+          data.english.source === "found" || data.english.source === "translated"
+            ? (data.english.source as "found" | "translated")
+            : null,
+        providerId: optionalStringOrNull(data.english.providerId),
+        translationBackend: optionalStringOrNull(data.english.translationBackend),
+        alignment:
+          data.english.alignment === "aligned" ||
+          data.english.alignment === "degraded" ||
+          data.english.alignment === "skipped"
+            ? (data.english.alignment as "aligned" | "degraded" | "skipped")
+            : undefined,
+        lines: Array.isArray(data.english.lines)
+          ? data.english.lines.filter((line): line is string => typeof line === "string")
+          : undefined,
+      }
+    : undefined
+
+  const romaji = isRecord(data.romaji)
+    ? {
+        status:
+          data.romaji.status === "ready" ||
+          data.romaji.status === "skipped" ||
+          data.romaji.status === "unsupported"
+            ? (data.romaji.status as RustLyricsRomaji["status"])
+            : "skipped",
+        system: optionalStringOrNull(data.romaji.system),
+        reason: optionalStringOrNull(data.romaji.reason),
+        lines: Array.isArray(data.romaji.lines)
+          ? data.romaji.lines.filter((line): line is string => typeof line === "string")
+          : undefined,
+      }
+    : undefined
+
   return {
     outcome: data.outcome as RustLyricsResult["outcome"],
     resolution: "native",
@@ -266,6 +323,8 @@ function parseResultData(data: Record<string, unknown>): RustLyricsResult {
       ? data.alternates.filter(isRecord).map(parseRustLyricsAlternate)
       : [],
     message: data.message,
+    english,
+    romaji,
   }
 }
 
