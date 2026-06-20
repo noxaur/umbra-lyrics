@@ -1,4 +1,5 @@
 import { lyricsApiBase } from "@/lib/lyrics-providers/api-base"
+import type { TranslationBackend } from "@/lib/translation-service"
 
 export const RUST_LYRICS_PROTOCOL_VERSION = "1"
 
@@ -77,7 +78,7 @@ export type RustLyricsEnglish = {
   status: "ready" | "skipped" | "failed"
   source?: "found" | "translated" | null
   providerId?: string | null
-  translationBackend?: string | null
+  translationBackend?: TranslationBackend | null
   alignment?: "aligned" | "degraded" | "skipped"
   lines?: string[]
 }
@@ -279,7 +280,7 @@ function parseResultData(data: Record<string, unknown>): RustLyricsResult {
             ? (data.english.source as "found" | "translated")
             : null,
         providerId: optionalStringOrNull(data.english.providerId),
-        translationBackend: optionalStringOrNull(data.english.translationBackend),
+        translationBackend: optionalTranslationBackend(data.english.translationBackend),
         alignment:
           data.english.alignment === "aligned" ||
           data.english.alignment === "degraded" ||
@@ -318,7 +319,7 @@ function parseResultData(data: Record<string, unknown>): RustLyricsResult {
       duration: optionalNumber(data.metadata.duration),
       language: optionalString(data.metadata.language),
     },
-    lyrics: data.lyrics === null ? null : parseRustLyricsSelected(data.lyrics),
+    lyrics: parseOptionalRustLyricsSelected(data.lyrics),
     alternates: Array.isArray(data.alternates)
       ? data.alternates.filter(isRecord).map(parseRustLyricsAlternate)
       : [],
@@ -358,6 +359,14 @@ function parseRustLyricsSelected(data: Record<string, unknown>): RustLyricsSelec
   }
 }
 
+function parseOptionalRustLyricsSelected(data: unknown): RustLyricsSelected | null {
+  if (data === null) return null
+  if (!isRecord(data)) {
+    throw new Error("Rust lyrics resolver emitted an invalid native lyrics payload")
+  }
+  return parseRustLyricsSelected(data)
+}
+
 function parseRustLyricsAlternate(data: Record<string, unknown>): RustLyricsAlternate {
   if (
     !isRecord(data) ||
@@ -384,6 +393,24 @@ function parseRustLyricsAlternate(data: Record<string, unknown>): RustLyricsAlte
       synced: Boolean(data.lyricsResult.synced),
     },
   }
+}
+
+const TRANSLATION_BACKENDS = new Set<TranslationBackend>([
+  "browser",
+  "google",
+  "mymemory",
+  "libretranslate",
+])
+
+function optionalTranslationBackend(value: unknown): TranslationBackend | null {
+  if (value === null || value === undefined) return null
+  if (typeof value !== "string") {
+    throw new Error("Rust lyrics resolver emitted invalid native lyrics")
+  }
+  if (!TRANSLATION_BACKENDS.has(value as TranslationBackend)) {
+    throw new Error("Rust lyrics resolver emitted invalid native lyrics")
+  }
+  return value as TranslationBackend
 }
 
 function parseErrorData(data: Record<string, unknown>): RustLyricsProtocolErrorData {
