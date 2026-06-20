@@ -26,6 +26,7 @@ import {
   lyricsResultSampleText,
   lyricsResultToNativeLines,
 } from "@/lib/lyrics-pipeline"
+import { getLyricsResolverMode } from "@/lib/lyrics-resolver-mode"
 import { RustLyricsProtocolError } from "@/lib/rust-lyrics-resolver"
 import { getLyricsCache, reparseCachedLyrics, setLyricsCache, type LyricsCacheEntry } from "@/lib/lyrics-cache"
 import { clearLyricsRejection, isLyricsRejected } from "@/lib/lyrics-rejection"
@@ -178,9 +179,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     }
   } | null>(null)
   const debugPlayer = searchParams.get("debug") === "1"
-  const useExperimentalRustResolver =
-    searchParams.get("lyricsResolver") === "rust" ||
-    import.meta.env.VITE_RUST_LYRICS_RESOLVER === "1"
+  const useRustLyricsResolver = getLyricsResolverMode(searchParams) === "rust"
   const location = useLocation()
   const navigate = useNavigate()
   const navigationState = location.state as PlayerNavigationState | null
@@ -1028,7 +1027,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         usePlayerStore.getState().videoId !== loadVideoId
 
       resolutionAbortRef.current?.abort()
-      const resolutionController = useExperimentalRustResolver
+      const resolutionController = useRustLyricsResolver
         ? new AbortController()
         : null
       resolutionAbortRef.current = resolutionController
@@ -1090,7 +1089,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           return
         }
 
-        if (!options?.skipCache && !useExperimentalRustResolver) {
+        if (!options?.skipCache) {
           const cached = getLyricsCache(videoId)
           if (cached) {
             if (isUiStale()) return
@@ -1172,7 +1171,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             oembedAuthor: oembedAuthorRef.current ?? undefined,
           }),
           providerIds: options?.providerIds,
-          useExperimentalRustResolver,
+          useExperimentalRustResolver: useRustLyricsResolver,
           resolutionSignal: resolutionController?.signal,
           onResolutionEvent: (event) => {
             if (isUiStale() || event.event !== "metadata") return
@@ -1341,7 +1340,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       tryTranscribeLyrics,
       setContentWarning,
       setVerificationScore,
-      useExperimentalRustResolver,
+      useRustLyricsResolver,
     ],
   )
 

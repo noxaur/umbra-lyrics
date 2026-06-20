@@ -32,18 +32,18 @@ npm run dev
 
 Open http://127.0.0.1:5173
 
-The default dev server runs the legacy TypeScript API worker. The experimental
-Rust SSE resolver is available in production or from a separately running Rust
-gateway. To exercise it locally, point the SPA at that gateway and opt in on the
-player URL:
+The default dev server runs the legacy TypeScript API worker. The Rust SSE
+resolver is now the frontend default when the SPA can reach a Rust gateway, and
+the browser orchestrator stays available as an explicit fallback. To exercise it
+locally, point the SPA at that gateway:
 
 ```bash
 VITE_LYRICS_API_BASE=http://127.0.0.1:8787 npm run dev
 ```
 
-Then open `/play/<videoId>?lyricsResolver=rust`. Without
-`VITE_LYRICS_API_BASE`, the default legacy dev worker does not provide
-`POST /api/lyrics/resolve`.
+Then open `/play/<videoId>`. Add `?lyricsResolver=browser` if you want to force
+the old browser orchestrator for comparison. Without `VITE_LYRICS_API_BASE`,
+the default legacy dev worker does not provide `POST /api/lyrics/resolve`.
 
 ## Test & build
 
