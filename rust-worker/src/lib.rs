@@ -10,6 +10,7 @@ mod native_lyrics;
 mod observability;
 mod resolution;
 mod result_cache;
+mod task10;
 mod task8;
 mod task9;
 

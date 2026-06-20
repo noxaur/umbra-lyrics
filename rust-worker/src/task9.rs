@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, time::Duration};
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use futures_util::{
@@ -7,7 +7,9 @@ use futures_util::{
 };
 use serde::{Deserialize, Serialize};
 use url::Url;
-use worker::{Ai, Delay, Env, Fetcher, Headers, Method, Request, RequestInit};
+use worker::{
+    AbortController, Ai, Delay, Env, Fetch, Fetcher, Headers, Method, Request, RequestInit,
+};
 
 use crate::native_lyrics::{
     NativeLyricsLine, NativeLyricsLineKind, NativeLyricsOutcome, NativeLyricsResult,
@@ -15,6 +17,9 @@ use crate::native_lyrics::{
 };
 use crate::observability::emit_json_log;
 use crate::resolution::ResolveRequest;
+use crate::task10::{
+    is_valid_video_id, resolve_native_audio_probe, AudioResolutionReport, AudioResolutionSource,
+};
 
 const LEGACY_BINDING: &str = "LEGACY";
 const WHISPER_MODEL: &str = "@cf/openai/whisper-large-v3-turbo";
@@ -106,6 +111,12 @@ struct AudioWindow {
     partial: bool,
     total_bytes: Option<usize>,
     range_requests: u32,
+}
+
+#[derive(Debug, Clone)]
+struct AudioWindowResolution {
+    window: AudioWindow,
+    report: AudioResolutionReport,
 }
 
 fn normalize_text(value: &str) -> String {
@@ -442,6 +453,88 @@ async fn probe_audio_size(
     Ok(None)
 }
 
+async fn probe_audio_size_from_url(stream_url: &str) -> Result<Option<usize>, worker::Error> {
+    let mut head_headers = Headers::new();
+    head_headers.set("Accept", "*/*")?;
+    head_headers.set(
+        "User-Agent",
+        "com.google.ios.youtube/19.45.4 (iPhone14,3; U; CPU iPhone OS 15_6 like Mac OS X)",
+    )?;
+
+    let mut head_init = RequestInit::new();
+    head_init
+        .with_method(Method::Head)
+        .with_headers(head_headers);
+    let head_request = Request::new_with_init(stream_url, &head_init)?;
+    let controller = AbortController::default();
+    let signal = controller.signal();
+    let fetch = Fetch::Request(head_request).send_with_signal(&signal);
+    let timeout = Delay::from(Duration::from_millis(30_000));
+    pin_mut!(fetch, timeout);
+    let mut head_response = match select(fetch, timeout).await {
+        Either::Left((result, _)) => result?,
+        Either::Right(((), _)) => {
+            controller.abort();
+            return Ok(None);
+        }
+    };
+    if (200..300).contains(&head_response.status_code()) {
+        if let Some(length) = head_response.headers().get("Content-Length")? {
+            if let Ok(total) = length.parse::<usize>() {
+                if total > 0 {
+                    return Ok(Some(total));
+                }
+            }
+        }
+    }
+
+    let mut ranged_headers = Headers::new();
+    ranged_headers.set("Accept", "*/*")?;
+    ranged_headers.set(
+        "User-Agent",
+        "com.google.ios.youtube/19.45.4 (iPhone14,3; U; CPU iPhone OS 15_6 like Mac OS X)",
+    )?;
+    ranged_headers.set("Range", "bytes=0-0")?;
+    let mut range_init = RequestInit::new();
+    range_init
+        .with_method(Method::Get)
+        .with_headers(ranged_headers);
+    let range_request = Request::new_with_init(stream_url, &range_init)?;
+    let controller = AbortController::default();
+    let signal = controller.signal();
+    let fetch = Fetch::Request(range_request).send_with_signal(&signal);
+    let timeout = Delay::from(Duration::from_millis(30_000));
+    pin_mut!(fetch, timeout);
+    let mut range_response = match select(fetch, timeout).await {
+        Either::Left((result, _)) => result?,
+        Either::Right(((), _)) => {
+            controller.abort();
+            return Ok(None);
+        }
+    };
+    if range_response.status_code() == 206 {
+        if let Some(range) = range_response.headers().get("Content-Range")? {
+            if let Some(total) = range
+                .rsplit('/')
+                .next()
+                .and_then(|value| value.parse::<usize>().ok())
+            {
+                if total > 0 {
+                    return Ok(Some(total));
+                }
+            }
+        }
+    }
+    if let Some(length) = range_response.headers().get("Content-Length")? {
+        if let Ok(total) = length.parse::<usize>() {
+            if total > 0 {
+                return Ok(Some(total));
+            }
+        }
+    }
+    Ok(None)
+}
+
 async fn fetch_audio_range(
     legacy: &Fetcher,
     video_id: &str,
@@ -453,6 +546,44 @@ async fn fetch_audio_range(
     if !(200..300).contains(&response.status_code()) {
         return Err(worker::Error::RustError(format!(
             "legacy audio proxy returned HTTP {}",
+            response.status_code()
+        )));
+    }
+    response.bytes().await
+}
+
+async fn fetch_audio_range_from_url(
+    stream_url: &str,
+    start: usize,
+    end: usize,
+) -> Result<Vec<u8>, worker::Error> {
+    let mut headers = Headers::new();
+    headers.set("Accept", "*/*")?;
+    headers.set(
+        "User-Agent",
+        "com.google.ios.youtube/19.45.4 (iPhone14,3; U; CPU iPhone OS 15_6 like Mac OS X)",
+    )?;
+    headers.set("Range", &format!("bytes={start}-{end}"))?;
+    let mut init = RequestInit::new();
+    init.with_method(Method::Get).with_headers(headers);
+    let request = Request::new_with_init(stream_url, &init)?;
+    let controller = AbortController::default();
+    let signal = controller.signal();
+    let fetch = Fetch::Request(request).send_with_signal(&signal);
+    let timeout = Delay::from(Duration::from_millis(120_000));
+    pin_mut!(fetch, timeout);
+    let mut response = match select(fetch, timeout).await {
+        Either::Left((result, _)) => result?,
+        Either::Right(((), _)) => {
+            controller.abort();
+            return Err(worker::Error::RustError(
+                "native audio stream timed out".into(),
+            ));
+        }
+    };
+    if !(200..300).contains(&response.status_code()) {
+        return Err(worker::Error::RustError(format!(
+            "native audio stream returned HTTP {}",
             response.status_code()
         )));
     }
@@ -483,6 +614,77 @@ async fn fetch_audio_window(
         total_bytes,
         range_requests,
     })
+}
+
+async fn fetch_audio_window_from_url(
+    stream_url: &str,
+    max_bytes: usize,
+) -> Result<AudioWindow, worker::Error> {
+    let total_bytes = probe_audio_size_from_url(stream_url).await?;
+    let mut range_requests = 0;
+    let bytes = if total_bytes.is_some_and(|total| total > max_bytes) {
+        range_requests += 1;
+        fetch_audio_range_from_url(stream_url, 0, max_bytes.saturating_sub(1)).await?
+    } else if let Some(total) = total_bytes {
+        range_requests += 1;
+        fetch_audio_range_from_url(stream_url, 0, total.saturating_sub(1)).await?
+    } else {
+        range_requests += 1;
+        fetch_audio_range_from_url(stream_url, 0, max_bytes.saturating_sub(1)).await?
+    };
+
+    let partial = total_bytes
+        .map(|total| total > bytes.len())
+        .unwrap_or(bytes.len() >= max_bytes);
+    Ok(AudioWindow {
+        bytes,
+        partial,
+        total_bytes,
+        range_requests,
+    })
+}
+
+async fn fetch_audio_window_with_native_first(
+    legacy: &Fetcher,
+    video_id: &str,
+    max_bytes: usize,
+) -> Result<AudioWindowResolution, worker::Error> {
+    if !is_valid_video_id(video_id) {
+        return Err(worker::Error::RustError("invalid video id".into()));
+    }
+    let probe = resolve_native_audio_probe(video_id).await?;
+    if let Some(stream) = probe.stream.as_ref() {
+        match fetch_audio_window_from_url(&stream.url, max_bytes).await {
+            Ok(window) => {
+                return Ok(AudioWindowResolution {
+                    window,
+                    report: probe.report.clone(),
+                });
+            }
+            Err(error) => {
+                let mut report = probe.report.clone();
+                report.used_legacy_fallback = true;
+                report.source = AudioResolutionSource::Legacy;
+                report.range_capable = true;
+                report.attempts.push(crate::task10::AudioResolutionAttempt {
+                    client: stream.client,
+                    status: Some("NATIVE_FETCH_FAILED".into()),
+                    reason: Some(error.to_string()),
+                    direct_audio_url: true,
+                    allowed_host: true,
+                });
+                let window = fetch_audio_window(legacy, video_id, max_bytes).await?;
+                return Ok(AudioWindowResolution { window, report });
+            }
+        }
+    }
+
+    let window = fetch_audio_window(legacy, video_id, max_bytes).await?;
+    let mut report = probe.report.clone();
+    report.used_legacy_fallback = true;
+    report.source = AudioResolutionSource::Legacy;
+    report.range_capable = true;
+    Ok(AudioWindowResolution { window, report })
 }
 
 fn plan_byte_chunks(
@@ -817,6 +1019,26 @@ fn not_found_transcription(used_legacy_audio_adapter: bool) -> TranscriptionResu
     }
 }
 
+fn audio_resolution_log_payload(
+    request_id: &str,
+    video_id: &str,
+    report: &AudioResolutionReport,
+) -> serde_json::Value {
+    serde_json::json!({
+        "requestId": request_id,
+        "videoId": video_id,
+        "source": report.source,
+        "usedLegacyFallback": report.used_legacy_fallback,
+        "playabilityFailure": report.playability_failure,
+        "rangeCapable": report.range_capable,
+        "attempts": report.attempts,
+    })
+}
+
+fn used_legacy_audio_adapter_for_report(report: &AudioResolutionReport) -> bool {
+    report.used_legacy_fallback || matches!(report.source, AudioResolutionSource::Legacy)
+}
+
 pub async fn resolve_transcription(
     request_id: &str,
     request: &ResolveRequest,
@@ -825,6 +1047,9 @@ pub async fn resolve_transcription(
 ) -> TranscriptionResult {
     if is_strong_native_result(native) {
         return skipped_transcription();
+    }
+    if !is_valid_video_id(&native.video_id) {
+        return not_found_transcription(false);
     }
 
     let Some(env) = env else {
@@ -861,11 +1086,11 @@ pub async fn resolve_transcription(
     };
 
     let audio_window = if should_try_sample(native) {
-        fetch_audio_window(&legacy, &native.video_id, SAMPLE_MAX_AUDIO_BYTES)
+        fetch_audio_window_with_native_first(&legacy, &native.video_id, SAMPLE_MAX_AUDIO_BYTES)
             .await
             .ok()
     } else {
-        fetch_audio_window(&legacy, &native.video_id, MAX_AUDIO_BYTES)
+        fetch_audio_window_with_native_first(&legacy, &native.video_id, MAX_AUDIO_BYTES)
             .await
             .ok()
     };
@@ -873,15 +1098,21 @@ pub async fn resolve_transcription(
     let Some(audio_window) = audio_window else {
         return not_found_transcription(true);
     };
-    side_channel.metrics.audio_bytes = audio_window.bytes.len();
-    side_channel.metrics.range_requests = audio_window.range_requests;
+    side_channel.used_legacy_audio_adapter =
+        used_legacy_audio_adapter_for_report(&audio_window.report);
+    emit_json_log(
+        "youtube_audio_resolution",
+        &audio_resolution_log_payload(request_id, &native.video_id, &audio_window.report),
+    );
+    side_channel.metrics.audio_bytes = audio_window.window.bytes.len();
+    side_channel.metrics.range_requests = audio_window.window.range_requests;
 
     if should_try_sample(native) {
         side_channel.mode = Some(TranscriptionMode::Sample);
         side_channel.metrics.whisper_calls = 1;
         let sample = transcribe_audio_buffer(
             &ai,
-            &audio_window.bytes,
+            &audio_window.window.bytes,
             request.language.as_deref(),
             &request.author.clone().unwrap_or_default(),
             &request.title.clone().unwrap_or_default(),
@@ -893,7 +1124,7 @@ pub async fn resolve_transcription(
                 if accepted {
                     side_channel.status = TranscriptionStatus::Sampled;
                     side_channel.sample_accepted = true;
-                    side_channel.partial = audio_window.partial;
+                    side_channel.partial = audio_window.window.partial;
                     side_channel.chunks = 1;
                     emit_metrics(
                         request_id,
@@ -937,8 +1168,9 @@ pub async fn resolve_transcription(
         side_channel.chunks = 1;
     }
     let total_bytes = audio_window
+        .window
         .total_bytes
-        .unwrap_or_else(|| audio_window.bytes.len());
+        .unwrap_or_else(|| audio_window.window.bytes.len());
     let (text, segments, partial, whisper_calls, chunk_range_requests) =
         if total_bytes > MAX_AUDIO_BYTES || total_bytes > CHUNK_BYTE_SIZE {
             transcribe_chunked_stream(
@@ -957,7 +1189,7 @@ pub async fn resolve_transcription(
             side_channel.mode = Some(TranscriptionMode::Full);
             let result = transcribe_audio_buffer(
                 &ai,
-                &audio_window.bytes,
+                &audio_window.window.bytes,
                 request.language.as_deref(),
                 request.author.as_deref().unwrap_or(""),
                 request.title.as_deref().unwrap_or(""),
@@ -967,16 +1199,16 @@ pub async fn resolve_transcription(
                 Ok((text, segments, _language)) => (
                     text,
                     segments,
-                    audio_window.partial,
+                    audio_window.window.partial,
                     1,
-                    audio_window.range_requests,
+                    audio_window.window.range_requests,
                 ),
                 Err(_) => (
                     String::new(),
                     Vec::new(),
                     true,
                     1,
-                    audio_window.range_requests,
+                    audio_window.window.range_requests,
                 ),
             }
         };
@@ -984,11 +1216,11 @@ pub async fn resolve_transcription(
     side_channel.mode = Some(TranscriptionMode::Full);
     side_channel.metrics.whisper_calls += whisper_calls.max(1);
     side_channel.metrics.range_requests += if whisper_calls > 1 {
-        audio_window.range_requests + chunk_range_requests
+        audio_window.window.range_requests + chunk_range_requests
     } else {
-        audio_window.range_requests
+        audio_window.window.range_requests
     };
-    side_channel.partial = partial || audio_window.partial;
+    side_channel.partial = partial || audio_window.window.partial;
     side_channel.chunks += whisper_calls.max(1);
 
     let text = text.trim().to_owned();
@@ -1146,6 +1378,24 @@ mod tests {
     }
 
     #[test]
+    fn invalid_video_ids_return_not_found_before_audio_fetch() {
+        let request = ResolveRequest {
+            video_id: "bad".into(),
+            title: Some("Title".into()),
+            author: Some("Artist".into()),
+            duration: Some(180.0),
+            language: Some("en".into()),
+            force_refresh: false,
+        };
+        let native = native_result(NativeLyricsOutcome::LowConfidence, "text");
+        let result =
+            futures::executor::block_on(resolve_transcription("req-1", &request, &native, None));
+        assert_eq!(result.side_channel.status, TranscriptionStatus::NotFound);
+        assert!(!result.side_channel.used_legacy_audio_adapter);
+        assert!(result.lyrics.is_none());
+    }
+
+    #[test]
     fn sample_score_accepts_related_text() {
         let native = native_result(NativeLyricsOutcome::LowConfidence, "one two three");
         assert!(score_sample(&native, "one two three"));
@@ -1235,6 +1485,49 @@ mod tests {
         assert_eq!(json["usedLegacyAudioAdapter"], true);
         assert_eq!(json["metrics"]["whisperCalls"], 3);
         assert_eq!(used_legacy_audio_adapter(&side_channel), true);
+    }
+
+    #[test]
+    fn audio_resolution_log_payload_stays_redacted_and_explicit() {
+        let report = AudioResolutionReport {
+            source: AudioResolutionSource::Legacy,
+            used_legacy_fallback: true,
+            playability_failure: Some("LOGIN_REQUIRED".into()),
+            attempts: vec![crate::task10::AudioResolutionAttempt {
+                client: "IOS",
+                status: Some("LOGIN_REQUIRED".into()),
+                reason: Some("Needs sign-in".into()),
+                direct_audio_url: false,
+                allowed_host: false,
+            }],
+            range_capable: false,
+        };
+        let payload = audio_resolution_log_payload("req-1", "dQw4w9WgXcQ", &report);
+        let encoded = serde_json::to_string(&payload).expect("payload serializes");
+        assert!(encoded.contains("\"usedLegacyFallback\":true"));
+        assert!(encoded.contains("\"playabilityFailure\":\"LOGIN_REQUIRED\""));
+        assert!(!encoded.contains("googlevideo.com"));
+        assert!(!encoded.contains("videoplayback"));
+    }
+
+    #[test]
+    fn native_reports_do_not_mark_legacy_adapter_used() {
+        let native_report = AudioResolutionReport {
+            source: AudioResolutionSource::Native,
+            used_legacy_fallback: false,
+            playability_failure: None,
+            attempts: Vec::new(),
+            range_capable: true,
+        };
+        let legacy_report = AudioResolutionReport {
+            source: AudioResolutionSource::Legacy,
+            used_legacy_fallback: true,
+            playability_failure: None,
+            attempts: Vec::new(),
+            range_capable: true,
+        };
+        assert!(!used_legacy_audio_adapter_for_report(&native_report));
+        assert!(used_legacy_audio_adapter_for_report(&legacy_report));
     }
 
     #[test]
