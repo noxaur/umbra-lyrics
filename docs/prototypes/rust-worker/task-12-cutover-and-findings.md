@@ -2,8 +2,8 @@
 
 ## Status
 
-Spec first. Implementation follows this doc. Findings will be appended after the
-work is done.
+Spec first. Implementation follows this doc. Findings are partial/limited and
+call out the measured paths plus the local environment caps.
 
 ## Objective
 
@@ -100,6 +100,8 @@ Implemented on 2026-06-20.
 - The player now defaults to the Rust SSE resolver, but `?lyricsResolver=browser`
   still forces the legacy browser orchestrator when comparison or fallback is
   needed.
+- Transport/protocol failures on the default Rust path now fall back to the
+  browser orchestrator; explicit `?lyricsResolver=rust` stays strict.
 - Local cached lyrics still hydrate before any live resolution, so playback,
   rendering, manual pasted lyrics, alternate selection, and sync offset
   recovery keep working.
@@ -116,7 +118,7 @@ Implemented on 2026-06-20.
     not found.
 - The browser benchmark rerun timed out in this VM, so I used the checked-in
   legacy baseline plus a fresh Rust SSE benchmark run for the comparison
-  summary.
+  summary. That makes the benchmark section partial/limited, not exhaustive.
 
 ### Benchmark comparison
 
