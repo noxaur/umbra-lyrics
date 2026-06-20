@@ -13,6 +13,10 @@ use crate::result_cache::{
     cache_key, load_replay, replay_from_events, store_replay, KvResolutionCache,
     ResolutionCacheBackend, RESULT_CACHE_BINDING,
 };
+use crate::task8::{
+    build_task8_side_channels, resolve_english_translation, select_english_search_hit,
+    Task8SideChannels,
+};
 
 pub const PROTOCOL_VERSION: &str = "1";
 const MAX_BODY_BYTES: usize = 16 * 1024;
@@ -549,11 +553,10 @@ where
                     emit_trace(&trace);
                     state.events.push(Event::new("trace", trace));
                     live_events.extend(lyrics_events(&lyrics_resolution));
-                    live_events.extend(native_result_events(
-                        &request,
-                        &resolution,
-                        &lyrics_resolution,
-                    ));
+                    live_events.extend(
+                        native_result_events(&request, &resolution, &lyrics_resolution, Some(&env))
+                            .await,
+                    );
                     if let Some(cache) = state.cache.as_ref().cloned() {
                         if let Some(replay) =
                             replay_from_events(&request.video_id, live_events.clone())
@@ -774,10 +777,11 @@ fn lyrics_events(resolution: &LyricsResolution) -> Vec<Event> {
     events
 }
 
-fn native_result_events(
+async fn native_result_events(
     request: &ResolveRequest,
     resolution: &MetadataResolution,
     lyrics_resolution: &LyricsResolution,
+    env: Option<&Env>,
 ) -> Vec<Event> {
     let input = LyricsInput {
         artist: resolution.selected.artist.clone(),
@@ -789,6 +793,24 @@ fn native_result_events(
         &input,
         &request.video_id,
         request.language.as_deref(),
+    );
+    let native_lines = native
+        .lines
+        .iter()
+        .filter(|line| line.kind != crate::native_lyrics::NativeLyricsLineKind::Section)
+        .map(|line| line.text.clone())
+        .collect::<Vec<_>>();
+    let search_hit = select_english_search_hit(&native, lyrics_resolution);
+    let translated = if search_hit.is_none() {
+        resolve_english_translation(env, request.language.as_deref(), &native_lines).await
+    } else {
+        None
+    };
+    let side_channels: Task8SideChannels = build_task8_side_channels(
+        &native,
+        lyrics_resolution,
+        request.language.as_deref(),
+        translated,
     );
     let metadata = json!({
         "kind": "canonical",
@@ -807,7 +829,7 @@ fn native_result_events(
 
     vec![Event::new(
         "result",
-        native_result_payload(request, metadata, native),
+        native_result_payload(request, metadata, native, side_channels),
     )]
 }
 
@@ -815,6 +837,7 @@ fn native_result_payload(
     request: &ResolveRequest,
     metadata: Value,
     native: NativeLyricsResult,
+    side_channels: Task8SideChannels,
 ) -> Value {
     let selected_lyrics = json!({
         "id": native.id,
@@ -837,6 +860,8 @@ fn native_result_payload(
         "resolution": "native",
         "videoId": request.video_id,
         "metadata": metadata,
+        "english": side_channels.english,
+        "romaji": side_channels.romaji,
         "lyrics": match native.outcome {
             crate::native_lyrics::NativeLyricsOutcome::Found
             | crate::native_lyrics::NativeLyricsOutcome::LowConfidence => selected_lyrics,
@@ -1140,8 +1165,10 @@ mod tests {
             }],
             warnings: Vec::new(),
         };
-        let first = native_result_events(&request, &resolution, &lyrics);
-        let second = native_result_events(&request, &resolution, &lyrics);
+        let first =
+            futures::executor::block_on(native_result_events(&request, &resolution, &lyrics, None));
+        let second =
+            futures::executor::block_on(native_result_events(&request, &resolution, &lyrics, None));
         assert_eq!(first.last().expect("result").name, "result");
         assert_eq!(
             first.last().expect("result").data,
@@ -1149,6 +1176,8 @@ mod tests {
         );
         assert_eq!(first.last().expect("result").data["resolution"], "native");
         assert_eq!(first.last().expect("result").data["outcome"], "found");
+        assert!(first.last().expect("result").data["english"].is_object());
+        assert!(first.last().expect("result").data["romaji"].is_object());
     }
 
     #[test]

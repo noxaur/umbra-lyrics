@@ -6,7 +6,7 @@ use crate::resolution::Event;
 
 pub const RESULT_CACHE_BINDING: &str = "RESULT_CACHE";
 pub const CACHE_SCHEMA_VERSION: u32 = 1;
-pub const CACHE_PIPELINE_VERSION: &str = "task-07-v1";
+pub const CACHE_PIPELINE_VERSION: &str = "task-08-v1";
 
 const SUCCESS_TTL_SECS: u64 = 24 * 60 * 60;
 const NEGATIVE_TTL_SECS: u64 = 60 * 60;

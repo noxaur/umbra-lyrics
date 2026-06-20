@@ -187,4 +187,4 @@ Use `tests/fixtures/reference-tracks.json` and
 
 ## Findings
 
-Not implemented yet.
+Implemented in Rust worker result resolution.
