@@ -4,6 +4,8 @@ use url::Url;
 use uuid::Uuid;
 use worker::{console_error, event, Context, Env, Headers, Request, RequestInit, Response, Result};
 
+mod resolution;
+
 const ASSETS_BINDING: &str = "ASSETS";
 const LEGACY_BINDING: &str = "LEGACY";
 const REQUEST_ID_HEADER: &str = "x-umbra-request-id";
@@ -16,6 +18,7 @@ pub enum RouteDecision {
         location: String,
         include_isolation: bool,
     },
+    Resolution,
     Legacy,
     Assets,
 }
@@ -42,7 +45,9 @@ pub fn route_request(uri: &Uri) -> RouteDecision {
         }
     }
 
-    if path.starts_with("/api/") {
+    if path.trim_end_matches('/') == "/api/lyrics/resolve" {
+        RouteDecision::Resolution
+    } else if path.starts_with("/api/") {
         RouteDecision::Legacy
     } else {
         RouteDecision::Assets
@@ -58,7 +63,6 @@ pub async fn fetch(request: Request, env: Env, _ctx: Context) -> Result<Response
         .parse()
         .map_err(|error| worker::Error::RustError(format!("invalid request URI: {error}")))?;
     let decision = route_request(&uri);
-    let forwarded_request = forwarded_request(&request, &request_id)?;
 
     let user_agent = request.headers().get("User-Agent").ok().flatten();
     let send_isolation = should_send_isolation_headers(user_agent.as_deref());
@@ -76,22 +80,32 @@ pub async fn fetch(request: Request, env: Env, _ctx: Context) -> Result<Response
                 include_isolation && send_isolation,
             )
         }
-        RouteDecision::Legacy => match env.service(LEGACY_BINDING) {
-            Ok(legacy) => match legacy.fetch_request(forwarded_request).await {
-                Ok(response) => decorate_response(response, &request_id, "legacy", false),
-                Err(error) => gateway_error(&request_id, "legacy_service", &error),
-            },
-            Err(error) => gateway_error(&request_id, "legacy_binding", &error),
-        },
-        RouteDecision::Assets => match env.assets(ASSETS_BINDING) {
-            Ok(assets) => match assets.fetch_request(forwarded_request).await {
-                Ok(response) => {
-                    decorate_response(response, &request_id, "rust-assets", send_isolation)
-                }
-                Err(error) => gateway_error(&request_id, "assets_service", &error),
-            },
-            Err(error) => gateway_error(&request_id, "assets_binding", &error),
-        },
+        RouteDecision::Resolution => {
+            let response = resolution::resolve(request, &request_id).await?;
+            decorate_response(response, &request_id, "rust", false)
+        }
+        RouteDecision::Legacy => {
+            let forwarded_request = forwarded_request(&request, &request_id)?;
+            match env.service(LEGACY_BINDING) {
+                Ok(legacy) => match legacy.fetch_request(forwarded_request).await {
+                    Ok(response) => decorate_response(response, &request_id, "legacy", false),
+                    Err(error) => gateway_error(&request_id, "legacy_service", &error),
+                },
+                Err(error) => gateway_error(&request_id, "legacy_binding", &error),
+            }
+        }
+        RouteDecision::Assets => {
+            let forwarded_request = forwarded_request(&request, &request_id)?;
+            match env.assets(ASSETS_BINDING) {
+                Ok(assets) => match assets.fetch_request(forwarded_request).await {
+                    Ok(response) => {
+                        decorate_response(response, &request_id, "rust-assets", send_isolation)
+                    }
+                    Err(error) => gateway_error(&request_id, "assets_service", &error),
+                },
+                Err(error) => gateway_error(&request_id, "assets_binding", &error),
+            }
+        }
     }
 }
 

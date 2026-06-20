@@ -17,7 +17,19 @@ fn redirects_non_api_http_requests_to_https() {
 }
 
 #[test]
-fn leaves_http_api_requests_for_the_legacy_worker() {
+fn routes_resolution_requests_to_rust() {
+    assert_eq!(
+        route_request(&uri("http://song.example/api/lyrics/resolve")),
+        RouteDecision::Resolution
+    );
+    assert_eq!(
+        route_request(&uri("http://song.example/api/lyrics/resolve/")),
+        RouteDecision::Resolution
+    );
+}
+
+#[test]
+fn leaves_other_http_api_requests_for_the_legacy_worker() {
     assert_eq!(
         route_request(&uri("http://song.example/api/youtube/search")),
         RouteDecision::Legacy

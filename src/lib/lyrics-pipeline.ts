@@ -18,6 +18,11 @@ import {
 } from "@/lib/lyrics-orchestrator"
 import { lrcToPlain } from "@/lib/lyrics-providers/normalize"
 import { buildRomajiLines, type RomajiLyricsResult } from "@/lib/romaji-service"
+import {
+  resolveLyricsWithRust,
+  RUST_LYRICS_PROTOCOL_VERSION,
+  type RustLyricsEvent,
+} from "@/lib/rust-lyrics-resolver"
 import type { LyricsResult } from "@/types/lyrics"
 
 export type LyricsPipelineTimings = {
@@ -30,6 +35,9 @@ export type LyricsPipelineTimings = {
 export type LyricsPipelineParams = OrchestratorParams & {
   onNativeReady?: (result: LyricsOrchestratorResult) => void
   onEnglishProgress?: (phase: string) => void
+  useExperimentalRustResolver?: boolean
+  resolutionSignal?: AbortSignal
+  onResolutionEvent?: (event: RustLyricsEvent) => void
 }
 
 export type LyricsPipelineResult = {
@@ -58,6 +66,55 @@ export async function runLyricsPipeline(
   params: LyricsPipelineParams,
 ): Promise<LyricsPipelineResult> {
   const wallT0 = performance.now()
+
+  if (params.useExperimentalRustResolver && params.videoId) {
+    const result = await resolveLyricsWithRust(
+      {
+        videoId: params.videoId,
+        title: params.title,
+        author: params.oembedAuthor || params.artist,
+        duration: params.durationSec,
+        language: params.preferredLanguage,
+        forceRefresh: params.skipCache,
+      },
+      {
+        signal: params.resolutionSignal,
+        onEvent: (event) => {
+          params.onResolutionEvent?.(event)
+          if (event.event !== "phase" && event.event !== "warning") return
+          const message =
+            typeof event.data.message === "string" ? event.data.message : "Resolving lyrics…"
+          const phase = event.data.phase
+          params.onProgress?.({
+            phase: message,
+            step: phase === "accepted" ? "parse" : "search",
+            providersTotal: 0,
+            providersTried: [],
+          })
+        },
+      },
+    )
+    const native: LyricsOrchestratorResult = {
+      status: result.outcome,
+      strategy: `rust-sse-v${RUST_LYRICS_PROTOCOL_VERSION}`,
+      attempts: [],
+      providersTried: [],
+      message: "Rust prototype returned no lyrics",
+      synced: false,
+    }
+    params.onNativeReady?.(native)
+    return {
+      native,
+      romaji: { lines: [], status: "skipped" },
+      english: { lines: [], source: "translated", status: "failed" },
+      timings: {
+        nativeMs: Math.round(performance.now() - wallT0),
+        romajiMs: 0,
+        englishMs: 0,
+        parallelMs: Math.round(performance.now() - wallT0),
+      },
+    }
+  }
 
   const languageMeta = {
     title: params.title,

@@ -26,6 +26,7 @@ import {
   lyricsResultSampleText,
   lyricsResultToNativeLines,
 } from "@/lib/lyrics-pipeline"
+import { RustLyricsProtocolError } from "@/lib/rust-lyrics-resolver"
 import { getLyricsCache, reparseCachedLyrics, setLyricsCache, type LyricsCacheEntry } from "@/lib/lyrics-cache"
 import { clearLyricsRejection, isLyricsRejected } from "@/lib/lyrics-rejection"
 import {
@@ -177,6 +178,9 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     }
   } | null>(null)
   const debugPlayer = searchParams.get("debug") === "1"
+  const useExperimentalRustResolver =
+    searchParams.get("lyricsResolver") === "rust" ||
+    import.meta.env.VITE_RUST_LYRICS_RESOLVER === "1"
   const location = useLocation()
   const navigate = useNavigate()
   const navigationState = location.state as PlayerNavigationState | null
@@ -189,6 +193,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
   const oembedAuthorRef = useRef<string | null>(null)
   const transcribeAbortRef = useRef<AbortController | null>(null)
   const alignAbortRef = useRef<AbortController | null>(null)
+  const resolutionAbortRef = useRef<AbortController | null>(null)
   const prevVideoIdRef = useRef<string | null>(null)
   const cachedTimingAppliedRef = useRef<string | null>(null)
   const currentVideoIdRef = useRef(videoId)
@@ -337,6 +342,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
   useEffect(() => {
     return () => {
+      resolutionAbortRef.current?.abort()
       setPlaylistContext(null)
       setQueueContext(null)
     }
@@ -436,6 +442,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
     oembedAuthorRef.current = null
     if (isNewVideo) {
       bumpLyricsLoadGeneration(videoId)
+      resolutionAbortRef.current?.abort()
       transcribeAbortRef.current?.abort()
       alignAbortRef.current?.abort()
     }
@@ -1020,6 +1027,12 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         isLyricsLoadStale(loadVideoId, generation) ||
         usePlayerStore.getState().videoId !== loadVideoId
 
+      resolutionAbortRef.current?.abort()
+      const resolutionController = useExperimentalRustResolver
+        ? new AbortController()
+        : null
+      resolutionAbortRef.current = resolutionController
+
       try {
         resetLyricsSearch()
         setEnglishLines([])
@@ -1077,7 +1090,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
           return
         }
 
-        if (!options?.skipCache) {
+        if (!options?.skipCache && !useExperimentalRustResolver) {
           const cached = getLyricsCache(videoId)
           if (cached) {
             if (isUiStale()) return
@@ -1159,6 +1172,22 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
             oembedAuthor: oembedAuthorRef.current ?? undefined,
           }),
           providerIds: options?.providerIds,
+          useExperimentalRustResolver,
+          resolutionSignal: resolutionController?.signal,
+          onResolutionEvent: (event) => {
+            if (isUiStale() || event.event !== "metadata") return
+            setMeta({
+              title:
+                typeof event.data.title === "string" && event.data.title
+                  ? event.data.title
+                  : title,
+              artist:
+                typeof event.data.author === "string" && event.data.author
+                  ? event.data.author
+                  : artist,
+              track,
+            })
+          },
           onProgress: ({ phase, step, retryRound, providersTried }) => {
             if (isUiStale()) return
             setLyricsSearchPhase(phase)
@@ -1271,11 +1300,22 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
         }
 
         setStatus("error", result.message)
-      } catch {
+      } catch (error) {
         if (isUiStale()) return
+        if (error instanceof Error && error.name === "AbortError") return
+        if (error instanceof RustLyricsProtocolError) {
+          setLyricsOutcome(error.retryable ? "network_error" : "not_found")
+          setLyricsSearchPhase(error.message)
+          setLyricsSearchStep("ready")
+          setStatus("error", error.message)
+          return
+        }
         setLyricsOutcome("network_error")
         setStatus("error", "Couldn't reach the lyrics service — check your connection")
       } finally {
+        if (resolutionAbortRef.current === resolutionController) {
+          resolutionAbortRef.current = null
+        }
         resolveDone()
       }
     },
@@ -1301,6 +1341,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
       tryTranscribeLyrics,
       setContentWarning,
       setVerificationScore,
+      useExperimentalRustResolver,
     ],
   )
 
@@ -1505,6 +1546,7 @@ function PlayerPageContent({ videoId }: { videoId: string }) {
 
     clearLyricsRejection(videoId)
     bumpLyricsLoadGeneration(videoId)
+    resolutionAbortRef.current?.abort()
     transcribeAbortRef.current?.abort()
     alignAbortRef.current?.abort()
     setLoadedFromCache(false)

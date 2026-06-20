@@ -32,6 +32,19 @@ npm run dev
 
 Open http://127.0.0.1:5173
 
+The default dev server runs the legacy TypeScript API worker. The experimental
+Rust SSE resolver is available in production or from a separately running Rust
+gateway. To exercise it locally, point the SPA at that gateway and opt in on the
+player URL:
+
+```bash
+VITE_LYRICS_API_BASE=http://127.0.0.1:8787 npm run dev
+```
+
+Then open `/play/<videoId>?lyricsResolver=rust`. Without
+`VITE_LYRICS_API_BASE`, the default legacy dev worker does not provide
+`POST /api/lyrics/resolve`.
+
 ## Test & build
 
 The public gateway build requires Rust, the Wasm target, and workers-rs's build
@@ -55,8 +68,10 @@ npm run deploy
 ```
 
 The public `song-kara` Worker is a Rust/Wasm gateway. It serves the Vite SPA
-from a static-assets binding and forwards `/api/*` to the separately deployed
-`song-kara-legacy` TypeScript Worker through a service binding.
+from a static-assets binding, owns the experimental
+`POST /api/lyrics/resolve` SSE endpoint, and forwards other `/api/*` routes to
+the separately deployed `song-kara-legacy` TypeScript Worker through a service
+binding.
 
 **Deploy token permissions:** `CLOUDFLARE_API_TOKEN` needs **Workers Scripts:Edit** plus **Workers Routes:Edit** and **Zone:Read** on the `opsec.rent` zone so `song.opsec.rent` routes attach to the `song-kara` worker. If route attachment fails, deploy still publishes the worker to `*.workers.dev` and emits a warning; widen the token to attach the custom domain. For a workers.dev-only deploy, run `STRIP_ZONE_ROUTES=true npm run deploy` and attach the route in the Cloudflare dashboard.
 
