@@ -621,12 +621,15 @@ async fn fetch_audio_window_from_url(
     max_bytes: usize,
 ) -> Result<AudioWindow, worker::Error> {
     let total_bytes = probe_audio_size_from_url(stream_url).await?;
-    let range_requests = 2;
+    let mut range_requests = 0;
     let bytes = if total_bytes.is_some_and(|total| total > max_bytes) {
+        range_requests += 1;
         fetch_audio_range_from_url(stream_url, 0, max_bytes.saturating_sub(1)).await?
     } else if let Some(total) = total_bytes {
+        range_requests += 1;
         fetch_audio_range_from_url(stream_url, 0, total.saturating_sub(1)).await?
     } else {
+        range_requests += 1;
         fetch_audio_range_from_url(stream_url, 0, max_bytes.saturating_sub(1)).await?
     };
 

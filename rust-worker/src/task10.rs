@@ -447,7 +447,17 @@ fn resolve_format_url(format: &StreamFormat) -> Option<String> {
     }
 
     let mut parsed = Url::parse(url).ok()?;
-    if let Some(sig) = params.get("sig").or_else(|| params.get("signature")) {
+    if let Some(sp) = params
+        .get("sp")
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+    {
+        if let Some(sig) = params.get("sig").or_else(|| params.get("signature")) {
+            parsed.query_pairs_mut().append_pair(sp, sig);
+        } else if params.get("s").is_some() {
+            return None;
+        }
+    } else if let Some(sig) = params.get("sig").or_else(|| params.get("signature")) {
         parsed.query_pairs_mut().append_pair("sig", sig);
     } else if params.get("s").is_some() {
         return None;
@@ -625,6 +635,9 @@ async fn fetch_player_json(
         .set("User-Agent", user_agent)
         .map_err(|error| format!("player header failed: {error}"))?;
     headers
+        .set("X-YouTube-Client-Name", profile.name)
+        .map_err(|error| format!("player header failed: {error}"))?;
+    headers
         .set("Origin", "https://www.youtube.com")
         .map_err(|error| format!("player header failed: {error}"))?;
     headers
@@ -764,6 +777,25 @@ mod tests {
         );
         assert_eq!(stream.mime_type, "audio/mp4");
         assert_eq!(stream.client, "IOS");
+    }
+
+    #[test]
+    fn resolves_ciphers_with_custom_signature_param_name() {
+        let format = StreamFormat {
+            mime_type: Some("audio/mp4".into()),
+            bitrate: Some(128_000),
+            url: None,
+            signature_cipher: Some(
+                "url=https%3A%2F%2Frm.googlevideo.com%2Fvideoplayback%3Fx%3D1&sp=signature&sig=abc123"
+                    .into(),
+            ),
+            cipher: None,
+        };
+        let url = resolve_format_url(&format).expect("url");
+        assert_eq!(
+            url,
+            "https://rm.googlevideo.com/videoplayback?x=1&signature=abc123"
+        );
     }
 
     #[test]
