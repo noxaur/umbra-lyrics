@@ -11,6 +11,7 @@ mod observability;
 mod resolution;
 mod result_cache;
 mod task8;
+mod task9;
 
 const ASSETS_BINDING: &str = "ASSETS";
 const LEGACY_BINDING: &str = "LEGACY";
