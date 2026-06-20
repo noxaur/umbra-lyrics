@@ -653,9 +653,65 @@ fn build_romaji_lines(native: &NativeLyricsResult) -> Vec<String> {
         .collect()
 }
 
-pub fn build_romaji_side_channel(
+fn build_romaji_lines_local(native: &NativeLyricsResult) -> Vec<String> {
+    build_romaji_lines(native)
+}
+
+async fn call_legacy_romaji(
+    env: &Env,
+    native: &NativeLyricsResult,
+) -> Option<(Vec<String>, String)> {
+    let service = env.service(LEGACY_BINDING).ok()?;
+    let body = serde_json::json!({
+        "lines": native
+            .lines
+            .iter()
+            .map(|line| {
+                if line.kind == NativeLyricsLineKind::Section {
+                    String::new()
+                } else {
+                    line.text.clone()
+                }
+            })
+            .collect::<Vec<_>>(),
+        "system": "hepburn",
+    })
+    .to_string();
+    let mut init = RequestInit::new();
+    init.with_method(Method::Post);
+    let request_headers = Headers::new();
+    request_headers.set("Accept", "application/json").ok()?;
+    request_headers
+        .set("Content-Type", "application/json")
+        .ok()?;
+    request_headers
+        .set("User-Agent", "umbra-rust-worker")
+        .ok()?;
+    init.with_headers(request_headers);
+    init.with_body(Some(body.into_bytes().into()));
+    let request = Request::new_with_init("https://song.example/api/romaji", &init).ok()?;
+    let response = service.fetch_request(request).await.ok()?;
+    if !(200..300).contains(&response.status_code()) {
+        return None;
+    }
+    let json = response.json::<serde_json::Value>().await.ok()?;
+    let lines = json
+        .get("lines")?
+        .as_array()?
+        .iter()
+        .map(|value| value.as_str().map(str::to_owned))
+        .collect::<Option<Vec<_>>>()?;
+    let system = json.get("system")?.as_str()?.trim().to_owned();
+    if lines.len() != native.lines.len() {
+        return None;
+    }
+    Some((lines, system))
+}
+
+pub async fn build_romaji_side_channel(
     native: &NativeLyricsResult,
     language: Option<&str>,
+    env: Option<&Env>,
 ) -> RomajiSideChannel {
     if !is_japanese_language(language)
         && !native.lines.iter().any(|line| {
@@ -672,11 +728,22 @@ pub fn build_romaji_side_channel(
         };
     }
 
+    if let Some(env) = env {
+        if let Some((lines, system)) = call_legacy_romaji(env, native).await {
+            return RomajiSideChannel {
+                status: RomajiStatus::Ready,
+                system: Some(system),
+                reason: None,
+                lines,
+            };
+        }
+    }
+
     RomajiSideChannel {
         status: RomajiStatus::Ready,
         system: Some("hepburn".into()),
         reason: None,
-        lines: build_romaji_lines(native),
+        lines: build_romaji_lines_local(native),
     }
 }
 
@@ -808,15 +875,16 @@ pub async fn resolve_english_translation(
     None
 }
 
-pub fn build_task8_side_channels(
+pub async fn build_task8_side_channels(
     native: &NativeLyricsResult,
     resolution: &LyricsResolution,
     language: Option<&str>,
     translated: Option<EnglishTranslation>,
+    env: Option<&Env>,
 ) -> Task8SideChannels {
     let search_hit = select_english_search_hit(native, resolution);
     let english = build_english_side_channel(native, language, search_hit, translated);
-    let romaji = build_romaji_side_channel(native, language);
+    let romaji = build_romaji_side_channel(native, language, env).await;
     Task8SideChannels { english, romaji }
 }
 
@@ -875,7 +943,13 @@ mod tests {
             warnings: vec![],
         };
 
-        let side = build_task8_side_channels(&native, &resolution, Some("ja"), None);
+        let side = futures::executor::block_on(build_task8_side_channels(
+            &native,
+            &resolution,
+            Some("ja"),
+            None,
+            None,
+        ));
         assert_eq!(side.english.status, EnglishStatus::Ready);
         assert_eq!(side.english.source, Some(EnglishSource::Found));
         assert_eq!(side.english.provider_id.as_deref(), Some("genius"));
@@ -891,7 +965,7 @@ mod tests {
             warnings: vec![],
         };
 
-        let side = build_task8_side_channels(
+        let side = futures::executor::block_on(build_task8_side_channels(
             &native,
             &resolution,
             Some("ja"),
@@ -899,7 +973,8 @@ mod tests {
                 lines: vec!["To another world".into(), "Far sky".into()],
                 backend: "google".into(),
             }),
-        );
+            None,
+        ));
         assert_eq!(side.english.status, EnglishStatus::Ready);
         assert_eq!(side.english.source, Some(EnglishSource::Translated));
         assert_eq!(side.english.translation_backend.as_deref(), Some("google"));
@@ -914,7 +989,7 @@ mod tests {
             warnings: vec![],
         };
 
-        let side = build_task8_side_channels(
+        let side = futures::executor::block_on(build_task8_side_channels(
             &native,
             &resolution,
             Some("ja"),
@@ -922,7 +997,8 @@ mod tests {
                 lines: vec!["To another world".into(), "Far sky".into()],
                 backend: "google".into(),
             }),
-        );
+            None,
+        ));
         assert_eq!(side.english.alignment, EnglishAlignment::Degraded);
         assert_eq!(side.english.lines.len(), 3);
     }
@@ -935,7 +1011,13 @@ mod tests {
             warnings: vec![],
         };
 
-        let side = build_task8_side_channels(&native, &resolution, Some("en"), None);
+        let side = futures::executor::block_on(build_task8_side_channels(
+            &native,
+            &resolution,
+            Some("en"),
+            None,
+            None,
+        ));
         assert_eq!(side.english.status, EnglishStatus::Skipped);
         assert_eq!(side.english.alignment, EnglishAlignment::Skipped);
         assert_eq!(side.romaji.status, RomajiStatus::Unsupported);
@@ -953,7 +1035,13 @@ mod tests {
             warnings: vec![],
         };
 
-        let side = build_task8_side_channels(&native, &resolution, Some("ja"), None);
+        let side = futures::executor::block_on(build_task8_side_channels(
+            &native,
+            &resolution,
+            Some("ja"),
+            None,
+            None,
+        ));
         assert_eq!(side.romaji.status, RomajiStatus::Ready);
         assert_eq!(side.romaji.system.as_deref(), Some("hepburn"));
         assert_eq!(side.romaji.lines[0], "hikari no sekai e");

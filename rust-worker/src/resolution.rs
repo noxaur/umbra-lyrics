@@ -811,7 +811,9 @@ async fn native_result_events(
         lyrics_resolution,
         request.language.as_deref(),
         translated,
-    );
+        env,
+    )
+    .await;
     let metadata = json!({
         "kind": "canonical",
         "videoId": request.video_id,
