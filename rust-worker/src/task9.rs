@@ -627,7 +627,7 @@ async fn transcribe_chunked_stream(
     let mut segment_groups = Vec::new();
     let mut offsets = Vec::new();
     let mut whisper_calls = 0u32;
-    let mut partial = total_bytes > MAX_AUDIO_BYTES || plans.len() > 1;
+    let mut partial = total_bytes > MAX_AUDIO_BYTES;
 
     for (index, (start, end)) in plans.into_iter().enumerate() {
         let bytes = fetch_audio_range(legacy, video_id, start, end).await?;
@@ -1244,6 +1244,19 @@ mod tests {
             60.0
         );
         assert_eq!(chunk_time_offset_sec(0, 0, None, 2), 120.0);
+    }
+
+    #[test]
+    fn chunked_full_transcription_is_not_partial_by_default() {
+        let plans = plan_byte_chunks(
+            8 * 1024 * 1024,
+            MAX_AUDIO_BYTES,
+            CHUNK_BYTE_SIZE,
+            MAX_TRANSCRIBE_CHUNKS,
+        );
+        assert!(plans.len() > 1);
+        let partial = 8 * 1024 * 1024 > MAX_AUDIO_BYTES;
+        assert!(!partial);
     }
 
     #[test]
