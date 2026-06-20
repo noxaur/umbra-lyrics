@@ -22,6 +22,10 @@ fn routes_resolution_requests_to_rust() {
         route_request(&uri("http://song.example/api/lyrics/resolve")),
         RouteDecision::Resolution
     );
+    assert_eq!(
+        route_request(&uri("http://song.example/api/lyrics/resolve/")),
+        RouteDecision::Resolution
+    );
 }
 
 #[test]

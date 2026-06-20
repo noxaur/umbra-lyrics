@@ -10,12 +10,22 @@ vi.mock("@/lib/english-lyrics-service", () => ({
   resolveEnglishFromPrefetch: vi.fn(),
 }))
 
+vi.mock("@/lib/rust-lyrics-resolver", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/rust-lyrics-resolver")>()
+  return {
+    ...actual,
+    resolveLyricsWithRust: vi.fn(),
+  }
+})
+
 import { orchestrateLyricsSearch } from "@/lib/lyrics-orchestrator"
 import { prefetchEnglishCandidates, resolveEnglishFromPrefetch } from "@/lib/english-lyrics-service"
+import { resolveLyricsWithRust } from "@/lib/rust-lyrics-resolver"
 
 const mockOrchestrate = vi.mocked(orchestrateLyricsSearch)
 const mockPrefetch = vi.mocked(prefetchEnglishCandidates)
 const mockResolvePrefetch = vi.mocked(resolveEnglishFromPrefetch)
+const mockResolveRust = vi.mocked(resolveLyricsWithRust)
 
 describe("runLyricsPipeline", () => {
   beforeEach(() => {
@@ -27,6 +37,7 @@ describe("runLyricsPipeline", () => {
       providerId: "lrclib",
       status: "ready",
     })
+    mockResolveRust.mockReset()
   })
 
   it("starts English prefetch alongside native orchestration when metadata predicts non-English lyrics", async () => {
@@ -124,5 +135,63 @@ describe("runLyricsPipeline", () => {
       syncedLyrics: "[00:00.00] Hello\n[00:05.00] World",
     })
     expect(lines).toEqual(["Hello", "World"])
+  })
+
+  it("forwards cancellation and surfaces Rust metadata and warning events", async () => {
+    const controller = new AbortController()
+    const onResolutionEvent = vi.fn()
+    const onProgress = vi.fn()
+    mockResolveRust.mockImplementation(async (_request, options) => {
+      expect(options.signal).toBe(controller.signal)
+      options.onEvent?.({
+        event: "metadata",
+        protocolVersion: "1",
+        requestId: "request-123",
+        timestamp: "2026-06-19T12:00:00.000Z",
+        data: { title: "Resolved title", author: "Resolved artist" },
+      })
+      options.onEvent?.({
+        event: "warning",
+        protocolVersion: "1",
+        requestId: "request-123",
+        timestamp: "2026-06-19T12:00:00.000Z",
+        data: {
+          code: "placeholder_resolution",
+          message: "Intelligent Rust resolution is not implemented yet",
+        },
+      })
+      return {
+        outcome: "not_found",
+        resolution: "placeholder",
+        videoId: "dQw4w9WgXcQ",
+        metadata: {
+          title: "Resolved title",
+          author: "Resolved artist",
+          duration: 214,
+          language: "en",
+        },
+        lyrics: null,
+      }
+    })
+
+    await runLyricsPipeline({
+      track: "Never Gonna Give You Up",
+      artist: "Rick Astley",
+      title: "Rick Astley - Never Gonna Give You Up",
+      durationSec: 214,
+      videoId: "dQw4w9WgXcQ",
+      useExperimentalRustResolver: true,
+      resolutionSignal: controller.signal,
+      onResolutionEvent,
+      onProgress,
+    })
+
+    expect(onResolutionEvent).toHaveBeenCalledTimes(2)
+    expect(onProgress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: "Intelligent Rust resolution is not implemented yet",
+        step: "search",
+      }),
+    )
   })
 })

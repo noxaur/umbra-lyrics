@@ -45,7 +45,7 @@ pub fn route_request(uri: &Uri) -> RouteDecision {
         }
     }
 
-    if path == "/api/lyrics/resolve" {
+    if path.trim_end_matches('/') == "/api/lyrics/resolve" {
         RouteDecision::Resolution
     } else if path.starts_with("/api/") {
         RouteDecision::Legacy

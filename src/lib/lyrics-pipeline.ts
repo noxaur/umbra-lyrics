@@ -21,6 +21,7 @@ import { buildRomajiLines, type RomajiLyricsResult } from "@/lib/romaji-service"
 import {
   resolveLyricsWithRust,
   RUST_LYRICS_PROTOCOL_VERSION,
+  type RustLyricsEvent,
 } from "@/lib/rust-lyrics-resolver"
 import type { LyricsResult } from "@/types/lyrics"
 
@@ -36,6 +37,7 @@ export type LyricsPipelineParams = OrchestratorParams & {
   onEnglishProgress?: (phase: string) => void
   useExperimentalRustResolver?: boolean
   resolutionSignal?: AbortSignal
+  onResolutionEvent?: (event: RustLyricsEvent) => void
 }
 
 export type LyricsPipelineResult = {
@@ -78,7 +80,8 @@ export async function runLyricsPipeline(
       {
         signal: params.resolutionSignal,
         onEvent: (event) => {
-          if (event.event !== "phase") return
+          params.onResolutionEvent?.(event)
+          if (event.event !== "phase" && event.event !== "warning") return
           const message =
             typeof event.data.message === "string" ? event.data.message : "Resolving lyrics…"
           const phase = event.data.phase
