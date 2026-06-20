@@ -418,34 +418,34 @@ fn is_language_tag(value: &str) -> bool {
 
 fn metadata_events(request: &ResolveRequest, resolution: &MetadataResolution) -> Vec<Event> {
     let mut events = resolution
-        .warnings
+        .candidates
         .iter()
-        .map(|warning| {
+        .map(|candidate| {
             Event::new(
-                "warning",
+                "candidate",
                 json!({
-                    "code": warning.code,
-                    "source": warning.source,
-                    "message": warning.message,
-                    "retryable": warning.retryable,
+                    "kind": "metadata",
+                    "artist": candidate.artist,
+                    "track": candidate.track,
+                    "duration": candidate.duration,
+                    "source": candidate.source,
+                    "sourceId": candidate.source_id,
+                    "stableIds": candidate.stable_ids,
+                    "score": candidate.score,
+                    "scoringReasons": candidate.scoring_reasons,
+                    "selected": candidate == &resolution.selected,
                 }),
             )
         })
         .collect::<Vec<_>>();
-    events.extend(resolution.candidates.iter().map(|candidate| {
+    events.extend(resolution.warnings.iter().map(|warning| {
         Event::new(
-            "candidate",
+            "warning",
             json!({
-                "kind": "metadata",
-                "artist": candidate.artist,
-                "track": candidate.track,
-                "duration": candidate.duration,
-                "source": candidate.source,
-                "sourceId": candidate.source_id,
-                "stableIds": candidate.stable_ids,
-                "score": candidate.score,
-                "scoringReasons": candidate.scoring_reasons,
-                "selected": candidate == &resolution.selected,
+                "code": warning.code,
+                "source": warning.source,
+                "message": warning.message,
+                "retryable": warning.retryable,
             }),
         )
     }));
@@ -723,5 +723,32 @@ mod tests {
         assert_eq!(candidate.data["source"], "supplied");
         assert!(candidate.data["scoringReasons"].is_array());
         assert_eq!(candidate.data["selected"], true);
+    }
+
+    #[test]
+    fn metadata_events_emit_candidates_before_source_warnings() {
+        let request = normalize_request(valid_request()).expect("valid request");
+        let mut resolution = supplied_metadata_resolution(&request);
+        resolution.warnings.push(crate::metadata::SourceWarning {
+            source: crate::metadata::MetadataSource::Deezer,
+            code: "source_timeout",
+            message: "Deezer timed out".into(),
+            retryable: true,
+        });
+        let events = metadata_events(&request, &resolution);
+        let candidate_index = events
+            .iter()
+            .position(|event| event.name == "candidate")
+            .expect("candidate");
+        let source_warning_index = events
+            .iter()
+            .position(|event| event.name == "warning" && event.data.get("source").is_some())
+            .expect("source warning");
+        let metadata_index = events
+            .iter()
+            .position(|event| event.name == "metadata")
+            .expect("metadata");
+        assert!(candidate_index < source_warning_index);
+        assert!(source_warning_index < metadata_index);
     }
 }
