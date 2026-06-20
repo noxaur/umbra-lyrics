@@ -56,10 +56,12 @@ pub struct LyricsCandidate {
     pub plain_lyrics: String,
     pub synced_lyrics: Option<String>,
     pub synced: bool,
+    #[serde(default)]
+    pub instrumental: bool,
     pub diagnostics: Vec<LyricsDiagnostic>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LyricsInput {
     pub artist: String,
     pub track: String,
@@ -349,6 +351,7 @@ fn lyrics_candidate(
     duration: Option<f64>,
     plain_lyrics: String,
     synced_lyrics: Option<String>,
+    instrumental: bool,
     diagnostics: Vec<LyricsDiagnostic>,
 ) -> Option<LyricsCandidate> {
     let plain_lyrics = cleaned_plain_lyrics(&plain_lyrics).or_else(|| {
@@ -369,6 +372,7 @@ fn lyrics_candidate(
         plain_lyrics,
         synced_lyrics: synced_lyrics.map(|value| value.trim().to_owned()),
         synced,
+        instrumental,
         diagnostics,
     })
 }
@@ -521,8 +525,7 @@ async fn fetch_json<T: for<'de> Deserialize<'de>>(
 
         let controller = AbortController::default();
         let signal = controller.signal();
-        let fetch = Fetch::Request(request).send_with_signal(&signal);
-        let response = match fetch.await {
+        let mut response = match Fetch::Request(request).send_with_signal(&signal).await {
             Ok(response) => response,
             Err(error) => {
                 controller.abort();
@@ -573,8 +576,7 @@ async fn fetch_text(
 
         let controller = AbortController::default();
         let signal = controller.signal();
-        let fetch = Fetch::Request(request).send_with_signal(&signal);
-        let response = match fetch.await {
+        let mut response = match Fetch::Request(request).send_with_signal(&signal).await {
             Ok(response) => response,
             Err(error) => {
                 controller.abort();
@@ -674,9 +676,6 @@ async fn convert_lrclib_results(
 ) -> Result<Vec<LyricsCandidate>, LyricsSourceFailure> {
     let mut candidates = Vec::new();
     for result in results.into_iter().take(MAX_SEARCH_RESULTS) {
-        if result.instrumental {
-            continue;
-        }
         let diagnostics = vec![LyricsDiagnostic {
             code: match source {
                 LyricsSource::LrclibExact => "lrclib_exact",
@@ -687,6 +686,30 @@ async fn convert_lrclib_results(
             message: format!("{} candidate", source.label()),
             retryable: false,
         }];
+
+        if result.instrumental {
+            candidates.push(LyricsCandidate {
+                source,
+                source_id: Some(result.id.to_string()),
+                artist: if result.artist_name.trim().is_empty() {
+                    input.artist.clone()
+                } else {
+                    result.artist_name.clone()
+                },
+                track: if result.track_name.trim().is_empty() {
+                    input.track.clone()
+                } else {
+                    result.track_name.clone()
+                },
+                duration: result.duration.or(input.duration),
+                plain_lyrics: String::new(),
+                synced_lyrics: None,
+                synced: false,
+                instrumental: true,
+                diagnostics,
+            });
+            continue;
+        }
 
         let plain_lyrics = result
             .plain_lyrics
@@ -710,6 +733,7 @@ async fn convert_lrclib_results(
             result.duration.or(input.duration),
             plain_lyrics,
             synced_lyrics,
+            false,
             diagnostics,
         ) {
             candidates.push(candidate);
@@ -750,6 +774,7 @@ async fn search_lyrics_ovh(
         input.duration,
         lyrics,
         None,
+        false,
         vec![LyricsDiagnostic {
             code: "lyrics_ovh",
             message: "lyrics.ovh candidate".into(),
@@ -836,6 +861,7 @@ async fn search_genius(
             input.duration,
             lyrics,
             None,
+            false,
             vec![LyricsDiagnostic {
                 code: "genius",
                 message: "Genius page lyrics".into(),
@@ -1013,6 +1039,7 @@ mod tests {
                 "[00:00.00] One\n[00:01.00] Two\n[00:02.00] Three\n[00:03.00] Four".into(),
             ),
             synced,
+            instrumental: false,
             diagnostics: vec![LyricsDiagnostic {
                 code: "test",
                 message: "test".into(),
@@ -1075,6 +1102,7 @@ mod tests {
                                 .into(),
                         ),
                         synced: true,
+                        instrumental: false,
                         diagnostics: vec![],
                     }])
                 }

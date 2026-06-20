@@ -753,6 +753,7 @@ fn lyrics_events(resolution: &LyricsResolution) -> Vec<Event> {
                     "plainLyrics": candidate.plain_lyrics,
                     "syncedLyrics": candidate.synced_lyrics,
                     "synced": candidate.synced,
+                    "instrumental": candidate.instrumental,
                     "diagnostics": candidate.diagnostics,
                 }),
             )
@@ -1132,6 +1133,7 @@ mod tests {
                 plain_lyrics: "one\ntwo\nthree\nfour".into(),
                 synced_lyrics: None,
                 synced: false,
+                instrumental: false,
                 diagnostics: vec![crate::lyrics::LyricsDiagnostic {
                     code: "test",
                     message: "test".into(),
@@ -1270,6 +1272,7 @@ mod tests {
             )],
             index: 0,
             request_id: "request-123".into(),
+            started_at_ms: js_sys::Date::now(),
             request: Some(request),
             env: None,
             cache: Some(cache.clone()),
@@ -1277,6 +1280,16 @@ mod tests {
             cache_checked: false,
             force_refresh: false,
             resolved: false,
+            cache_status: None,
+            cache_lookup_ms: None,
+            cache_write_ms: None,
+            metadata_ms: None,
+            lyrics_ms: None,
+            metadata_resolution: None,
+            lyrics_resolution: None,
+            transcription_calls: 0,
+            legacy_adapter_used: false,
+            failure_category: None,
             canceled: None,
         };
         let stream = metadata_resolution_event_stream(
@@ -1326,6 +1339,7 @@ mod tests {
                 plain_lyrics: "Tonight I'm gonna have myself a real good time".into(),
                 synced_lyrics: None,
                 synced: false,
+                instrumental: false,
                 diagnostics: vec![crate::lyrics::LyricsDiagnostic {
                     code: "genius",
                     message: "Genius page lyrics".into(),
@@ -1370,6 +1384,7 @@ mod tests {
                 plain_lyrics: "never gonna give you up".into(),
                 synced_lyrics: Some("[00:01.00] never gonna give you up".into()),
                 synced: true,
+                instrumental: false,
                 diagnostics: vec![],
             }],
             warnings: vec![],

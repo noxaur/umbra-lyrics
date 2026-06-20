@@ -130,7 +130,7 @@ export async function runLyricsPipeline(
       })),
       providerId: lyrics?.providerId,
       matchId: lyrics?.id,
-      synced: Boolean(lyrics?.syncedLyrics?.trim()),
+      synced: Boolean(result.lyrics?.synced),
       instrumental: result.outcome === "instrumental",
     }
     params.onNativeReady?.(native)
