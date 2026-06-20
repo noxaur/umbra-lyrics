@@ -207,6 +207,52 @@ describe("runLyricsPipeline", () => {
     )
   })
 
+  it("falls back to the browser orchestrator when the default Rust resolver returns not_found", async () => {
+    mockResolveRust.mockResolvedValue({
+      outcome: "not_found",
+      resolution: "native",
+      videoId: "dQw4w9WgXcQ",
+      metadata: {
+        title: "Resolved title",
+        author: "Resolved artist",
+        duration: 214,
+        language: "en",
+      },
+      lyrics: null,
+      alternates: [],
+      message: "No native lyrics found",
+    })
+    mockOrchestrate.mockResolvedValue({
+      status: "found",
+      strategy: "browser",
+      attempts: [],
+      providersTried: ["lrclib"],
+      message: "browser ok",
+      synced: true,
+      lyrics: {
+        id: 1,
+        providerId: "lrclib",
+        plainLyrics: "Hello\nWorld",
+        syncedLyrics: null,
+      },
+    })
+
+    const result = await runLyricsPipeline({
+      track: "Never Gonna Give You Up",
+      artist: "Rick Astley",
+      title: "Rick Astley - Never Gonna Give You Up",
+      durationSec: 214,
+      videoId: "dQw4w9WgXcQ",
+      useExperimentalRustResolver: true,
+      fallbackToBrowserOnRustFailure: true,
+    })
+
+    expect(mockResolveRust).toHaveBeenCalledOnce()
+    expect(mockOrchestrate).toHaveBeenCalledOnce()
+    expect(result.native.strategy).toBe("browser")
+    expect(result.native.message).toBe("browser ok")
+  })
+
   it("falls back to the browser orchestrator when the default Rust transport fails", async () => {
     mockResolveRust.mockRejectedValue(new Error("Rust gateway down"))
     mockOrchestrate.mockResolvedValue({
