@@ -17,6 +17,7 @@ use crate::task8::{
     build_task8_side_channels, resolve_english_translation, select_english_search_hit,
     Task8SideChannels,
 };
+use crate::task9::{resolve_transcription, TranscriptionResult, TranscriptionStatus};
 
 pub const PROTOCOL_VERSION: &str = "1";
 const MAX_BODY_BYTES: usize = 16 * 1024;
@@ -814,6 +815,10 @@ async fn native_result_events(
         env,
     )
     .await;
+    let transcription: TranscriptionResult =
+        resolve_transcription(&state.request_id, request, &native, env).await;
+    state.transcription_calls = transcription.side_channel.metrics.whisper_calls;
+    state.legacy_adapter_used = transcription.side_channel.used_legacy_audio_adapter;
     let metadata = json!({
         "kind": "canonical",
         "videoId": request.video_id,
@@ -831,7 +836,7 @@ async fn native_result_events(
 
     vec![Event::new(
         "result",
-        native_result_payload(request, metadata, native, side_channels),
+        native_result_payload(request, metadata, native, side_channels, transcription),
     )]
 }
 
@@ -840,35 +845,53 @@ fn native_result_payload(
     metadata: Value,
     native: NativeLyricsResult,
     side_channels: Task8SideChannels,
+    transcription: TranscriptionResult,
 ) -> Value {
+    let transcription_lyrics = transcription.lyrics.clone();
+    let transcription_side_channel = transcription.side_channel.clone();
+    let selected_lyrics = transcription_lyrics
+        .clone()
+        .unwrap_or_else(|| native.clone());
+    let outcome = match transcription_side_channel.status {
+        TranscriptionStatus::Transcribed => crate::native_lyrics::NativeLyricsOutcome::Found,
+        TranscriptionStatus::Partial => crate::native_lyrics::NativeLyricsOutcome::LowConfidence,
+        TranscriptionStatus::NotFound => native.outcome,
+        TranscriptionStatus::Sampled | TranscriptionStatus::Skipped => native.outcome,
+    };
     let selected_lyrics = json!({
-        "id": native.id,
-        "providerId": native.provider_id,
-        "artist": native.artist_name,
-        "track": native.track_name,
-        "duration": native.duration,
-        "plainLyrics": native.plain_lyrics,
-        "syncedLyrics": native.synced_lyrics,
-        "synced": native.synced,
-        "approximateTiming": native.approximate_timing,
-        "lines": native.lines,
-        "score": native.score,
-        "confidence": native.confidence,
-        "scoringReasons": native.scoring_reasons,
+        "id": selected_lyrics.id,
+        "providerId": selected_lyrics.provider_id,
+        "artist": selected_lyrics.artist_name,
+        "track": selected_lyrics.track_name,
+        "duration": selected_lyrics.duration,
+        "plainLyrics": selected_lyrics.plain_lyrics,
+        "syncedLyrics": selected_lyrics.synced_lyrics,
+        "synced": selected_lyrics.synced,
+        "approximateTiming": selected_lyrics.approximate_timing,
+        "lines": selected_lyrics.lines,
+        "score": selected_lyrics.score,
+        "confidence": selected_lyrics.confidence,
+        "scoringReasons": selected_lyrics.scoring_reasons,
     });
 
     json!({
-        "outcome": native.outcome,
+        "outcome": outcome,
         "resolution": "native",
         "videoId": request.video_id,
         "metadata": metadata,
         "english": side_channels.english,
         "romaji": side_channels.romaji,
-        "lyrics": match native.outcome {
-            crate::native_lyrics::NativeLyricsOutcome::Found
-            | crate::native_lyrics::NativeLyricsOutcome::LowConfidence => selected_lyrics,
-            crate::native_lyrics::NativeLyricsOutcome::Instrumental
-            | crate::native_lyrics::NativeLyricsOutcome::NotFound => Value::Null,
+        "transcription": transcription_side_channel,
+        "usedLegacyAudioAdapter": transcription_side_channel.used_legacy_audio_adapter,
+        "lyrics": if transcription_lyrics.is_some() {
+            selected_lyrics
+        } else {
+            match native.outcome {
+                crate::native_lyrics::NativeLyricsOutcome::Found
+                | crate::native_lyrics::NativeLyricsOutcome::LowConfidence => selected_lyrics,
+                crate::native_lyrics::NativeLyricsOutcome::Instrumental
+                | crate::native_lyrics::NativeLyricsOutcome::NotFound => Value::Null,
+            }
         },
         "alternates": native.alternates,
         "message": native.message,
@@ -1180,6 +1203,83 @@ mod tests {
         assert_eq!(first.last().expect("result").data["outcome"], "found");
         assert!(first.last().expect("result").data["english"].is_object());
         assert!(first.last().expect("result").data["romaji"].is_object());
+    }
+
+    #[test]
+    fn native_result_payload_exposes_transcription_side_channel() {
+        let request = normalize_request(valid_request()).expect("valid request");
+        let resolution = supplied_metadata_resolution(&request);
+        let lyrics = crate::lyrics::LyricsResolution {
+            candidates: vec![crate::lyrics::LyricsCandidate {
+                source: crate::lyrics::LyricsSource::LrclibExact,
+                source_id: Some("1".into()),
+                artist: resolution.selected.artist.clone(),
+                track: resolution.selected.track.clone(),
+                duration: resolution.selected.duration,
+                plain_lyrics: "one\ntwo\nthree\nfour".into(),
+                synced_lyrics: None,
+                synced: false,
+                diagnostics: vec![],
+            }],
+            warnings: Vec::new(),
+        };
+        let native = crate::native_lyrics::build_native_lyrics_result(
+            &lyrics.candidates,
+            &crate::lyrics::LyricsInput {
+                artist: resolution.selected.artist.clone(),
+                track: resolution.selected.track.clone(),
+                duration: resolution.selected.duration,
+            },
+            &request.video_id,
+            request.language.as_deref(),
+        );
+        let payload = native_result_payload(
+            &request,
+            json!({"kind": "canonical"}),
+            native,
+            Task8SideChannels {
+                english: crate::task8::EnglishSideChannel {
+                    status: crate::task8::EnglishStatus::Skipped,
+                    source: None,
+                    provider_id: None,
+                    translation_backend: None,
+                    alignment: crate::task8::EnglishAlignment::Skipped,
+                    lines: Vec::new(),
+                },
+                romaji: crate::task8::RomajiSideChannel {
+                    status: crate::task8::RomajiStatus::Skipped,
+                    system: None,
+                    reason: None,
+                    lines: Vec::new(),
+                },
+            },
+            crate::task9::TranscriptionResult {
+                side_channel: crate::task9::TranscriptionSideChannel {
+                    status: crate::task9::TranscriptionStatus::Partial,
+                    mode: Some(crate::task9::TranscriptionMode::Full),
+                    source: Some("whisper"),
+                    used_legacy_audio_adapter: true,
+                    partial: true,
+                    chunks: 2,
+                    sample_accepted: false,
+                    sample_rejected: true,
+                    not_found: false,
+                    vocal_density: Some(0.4),
+                    coverage_sec: Some(120.0),
+                    metrics: crate::task9::TranscriptionMetrics {
+                        audio_bytes: 1_024,
+                        range_requests: 3,
+                        whisper_calls: 2,
+                    },
+                },
+                lyrics: None,
+            },
+        );
+
+        let encoded = serde_json::to_string(&payload).expect("payload encodes");
+        assert!(encoded.contains("\"usedLegacyAudioAdapter\":true"));
+        assert!(encoded.contains("\"transcription\""));
+        assert!(encoded.contains("\"status\":\"partial\""));
     }
 
     #[test]
