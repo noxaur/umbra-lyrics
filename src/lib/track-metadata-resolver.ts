@@ -124,6 +124,7 @@ function scoreSeed(seed: MetadataSeed, params: ResolveTrackMetadataParams): numb
   if (title.includes(artist)) score += 8
   if (params.oembedAuthor?.toLowerCase().includes(artist) && artist) score += 12
   if (params.oembedAuthor?.toLowerCase().includes(track) && track) score += 4
+  if (seed.source === "supplied") score += 15
   if (seed.source === "topic") score += 10
   if (seed.source === "channel") score += 6
   if (seed.source === "parsed") score += 4
@@ -360,7 +361,11 @@ export async function resolveTrackMetadata(
     ...(itunes.status === "fulfilled" ? itunes.value : []),
     ...(altDeezer.status === "fulfilled" ? altDeezer.value : []),
     ...(altItunes.status === "fulfilled" ? altItunes.value : []),
-    ...buildParseFallback({ ...params, roughArtist: rough.artist, roughTrack: rough.track }),
+    ...buildParseFallback({
+      ...params,
+      roughArtist: searchSeed.artist || rough.artist,
+      roughTrack: searchSeed.track || rough.track,
+    }),
   ]
 
   const scored = dedupeCandidates(all).map((candidate) => {

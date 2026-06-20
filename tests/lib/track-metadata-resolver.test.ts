@@ -188,6 +188,35 @@ describe("resolveTrackMetadata", () => {
     expect(resolved.alternates.filter((candidate) => candidate.source === "musicbrainz")).toHaveLength(2)
   })
 
+  it("uses search seed for parse fallback when rough metadata is skewed and APIs fail", async () => {
+    vi.useFakeTimers()
+    mockFetch.mockImplementation(async (_path, init) => {
+      const signal = init?.signal
+      if (signal) {
+        await new Promise<void>((resolve) => {
+          signal.addEventListener("abort", () => resolve(), { once: true })
+        })
+      }
+      throw new DOMException("The operation was aborted.", "AbortError")
+    })
+
+    const promise = resolveTrackMetadata({
+      title: "Bohemian Rhapsody",
+      durationSec: 355,
+      oembedAuthor: "Queen - Topic",
+      roughArtist: "Wrong Artist",
+      roughTrack: "Wrong Song",
+    })
+
+    await vi.advanceTimersByTimeAsync(5_000)
+    const resolved = await promise
+
+    expect(resolved.source).toBe("parse")
+    expect(resolved.artist).toBe("Queen")
+    expect(resolved.track).toBe("Bohemian Rhapsody")
+    vi.useRealTimers()
+  })
+
   it("returns parse fallback when every fetch times out", async () => {
     vi.useFakeTimers()
     mockFetch.mockImplementation(async (_path, init) => {
