@@ -2,7 +2,7 @@
 
 ## Status
 
-Spec written before implementation.
+Spec first. Implementation follows this doc.
 
 ## Objective
 
@@ -39,6 +39,30 @@ without pretending every language can be transliterated.
 - Adding new provider types beyond the current English and romaji sources.
 - Frontend UI polish outside the existing display-mode plumbing.
 
+## Result Shape
+
+Task 08 extends the terminal resolution snapshot with two optional side
+channels. Field names mirror the legacy player store and cache contract in
+`src/lib/english-lyrics-service.ts`, `src/lib/romaji-service.ts`, and
+`src/lib/cache-lyrics-from-pipeline.ts`.
+
+### English
+
+- `status`: `ready`, `loading`, `failed`, or `skipped`
+- `source`: `found` or `translated` when `status` is `ready`; otherwise `null`
+- `lines`: aligned English text; empty when `status` is `skipped` or `failed`
+- `providerId`: present when `source` is `found`
+- `translationBackend`: present when `source` is `translated`
+- `alignmentDegraded`: `true` when pre-alignment English line count does not
+  match the native vocal slot count, even though `lines` is still aligned to
+  native indices
+
+### Romaji
+
+- `status`: `ready` or `skipped`
+- `lines`: romaji text aligned to native indices when `status` is `ready`;
+  empty when `skipped`
+
 ## English Lyrics Contract
 
 ### Skip
@@ -58,10 +82,19 @@ This must be a true skip:
 For non-English lyrics, resolver first asks trusted English lyric sources.
 Trusted search should happen before any translation fallback.
 
+Reuse the current English-source priority without adding providers:
+
+1. LRCLIB English lookup
+2. LyricsTranslate
+3. Musixmatch English variant search
+
+Reject candidates that look like native-language duplicates of the accepted
+native lyrics. Pick the first usable match in that priority order.
+
 The English result must record provenance:
 
 - `source: "found"`
-- provider identity, when a provider supplied the match
+- `providerId` when a provider supplied the match
 
 ### Translate fallback
 
@@ -71,15 +104,19 @@ Translation is fallback only, never first choice.
 The English result must record provenance:
 
 - `source: "translated"`
-- translation backend used
+- `translationBackend` from the free/no-key fallback chain
+
+Translation failure must set `status: "failed"` with empty `lines`. Native
+lyrics remain unchanged.
 
 ### Alignment and degraded mode
 
-English lines should map onto native line slots.
+English lines should map onto native line slots using the same proportional
+alignment behavior as `alignEnglishLines` in the legacy pipeline.
 
-When counts match, alignment is clean.
-When counts differ, alignment should still produce a readable best-effort map
-and mark the outcome as degraded instead of dropping output.
+When pre-alignment counts match, `alignmentDegraded` is `false`.
+When counts differ, alignment should still produce native-length output and set
+`alignmentDegraded: true` instead of dropping English output.
 
 ## Romaji Contract
 
@@ -87,6 +124,12 @@ and mark the outcome as degraded instead of dropping output.
 
 Japanese lyrics should produce romaji lines that stay line-aligned with native
 lyrics where possible.
+
+Preserve current minimum compatibility:
+
+- try the existing `/api/romaji` microservice when available;
+- fall back to the legacy local Hepburn romanizer when the service is absent or
+  fails.
 
 ### Unsupported languages
 
@@ -116,15 +159,31 @@ diagnostics. Silent downgrade is not enough.
    reporting.
 4. Preserve provenance fields through the full pipeline and cache path.
 
+## Fixtures and Assertions
+
+Reference-track assertions should cover at least:
+
+- one English-native track that skips English lookup;
+- one non-English native track with trusted English lyrics available;
+- one non-English native track that falls back to translation;
+- one Japanese plain-lyrics track for romaji output;
+- one non-Japanese track that reports romaji as `skipped`.
+
+Use `tests/fixtures/reference-tracks.json` and
+`tests/fixtures/lyrics-pipeline/reference-responses.json` where applicable.
+
 ## Test Plan
 
 - English-native lyrics skip search and translation.
 - Non-English lyrics search trusted English first.
 - Translation fallback works when search returns nothing usable.
-- English alignment matches native slots and degrades cleanly on mismatch.
+- Translation failure keeps native lyrics and sets `status: "failed"`.
+- English alignment matches native slots and sets `alignmentDegraded` on
+  mismatch.
 - Japanese lyrics produce romaji.
 - Non-Japanese lyrics report unsupported romaji explicitly.
 - English results preserve provenance for found vs translated outcomes.
+- Cached snapshots preserve English and romaji provenance fields.
 
 ## Findings
 
