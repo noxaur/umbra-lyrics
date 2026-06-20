@@ -554,10 +554,17 @@ where
                     emit_trace(&trace);
                     state.events.push(Event::new("trace", trace));
                     live_events.extend(lyrics_events(&lyrics_resolution));
-                    live_events.extend(
-                        native_result_events(&request, &resolution, &lyrics_resolution, Some(&env))
-                            .await,
-                    );
+                    let native_events = native_result_events(
+                        &state.request_id,
+                        &request,
+                        &resolution,
+                        &lyrics_resolution,
+                        Some(&env),
+                    )
+                    .await;
+                    state.transcription_calls = native_events.transcription_calls;
+                    state.legacy_adapter_used = native_events.legacy_adapter_used;
+                    live_events.extend(native_events.events);
                     if let Some(cache) = state.cache.as_ref().cloned() {
                         if let Some(replay) =
                             replay_from_events(&request.video_id, live_events.clone())
@@ -778,12 +785,19 @@ fn lyrics_events(resolution: &LyricsResolution) -> Vec<Event> {
     events
 }
 
+struct NativeResultEvents {
+    events: Vec<Event>,
+    transcription_calls: u32,
+    legacy_adapter_used: bool,
+}
+
 async fn native_result_events(
+    request_id: &str,
     request: &ResolveRequest,
     resolution: &MetadataResolution,
     lyrics_resolution: &LyricsResolution,
     env: Option<&Env>,
-) -> Vec<Event> {
+) -> NativeResultEvents {
     let input = LyricsInput {
         artist: resolution.selected.artist.clone(),
         track: resolution.selected.track.clone(),
@@ -816,9 +830,7 @@ async fn native_result_events(
     )
     .await;
     let transcription: TranscriptionResult =
-        resolve_transcription(&state.request_id, request, &native, env).await;
-    state.transcription_calls = transcription.side_channel.metrics.whisper_calls;
-    state.legacy_adapter_used = transcription.side_channel.used_legacy_audio_adapter;
+        resolve_transcription(request_id, request, &native, env).await;
     let metadata = json!({
         "kind": "canonical",
         "videoId": request.video_id,
@@ -834,10 +846,16 @@ async fn native_result_events(
         "language": request.language,
     });
 
-    vec![Event::new(
-        "result",
-        native_result_payload(request, metadata, native, side_channels, transcription),
-    )]
+    let transcription_calls = transcription.side_channel.metrics.whisper_calls;
+    let legacy_adapter_used = transcription.side_channel.used_legacy_audio_adapter;
+    NativeResultEvents {
+        events: vec![Event::new(
+            "result",
+            native_result_payload(request, metadata, native, side_channels, transcription),
+        )],
+        transcription_calls,
+        legacy_adapter_used,
+    }
 }
 
 fn native_result_payload(
@@ -1030,7 +1048,7 @@ mod tests {
         fn get<'a>(
             &'a self,
             key: &'a str,
-        ) -> futures::future::BoxFuture<'a, Option<CachedResolutionReplay>> {
+        ) -> futures::future::LocalBoxFuture<'a, Option<CachedResolutionReplay>> {
             Box::pin(async move {
                 self.reads.fetch_add(1, Ordering::SeqCst);
                 self.replay.lock().expect("cache").get(key).cloned()
@@ -1042,7 +1060,7 @@ mod tests {
             key: &'a str,
             replay: &'a CachedResolutionReplay,
             _ttl_secs: u64,
-        ) -> futures::future::BoxFuture<'a, ()> {
+        ) -> futures::future::LocalBoxFuture<'a, ()> {
             Box::pin(async move {
                 self.writes.fetch_add(1, Ordering::SeqCst);
                 self.replay
@@ -1182,6 +1200,7 @@ mod tests {
                 plain_lyrics: "one\ntwo\nthree\nfour".into(),
                 synced_lyrics: None,
                 synced: false,
+                instrumental: false,
                 diagnostics: vec![crate::lyrics::LyricsDiagnostic {
                     code: "test",
                     message: "test".into(),
@@ -1190,19 +1209,35 @@ mod tests {
             }],
             warnings: Vec::new(),
         };
-        let first =
-            futures::executor::block_on(native_result_events(&request, &resolution, &lyrics, None));
-        let second =
-            futures::executor::block_on(native_result_events(&request, &resolution, &lyrics, None));
-        assert_eq!(first.last().expect("result").name, "result");
+        let first = futures::executor::block_on(native_result_events(
+            "test-request",
+            &request,
+            &resolution,
+            &lyrics,
+            None,
+        ));
+        let second = futures::executor::block_on(native_result_events(
+            "test-request",
+            &request,
+            &resolution,
+            &lyrics,
+            None,
+        ));
+        assert_eq!(first.events.last().expect("result").name, "result");
         assert_eq!(
-            first.last().expect("result").data,
-            second.last().expect("result").data
+            first.events.last().expect("result").data,
+            second.events.last().expect("result").data
         );
-        assert_eq!(first.last().expect("result").data["resolution"], "native");
-        assert_eq!(first.last().expect("result").data["outcome"], "found");
-        assert!(first.last().expect("result").data["english"].is_object());
-        assert!(first.last().expect("result").data["romaji"].is_object());
+        assert_eq!(
+            first.events.last().expect("result").data["resolution"],
+            "native"
+        );
+        assert_eq!(
+            first.events.last().expect("result").data["outcome"],
+            "found"
+        );
+        assert!(first.events.last().expect("result").data["english"].is_object());
+        assert!(first.events.last().expect("result").data["romaji"].is_object());
     }
 
     #[test]
@@ -1219,6 +1254,7 @@ mod tests {
                 plain_lyrics: "one\ntwo\nthree\nfour".into(),
                 synced_lyrics: None,
                 synced: false,
+                instrumental: false,
                 diagnostics: vec![],
             }],
             warnings: Vec::new(),
@@ -1457,6 +1493,7 @@ mod tests {
                 plain_lyrics: "Tonight I'm gonna have myself a real good time".into(),
                 synced_lyrics: None,
                 synced: false,
+                instrumental: false,
                 diagnostics: vec![crate::lyrics::LyricsDiagnostic {
                     code: "genius",
                     message: "Genius page lyrics".into(),
@@ -1501,6 +1538,7 @@ mod tests {
                 plain_lyrics: "never gonna give you up".into(),
                 synced_lyrics: Some("[00:01.00] never gonna give you up".into()),
                 synced: true,
+                instrumental: false,
                 diagnostics: vec![],
             }],
             warnings: vec![],

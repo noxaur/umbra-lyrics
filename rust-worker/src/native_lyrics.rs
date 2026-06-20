@@ -582,16 +582,16 @@ fn build_lines(candidate: &LyricsCandidate) -> (Vec<NativeLyricsLine>, bool) {
     }
 
     let text = if !candidate.plain_lyrics.trim().is_empty() {
-        candidate.plain_lyrics.as_str()
+        candidate.plain_lyrics.clone()
     } else {
         candidate
             .synced_lyrics
             .as_deref()
             .map(strip_lrc_timestamps)
-            .unwrap_or("")
+            .unwrap_or_default()
     };
 
-    (approximate_timing_lines(text, duration_ms), true)
+    (approximate_timing_lines(&text, duration_ms), true)
 }
 
 fn confidence_threshold(candidate: &RankedNativeCandidate) -> bool {
@@ -794,6 +794,7 @@ mod tests {
             plain_lyrics: plain_lyrics.into(),
             synced_lyrics: synced_lyrics.map(str::to_owned),
             synced,
+            instrumental: false,
             diagnostics: Vec::new(),
         }
     }
@@ -888,6 +889,7 @@ mod tests {
                 plain_lyrics: String::new(),
                 synced_lyrics: None,
                 synced: false,
+                instrumental: true,
                 diagnostics: Vec::new(),
             }],
             &input,
@@ -981,6 +983,7 @@ mod tests {
                 plain_lyrics: response.plain_lyrics.clone().unwrap_or_default(),
                 synced_lyrics: response.synced_lyrics.clone(),
                 synced: response.synced_lyrics.is_some(),
+                instrumental: false,
                 diagnostics: Vec::new(),
             };
             let input = LyricsInput {

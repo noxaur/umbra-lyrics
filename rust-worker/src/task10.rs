@@ -367,7 +367,7 @@ async fn probe_client(
     Ok(ProbeOutcome {
         attempt: AudioResolutionAttempt {
             client: profile.name,
-            status,
+            status: status.clone(),
             reason: reason.clone(),
             direct_audio_url,
             allowed_host: direct_audio_url,
@@ -570,7 +570,8 @@ async fn fetch_text(
 
     let controller = AbortController::default();
     let signal = controller.signal();
-    let fetch = Fetch::Request(request).send_with_signal(&signal);
+    let fetch_request = Fetch::Request(request);
+    let fetch = fetch_request.send_with_signal(&signal);
     let timeout = Delay::from(Duration::from_millis(NATIVE_TIMEOUT_MS));
     pin_mut!(fetch, timeout);
 
@@ -656,7 +657,8 @@ async fn fetch_player_json(
 
     let controller = AbortController::default();
     let signal = controller.signal();
-    let fetch = Fetch::Request(request).send_with_signal(&signal);
+    let fetch_request = Fetch::Request(request);
+    let fetch = fetch_request.send_with_signal(&signal);
     let timeout = Delay::from(Duration::from_millis(NATIVE_TIMEOUT_MS));
     pin_mut!(fetch, timeout);
 
