@@ -138,7 +138,7 @@ export async function runLyricsPipeline(
         ? {
             lines: result.english.lines ?? [],
             source:
-          result.english.source ??
+              result.english.source ??
               (result.english.providerId ? "found" : "translated"),
             translationBackend: result.english.translationBackend ?? undefined,
             status: "ready" as const,
