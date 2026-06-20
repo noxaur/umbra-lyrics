@@ -62,10 +62,8 @@ const comparison = {
     rust.summary.medianFinalLatencyMs !== null && legacy.summary.medianElapsedMs !== null
       ? rust.summary.medianFinalLatencyMs - legacy.summary.medianElapsedMs
       : null,
-  requestCountDelta:
-    rust.summary.medianRequestCount !== null && legacy.summary.medianApiCallCount !== null
-      ? rust.summary.medianRequestCount - legacy.summary.medianApiCallCount
-      : null,
+  legacyRequestCount: legacy.summary.medianApiCallCount,
+  rustRequestCount: rust.summary.medianRequestCount,
 }
 
 const report = {
@@ -98,4 +96,3 @@ console.table([
 ])
 
 await rm(outDir, { recursive: true, force: true })
-
