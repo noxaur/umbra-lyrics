@@ -3,7 +3,9 @@ use std::{cell::Cell, future::Future, rc::Rc, time::Duration};
 use futures_util::{stream, Stream};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use worker::{Delay, Headers, Method, Request, Response, ResponseBuilder, Result};
+use worker::{Delay, Env, Headers, Method, Request, Response, ResponseBuilder, Result};
+
+use crate::metadata::{MetadataConfig, MetadataInput, MetadataResolution};
 
 pub const PROTOCOL_VERSION: &str = "1";
 const MAX_BODY_BYTES: usize = 16 * 1024;
@@ -56,6 +58,7 @@ impl Event {
     }
 }
 
+#[cfg(test)]
 struct ResolutionStreamState {
     events: Vec<Event>,
     index: usize,
@@ -63,6 +66,7 @@ struct ResolutionStreamState {
     canceled: Option<Rc<Cell<bool>>>,
 }
 
+#[cfg(test)]
 impl ResolutionStreamState {
     fn new(events: Vec<Event>, request_id: String) -> Self {
         Self {
@@ -78,6 +82,7 @@ impl ResolutionStreamState {
     }
 }
 
+#[cfg(test)]
 impl Drop for ResolutionStreamState {
     fn drop(&mut self) {
         if let Some(canceled) = &self.canceled {
@@ -86,7 +91,31 @@ impl Drop for ResolutionStreamState {
     }
 }
 
-pub async fn resolve(mut request: Request, request_id: &str) -> Result<Response> {
+struct MetadataResolutionStreamState {
+    events: Vec<Event>,
+    index: usize,
+    request_id: String,
+    request: Option<ResolveRequest>,
+    env: Option<Env>,
+    resolved: bool,
+    canceled: Option<Rc<Cell<bool>>>,
+}
+
+impl MetadataResolutionStreamState {
+    fn finish(&mut self) {
+        self.canceled = None;
+    }
+}
+
+impl Drop for MetadataResolutionStreamState {
+    fn drop(&mut self) {
+        if let Some(canceled) = &self.canceled {
+            canceled.set(true);
+        }
+    }
+}
+
+pub async fn resolve(mut request: Request, request_id: &str, env: Env) -> Result<Response> {
     if request.method() != Method::Post {
         return terminal_error(
             request_id,
@@ -197,9 +226,23 @@ pub async fn resolve(mut request: Request, request_id: &str) -> Result<Response>
         Err(error) => return terminal_error(request_id, error),
     };
 
-    let state = ResolutionStreamState::new(success_events(&normalized), request_id.to_owned());
-    let event_stream =
-        resolution_event_stream(state, || Delay::from(Duration::from_millis(20)), timestamp);
+    let state = MetadataResolutionStreamState {
+        events: vec![Event::new(
+            "phase",
+            json!({"phase": "accepted", "message": "Resolution request accepted"}),
+        )],
+        index: 0,
+        request_id: request_id.to_owned(),
+        request: Some(normalized),
+        env: Some(env),
+        resolved: false,
+        canceled: None,
+    };
+    let event_stream = metadata_resolution_event_stream(
+        state,
+        || Delay::from(Duration::from_millis(20)),
+        timestamp,
+    );
 
     sse_response(
         ResponseBuilder::new().from_stream(event_stream)?,
@@ -207,6 +250,7 @@ pub async fn resolve(mut request: Request, request_id: &str) -> Result<Response>
     )
 }
 
+#[cfg(test)]
 fn resolution_event_stream<DelayFactory, DelayFuture, Timestamp>(
     state: ResolutionStreamState,
     delay: DelayFactory,
@@ -221,6 +265,54 @@ where
         let delay = delay.clone();
         let now = now.clone();
         async move {
+            if state.index >= state.events.len() {
+                state.finish();
+                return None;
+            }
+            if state.index > 0 {
+                delay().await;
+            }
+            let chunk = encode_event(&state.events[state.index], &state.request_id, &now());
+            state.index += 1;
+            Some((chunk.map(String::into_bytes), state))
+        }
+    })
+}
+
+fn metadata_resolution_event_stream<DelayFactory, DelayFuture, Timestamp>(
+    state: MetadataResolutionStreamState,
+    delay: DelayFactory,
+    now: Timestamp,
+) -> impl Stream<Item = Result<Vec<u8>>>
+where
+    DelayFactory: Fn() -> DelayFuture + Clone,
+    DelayFuture: Future<Output = ()>,
+    Timestamp: Fn() -> String + Clone,
+{
+    stream::unfold(state, move |mut state| {
+        let delay = delay.clone();
+        let now = now.clone();
+        async move {
+            if state.index >= state.events.len() && !state.resolved {
+                let request = state
+                    .request
+                    .take()
+                    .expect("metadata request exists until resolution");
+                let env = state
+                    .env
+                    .take()
+                    .expect("Worker environment exists until resolution");
+                let input = MetadataInput {
+                    video_id: request.video_id.clone(),
+                    title: request.title.clone(),
+                    author: request.author.clone(),
+                    duration: request.duration,
+                };
+                let config = MetadataConfig::from_env(&env);
+                let resolution = crate::metadata::resolve_metadata(&input, &config).await;
+                state.events.extend(metadata_events(&request, &resolution));
+                state.resolved = true;
+            }
             if state.index >= state.events.len() {
                 state.finish();
                 return None;
@@ -324,30 +416,65 @@ fn is_language_tag(value: &str) -> bool {
         })
 }
 
-fn success_events(request: &ResolveRequest) -> Vec<Event> {
+fn metadata_events(request: &ResolveRequest, resolution: &MetadataResolution) -> Vec<Event> {
+    let mut events = resolution
+        .candidates
+        .iter()
+        .map(|candidate| {
+            Event::new(
+                "candidate",
+                json!({
+                    "kind": "metadata",
+                    "artist": candidate.artist,
+                    "track": candidate.track,
+                    "duration": candidate.duration,
+                    "source": candidate.source,
+                    "sourceId": candidate.source_id,
+                    "stableIds": candidate.stable_ids,
+                    "score": candidate.score,
+                    "scoringReasons": candidate.scoring_reasons,
+                    "selected": candidate == &resolution.selected,
+                }),
+            )
+        })
+        .collect::<Vec<_>>();
+    events.extend(resolution.warnings.iter().map(|warning| {
+        Event::new(
+            "warning",
+            json!({
+                "code": warning.code,
+                "source": warning.source,
+                "message": warning.message,
+                "retryable": warning.retryable,
+            }),
+        )
+    }));
+
     let metadata = json!({
+        "kind": "canonical",
         "videoId": request.video_id,
-        "title": request.title,
-        "author": request.author,
-        "duration": request.duration,
+        "title": resolution.selected.track,
+        "author": resolution.selected.artist,
+        "duration": resolution.selected.duration.or(request.duration),
+        "source": resolution.selected.source,
+        "score": resolution.selected.score,
+        "scoringReasons": resolution.selected.scoring_reasons,
+        "stableIds": resolution.selected.stable_ids,
+        "canonical": resolution.selected,
+        "alternates": resolution.candidates.iter().skip(1).collect::<Vec<_>>(),
         "language": request.language,
     });
-
-    vec![
-        Event::new(
-            "phase",
-            json!({"phase": "accepted", "message": "Resolution request accepted"}),
-        ),
+    events.extend([
         Event::new("metadata", metadata.clone()),
         Event::new(
             "phase",
-            json!({"phase": "resolving", "message": "Preparing prototype resolution"}),
+            json!({"phase": "resolving", "message": "Canonical metadata resolved"}),
         ),
         Event::new(
             "warning",
             json!({
                 "code": "placeholder_resolution",
-                "message": "Intelligent Rust resolution is not implemented yet"
+                "message": "Lyrics provider resolution is not implemented yet"
             }),
         ),
         Event::new(
@@ -360,7 +487,8 @@ fn success_events(request: &ResolveRequest) -> Vec<Event> {
                 "lyrics": Value::Null,
             }),
         ),
-    ]
+    ]);
+    events
 }
 
 fn terminal_error(request_id: &str, error: ProtocolError) -> Result<Response> {
@@ -422,6 +550,31 @@ mod tests {
             language: Some("en-US".into()),
             force_refresh: false,
         }
+    }
+
+    fn supplied_metadata_resolution(request: &ResolveRequest) -> MetadataResolution {
+        let input = MetadataInput {
+            video_id: request.video_id.clone(),
+            title: request.title.clone(),
+            author: request.author.clone(),
+            duration: request.duration,
+        };
+        crate::metadata::rank_metadata(
+            &input,
+            vec![crate::metadata::MetadataCandidate {
+                artist: request.author.clone().unwrap_or_default(),
+                track: request.title.clone().unwrap_or_default(),
+                duration: request.duration,
+                source: crate::metadata::MetadataSource::Supplied,
+                source_id: None,
+                stable_ids: crate::metadata::StableIds {
+                    youtube_video_id: Some(request.video_id.clone()),
+                    ..crate::metadata::StableIds::default()
+                },
+                score: 0,
+                scoring_reasons: vec![],
+            }],
+        )
     }
 
     #[test]
@@ -542,12 +695,60 @@ mod tests {
     #[test]
     fn placeholder_result_is_deterministic() {
         let request = normalize_request(valid_request()).expect("valid request");
-        let first = success_events(&request);
-        let second = success_events(&request);
-        assert_eq!(first.len(), 5);
-        assert_eq!(first[4].name, "result");
-        assert_eq!(first[4].data, second[4].data);
-        assert_eq!(first[4].data["resolution"], "placeholder");
-        assert_eq!(first[4].data["outcome"], "not_found");
+        let resolution = supplied_metadata_resolution(&request);
+        let first = metadata_events(&request, &resolution);
+        let second = metadata_events(&request, &resolution);
+        assert_eq!(first.last().expect("result").name, "result");
+        assert_eq!(
+            first.last().expect("result").data,
+            second.last().expect("result").data
+        );
+        assert_eq!(
+            first.last().expect("result").data["resolution"],
+            "placeholder"
+        );
+        assert_eq!(first.last().expect("result").data["outcome"], "not_found");
+    }
+
+    #[test]
+    fn metadata_events_expose_candidates_sources_and_scoring_reasons() {
+        let request = normalize_request(valid_request()).expect("valid request");
+        let resolution = supplied_metadata_resolution(&request);
+        let events = metadata_events(&request, &resolution);
+        let candidate = events
+            .iter()
+            .find(|event| event.name == "candidate")
+            .expect("candidate event");
+        assert_eq!(candidate.data["kind"], "metadata");
+        assert_eq!(candidate.data["source"], "supplied");
+        assert!(candidate.data["scoringReasons"].is_array());
+        assert_eq!(candidate.data["selected"], true);
+    }
+
+    #[test]
+    fn metadata_events_emit_candidates_before_source_warnings() {
+        let request = normalize_request(valid_request()).expect("valid request");
+        let mut resolution = supplied_metadata_resolution(&request);
+        resolution.warnings.push(crate::metadata::SourceWarning {
+            source: crate::metadata::MetadataSource::Deezer,
+            code: "source_timeout",
+            message: "Deezer timed out".into(),
+            retryable: true,
+        });
+        let events = metadata_events(&request, &resolution);
+        let candidate_index = events
+            .iter()
+            .position(|event| event.name == "candidate")
+            .expect("candidate");
+        let source_warning_index = events
+            .iter()
+            .position(|event| event.name == "warning" && event.data.get("source").is_some())
+            .expect("source warning");
+        let metadata_index = events
+            .iter()
+            .position(|event| event.name == "metadata")
+            .expect("metadata");
+        assert!(candidate_index < source_warning_index);
+        assert!(source_warning_index < metadata_index);
     }
 }
