@@ -7,6 +7,7 @@ use worker::{console_error, event, Context, Env, Headers, Request, RequestInit, 
 mod lyrics;
 mod metadata;
 mod resolution;
+mod result_cache;
 
 const ASSETS_BINDING: &str = "ASSETS";
 const LEGACY_BINDING: &str = "LEGACY";
