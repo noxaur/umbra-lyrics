@@ -1,4 +1,7 @@
-use std::{cell::RefCell, future::Future, rc::Rc, time::Duration};
+use std::time::Duration;
+
+#[cfg(test)]
+use std::{cell::RefCell, future::Future, rc::Rc};
 
 use futures_util::{
     future::{select, Either},
@@ -59,7 +62,7 @@ pub struct LyricsCandidate {
     pub diagnostics: Vec<LyricsDiagnostic>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LyricsInput {
     pub artist: String,
     pub track: String,
@@ -476,22 +479,6 @@ fn variant_queries(input: &LyricsInput) -> Vec<(String, String)> {
     deduped
 }
 
-async fn with_timeout<T, Fut>(
-    source: LyricsSource,
-    timeout_ms: u64,
-    future: Fut,
-) -> Result<T, LyricsSourceFailure>
-where
-    Fut: Future<Output = Result<T, LyricsSourceFailure>>,
-{
-    let timeout = Delay::from(Duration::from_millis(timeout_ms));
-    pin_mut!(future, timeout);
-    match select(future, timeout).await {
-        Either::Left((result, _)) => result,
-        Either::Right(((), _)) => Err(LyricsSourceFailure::timeout(source, timeout_ms)),
-    }
-}
-
 async fn fetch_json<T: for<'de> Deserialize<'de>>(
     url: Url,
     source: LyricsSource,
@@ -499,49 +486,45 @@ async fn fetch_json<T: for<'de> Deserialize<'de>>(
     headers: &[(&str, &str)],
     label: &str,
 ) -> Result<T, LyricsSourceFailure> {
-    with_timeout(source, timeout_ms, async move {
-        let request_headers = Headers::new();
-        for (name, value) in headers {
-            request_headers.set(name, value).map_err(|error| {
-                LyricsSourceFailure::transport(
-                    source,
-                    format!("{label} request header failed: {error}"),
-                )
-            })?;
-        }
-
-        let mut init = RequestInit::new();
-        init.with_method(Method::Get).with_headers(request_headers);
-        let request = Request::new_with_init(url.as_str(), &init).map_err(|error| {
+    let request_headers = Headers::new();
+    for (name, value) in headers {
+        request_headers.set(name, value).map_err(|error| {
             LyricsSourceFailure::transport(
                 source,
-                format!("{label} request creation failed: {error}"),
+                format!("{label} request header failed: {error}"),
             )
         })?;
+    }
 
-        let controller = AbortController::default();
-        let signal = controller.signal();
-        let fetch = Fetch::Request(request).send_with_signal(&signal);
-        let response = match fetch.await {
-            Ok(response) => response,
-            Err(error) => {
-                controller.abort();
-                return Err(LyricsSourceFailure::transport(
-                    source,
-                    format!("{label} request failed: {error}"),
-                ));
-            }
-        };
+    let mut init = RequestInit::new();
+    init.with_method(Method::Get).with_headers(request_headers);
+    let request = Request::new_with_init(url.as_str(), &init).map_err(|error| {
+        LyricsSourceFailure::transport(source, format!("{label} request creation failed: {error}"))
+    })?;
 
-        if !(200..300).contains(&response.status_code()) {
-            return Err(LyricsSourceFailure::http(source, response.status_code()));
+    let controller = AbortController::default();
+    let signal = controller.signal();
+    let fetch_request = Fetch::Request(request);
+    let fetch = fetch_request.send_with_signal(&signal);
+    let timeout = Delay::from(Duration::from_millis(timeout_ms));
+    pin_mut!(fetch, timeout);
+    let mut response = match select(fetch, timeout).await {
+        Either::Left((result, _)) => result.map_err(|error| {
+            LyricsSourceFailure::transport(source, format!("{label} request failed: {error}"))
+        })?,
+        Either::Right(((), _)) => {
+            controller.abort();
+            return Err(LyricsSourceFailure::timeout(source, timeout_ms));
         }
+    };
 
-        response.json::<T>().await.map_err(|error| {
-            LyricsSourceFailure::invalid(source, format!("{label} returned invalid JSON: {error}"))
-        })
+    if !(200..300).contains(&response.status_code()) {
+        return Err(LyricsSourceFailure::http(source, response.status_code()));
+    }
+
+    response.json::<T>().await.map_err(|error| {
+        LyricsSourceFailure::invalid(source, format!("{label} returned invalid JSON: {error}"))
     })
-    .await
 }
 
 async fn fetch_text(
@@ -551,49 +534,45 @@ async fn fetch_text(
     label: &str,
     headers: &[(&str, &str)],
 ) -> Result<String, LyricsSourceFailure> {
-    with_timeout(source, timeout_ms, async move {
-        let request_headers = Headers::new();
-        for (name, value) in headers {
-            request_headers.set(name, value).map_err(|error| {
-                LyricsSourceFailure::transport(
-                    source,
-                    format!("{label} request header failed: {error}"),
-                )
-            })?;
-        }
-
-        let mut init = RequestInit::new();
-        init.with_method(Method::Get).with_headers(request_headers);
-        let request = Request::new_with_init(url.as_str(), &init).map_err(|error| {
+    let request_headers = Headers::new();
+    for (name, value) in headers {
+        request_headers.set(name, value).map_err(|error| {
             LyricsSourceFailure::transport(
                 source,
-                format!("{label} request creation failed: {error}"),
+                format!("{label} request header failed: {error}"),
             )
         })?;
+    }
 
-        let controller = AbortController::default();
-        let signal = controller.signal();
-        let fetch = Fetch::Request(request).send_with_signal(&signal);
-        let response = match fetch.await {
-            Ok(response) => response,
-            Err(error) => {
-                controller.abort();
-                return Err(LyricsSourceFailure::transport(
-                    source,
-                    format!("{label} request failed: {error}"),
-                ));
-            }
-        };
+    let mut init = RequestInit::new();
+    init.with_method(Method::Get).with_headers(request_headers);
+    let request = Request::new_with_init(url.as_str(), &init).map_err(|error| {
+        LyricsSourceFailure::transport(source, format!("{label} request creation failed: {error}"))
+    })?;
 
-        if !(200..300).contains(&response.status_code()) {
-            return Err(LyricsSourceFailure::http(source, response.status_code()));
+    let controller = AbortController::default();
+    let signal = controller.signal();
+    let fetch_request = Fetch::Request(request);
+    let fetch = fetch_request.send_with_signal(&signal);
+    let timeout = Delay::from(Duration::from_millis(timeout_ms));
+    pin_mut!(fetch, timeout);
+    let mut response = match select(fetch, timeout).await {
+        Either::Left((result, _)) => result.map_err(|error| {
+            LyricsSourceFailure::transport(source, format!("{label} request failed: {error}"))
+        })?,
+        Either::Right(((), _)) => {
+            controller.abort();
+            return Err(LyricsSourceFailure::timeout(source, timeout_ms));
         }
+    };
 
-        response.text().await.map_err(|error| {
-            LyricsSourceFailure::invalid(source, format!("{label} returned invalid text: {error}"))
-        })
+    if !(200..300).contains(&response.status_code()) {
+        return Err(LyricsSourceFailure::http(source, response.status_code()));
+    }
+
+    response.text().await.map_err(|error| {
+        LyricsSourceFailure::invalid(source, format!("{label} returned invalid text: {error}"))
     })
-    .await
 }
 
 async fn search_lrclib_exact(
