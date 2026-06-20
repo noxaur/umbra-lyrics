@@ -238,6 +238,7 @@ cache to individual provider implementations. Write
 ## Task 8: Produce English lyrics and romaji
 
 **Blocked by:** Task 6
+**Spec:** [task-08-english-and-romaji.md](task-08-english-and-romaji.md)
 
 **Agent prompt**
 
