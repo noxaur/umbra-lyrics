@@ -4,6 +4,7 @@ use url::Url;
 use uuid::Uuid;
 use worker::{console_error, event, Context, Env, Headers, Request, RequestInit, Response, Result};
 
+mod metadata;
 mod resolution;
 
 const ASSETS_BINDING: &str = "ASSETS";
@@ -81,7 +82,7 @@ pub async fn fetch(request: Request, env: Env, _ctx: Context) -> Result<Response
             )
         }
         RouteDecision::Resolution => {
-            let response = resolution::resolve(request, &request_id).await?;
+            let response = resolution::resolve(request, &request_id, env).await?;
             decorate_response(response, &request_id, "rust", false)
         }
         RouteDecision::Legacy => {
