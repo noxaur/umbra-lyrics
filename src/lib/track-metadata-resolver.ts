@@ -3,6 +3,7 @@ import { artistMatchScore, trackMatchScore } from "@/lib/lyrics-providers/match-
 import {
   extractTopicChannelArtist,
   parseTrackTitle,
+  parseTrackTitleCandidates,
   simplifyTrackName,
   stripChannelSuffix,
 } from "@/lib/parse-track-title"
@@ -52,6 +53,12 @@ type MbRecording = {
   "artist-credit"?: Array<{ name?: string; artist?: { name?: string } }>
 }
 
+type MetadataSeed = {
+  artist: string
+  track: string
+  source: "supplied" | "parsed" | "topic" | "channel"
+}
+
 function durationDeltaScore(candidateSec: number | undefined, targetSec: number): number {
   if (!targetSec || !candidateSec) return 20
   const delta = Math.abs(candidateSec - targetSec)
@@ -59,6 +66,77 @@ function durationDeltaScore(candidateSec: number | undefined, targetSec: number)
   if (delta <= 10) return 5
   if (delta <= 30) return 15
   return 40
+}
+
+async function fetchJsonWithTimeout<T>(
+  path: string,
+  timeoutMs: number,
+): Promise<T | null> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await proxyFetch(path, { signal: controller.signal })
+    if (!res.ok) return null
+    return (await res.json()) as T
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") return null
+    throw error
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function buildMetadataSeeds(params: ResolveTrackMetadataParams): MetadataSeed[] {
+  const parsed = params.roughArtist != null || params.roughTrack != null
+    ? [{ artist: params.roughArtist ?? "", track: params.roughTrack ?? "", source: "supplied" as const }]
+    : []
+
+  const ordered = [
+    ...parsed,
+    ...parseTrackTitleCandidates(params.title, params.oembedAuthor).map((candidate) => ({
+      artist: candidate.artist,
+      track: candidate.track,
+      source:
+        candidate.source === "topic"
+          ? ("topic" as const)
+          : candidate.source === "channel"
+            ? ("channel" as const)
+            : ("parsed" as const),
+    })),
+  ]
+
+  const seen = new Set<string>()
+  return ordered.filter((seed) => {
+    if (!seed.track.trim()) return false
+    const key = `${seed.artist.toLowerCase()}\0${seed.track.toLowerCase()}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function scoreSeed(seed: MetadataSeed, params: ResolveTrackMetadataParams): number {
+  const title = params.title.toLowerCase()
+  const artist = seed.artist.toLowerCase()
+  const track = seed.track.toLowerCase()
+  let score = 0
+  if (title.includes(track)) score += 8
+  if (title.includes(artist)) score += 8
+  if (params.oembedAuthor?.toLowerCase().includes(artist) && artist) score += 12
+  if (params.oembedAuthor?.toLowerCase().includes(track) && track) score += 4
+  if (seed.source === "topic") score += 10
+  if (seed.source === "channel") score += 6
+  if (seed.source === "parsed") score += 4
+  return score
+}
+
+function pickSearchSeed(params: ResolveTrackMetadataParams): { artist: string; track: string } {
+  const seeds = buildMetadataSeeds(params)
+  const best = seeds.sort((a, b) => scoreSeed(b, params) - scoreSeed(a, params))[0]
+  return {
+    artist: best?.artist ?? params.roughArtist ?? "",
+    track: best?.track ?? params.roughTrack ?? simplifyTrackName(params.title),
+  }
 }
 
 function scoreCandidate(
@@ -103,12 +181,10 @@ async function fetchSpotifyCandidates(
   track: string,
 ): Promise<MetadataCandidate[]> {
   const params = new URLSearchParams({ artist, track })
-  const res = await proxyFetch(`/api/metadata/spotify/search?${params}`)
-  if (!res.ok) return []
-
-  const data = (await res.json()) as {
+  const data = await fetchJsonWithTimeout<{
     hits?: Array<{ id: string; name: string; artist: string; durationSec: number; isrc?: string }>
-  }
+  }>(`/api/metadata/spotify/search?${params}`, 5_000)
+  if (!data) return []
 
   return (data.hits ?? []).map((hit) => ({
     artist: hit.artist,
@@ -128,10 +204,11 @@ async function fetchMusicBrainzCandidates(
     ? `recording:"${track}" AND artist:"${artist}"`
     : `recording:"${track}"`
   const q = encodeURIComponent(query)
-  const res = await proxyFetch(`/api/lyrics/musicbrainz/recording?query=${q}&fmt=json&limit=5`)
-  if (!res.ok) return []
-
-  const data = (await res.json()) as { recordings?: MbRecording[] }
+  const data = await fetchJsonWithTimeout<{ recordings?: MbRecording[] }>(
+    `/api/lyrics/musicbrainz/recording?query=${q}&fmt=json&limit=5`,
+    5_000,
+  )
+  if (!data) return []
   return (data.recordings ?? [])
     .map((rec): MetadataCandidate | null => {
       const trackName = rec.title?.trim()
@@ -153,12 +230,10 @@ async function fetchMusicBrainzCandidates(
 }
 
 async function fetchDeezerCandidates(q: string): Promise<MetadataCandidate[]> {
-  const res = await proxyFetch(`/api/metadata/deezer/search?q=${encodeURIComponent(q)}`)
-  if (!res.ok) return []
-
-  const data = (await res.json()) as {
+  const data = await fetchJsonWithTimeout<{
     hits?: Array<{ id: number; name: string; artist: string; durationSec: number; isrc?: string }>
-  }
+  }>(`/api/metadata/deezer/search?q=${encodeURIComponent(q)}`, 5_000)
+  if (!data) return []
 
   return (data.hits ?? []).map((hit) => ({
     artist: hit.artist,
@@ -171,12 +246,10 @@ async function fetchDeezerCandidates(q: string): Promise<MetadataCandidate[]> {
 }
 
 async function fetchItunesCandidates(term: string): Promise<MetadataCandidate[]> {
-  const res = await proxyFetch(`/api/metadata/itunes/search?term=${encodeURIComponent(term)}`)
-  if (!res.ok) return []
-
-  const data = (await res.json()) as {
+  const data = await fetchJsonWithTimeout<{
     hits?: Array<{ id: number; name: string; artist: string; durationSec: number; isrc?: string }>
-  }
+  }>(`/api/metadata/itunes/search?term=${encodeURIComponent(term)}`, 5_000)
+  if (!data) return []
 
   return (data.hits ?? []).map((hit) => ({
     artist: hit.artist,
@@ -239,7 +312,12 @@ function dedupeCandidates(candidates: MetadataCandidate[]): MetadataCandidate[] 
   const seen = new Set<string>()
   const out: MetadataCandidate[] = []
   for (const c of candidates) {
-    const key = `${c.artist.toLowerCase()}\0${c.track.toLowerCase()}`
+    const idKey = [
+      c.externalIds?.spotify ?? "",
+      c.externalIds?.musicbrainz ?? "",
+      c.externalIds?.isrc ?? "",
+    ].join("\0")
+    const key = idKey.trim() !== "\0\0" ? `id:${idKey}` : `name:${c.artist.toLowerCase()}\0${c.track.toLowerCase()}`
     if (seen.has(key)) continue
     seen.add(key)
     out.push(c)
@@ -255,9 +333,10 @@ export async function resolveTrackMetadata(
       ? { artist: params.roughArtist ?? "", track: params.roughTrack ?? "" }
       : parseTrackTitle(params.title, params.oembedAuthor)
 
-  const searchTrack = simplifyTrackName(rough.track) || rough.track
+  const searchSeed = pickSearchSeed(params)
+  const searchTrack = simplifyTrackName(searchSeed.track) || searchSeed.track
   const topicArtist = extractTopicChannelArtist(params.oembedAuthor)
-  const searchArtist = rough.artist || topicArtist || ""
+  const searchArtist = searchSeed.artist || topicArtist || ""
   const freeText = [searchArtist, searchTrack].filter(Boolean).join(" ")
   const altFreeText =
     topicArtist && topicArtist !== searchArtist
@@ -285,7 +364,7 @@ export async function resolveTrackMetadata(
   ]
 
   const scored = dedupeCandidates(all).map((candidate) => {
-    const rawScore = scoreCandidate(candidate, params, rough.artist, rough.track)
+    const rawScore = scoreCandidate(candidate, params, searchArtist, searchTrack)
     const confidence = Math.max(0, Math.min(1, 1 - rawScore / 100))
     return { ...candidate, confidence }
   })
