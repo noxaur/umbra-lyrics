@@ -13,6 +13,8 @@
     "test": "vp test",
     "test:watch": "vp test --watch",
     "benchmark:legacy-lyrics": "node scripts/benchmark-legacy-lyrics.mjs",
+    "benchmark:rust-lyrics": "node scripts/benchmark-rust-lyrics.mjs",
+    "benchmark:lyrics-compare": "node scripts/benchmark-lyrics-comparison.mjs",
     "sync:themes": "node scripts/sync-tinted-themes.mjs",
     "test:rust-worker": "npm run build && node scripts/smoke-rust-worker.mjs",
     "test:rust-worker:deployed": "node scripts/smoke-rust-worker-deployed.mjs",

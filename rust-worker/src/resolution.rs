@@ -7,6 +7,7 @@ use worker::{Delay, Env, Headers, Method, Request, Response, ResponseBuilder, Re
 
 use crate::lyrics::{run_trusted_lyrics_cascade, LyricsConfig, LyricsInput, LyricsResolution};
 use crate::metadata::{MetadataConfig, MetadataInput, MetadataResolution};
+use crate::observability::emit_json_log;
 use crate::result_cache::{
     cache_key, load_replay, replay_from_events, store_replay, KvResolutionCache,
     ResolutionCacheBackend, RESULT_CACHE_BINDING,
@@ -17,6 +18,81 @@ const MAX_BODY_BYTES: usize = 16 * 1024;
 const MAX_TEXT_LENGTH: usize = 512;
 const MAX_LANGUAGE_LENGTH: usize = 64;
 const MAX_DURATION_SECONDS: f64 = 86_400.0;
+
+fn source_label_metadata(source: crate::metadata::MetadataSource) -> &'static str {
+    match source {
+        crate::metadata::MetadataSource::Supplied => "supplied",
+        crate::metadata::MetadataSource::Oembed => "oembed",
+        crate::metadata::MetadataSource::Musicbrainz => "musicbrainz",
+        crate::metadata::MetadataSource::Deezer => "deezer",
+    }
+}
+
+fn source_label_lyrics(source: crate::lyrics::LyricsSource) -> &'static str {
+    match source {
+        crate::lyrics::LyricsSource::LrclibExact => "lrclib_exact",
+        crate::lyrics::LyricsSource::LrclibVariant => "lrclib_variant",
+        crate::lyrics::LyricsSource::LyricsOvh => "lyrics_ovh",
+        crate::lyrics::LyricsSource::Genius => "genius",
+    }
+}
+
+fn trace_payload(
+    request_id: &str,
+    stage: &'static str,
+    started_at_ms: f64,
+    cache_status: Option<&'static str>,
+    cache_lookup_ms: Option<u64>,
+    cache_write_ms: Option<u64>,
+    metadata_ms: Option<u64>,
+    lyrics_ms: Option<u64>,
+    metadata_resolution: Option<&MetadataResolution>,
+    lyrics_resolution: Option<&LyricsResolution>,
+    transcription_calls: u32,
+    legacy_adapter_used: bool,
+    failure_category: Option<&'static str>,
+) -> Value {
+    let metadata = metadata_resolution.map(|resolution| {
+        json!({
+            "candidateCount": resolution.candidates.len(),
+            "warningCount": resolution.warnings.len(),
+            "selectedSource": source_label_metadata(resolution.selected.source),
+        })
+    });
+    let lyrics = lyrics_resolution.map(|resolution| {
+        json!({
+            "candidateCount": resolution.candidates.len(),
+            "warningCount": resolution.warnings.len(),
+            "selectedSource": resolution.candidates.first().map(|candidate| source_label_lyrics(candidate.source)),
+        })
+    });
+
+    let elapsed_ms = (js_sys::Date::now() - started_at_ms).max(0.0).round() as u64;
+    json!({
+        "kind": "resolution_trace",
+        "stage": stage,
+        "requestId": request_id,
+        "timingsMs": {
+            "elapsed": elapsed_ms,
+            "cacheLookup": cache_lookup_ms,
+            "cacheWrite": cache_write_ms,
+            "metadata": metadata_ms,
+            "lyrics": lyrics_ms,
+        },
+        "cache": {
+            "status": cache_status,
+        },
+        "metadata": metadata,
+        "lyrics": lyrics,
+        "transcriptionCalls": transcription_calls,
+        "legacyAdapterUsed": legacy_adapter_used,
+        "failureCategory": failure_category,
+    })
+}
+
+fn emit_trace(payload: &Value) {
+    emit_json_log("resolution_trace", payload);
+}
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -103,6 +179,7 @@ struct MetadataResolutionStreamState {
     events: Vec<Event>,
     index: usize,
     request_id: String,
+    started_at_ms: f64,
     request: Option<ResolveRequest>,
     env: Option<Env>,
     cache: Option<Arc<dyn ResolutionCacheBackend>>,
@@ -110,6 +187,16 @@ struct MetadataResolutionStreamState {
     cache_checked: bool,
     force_refresh: bool,
     resolved: bool,
+    cache_status: Option<&'static str>,
+    cache_lookup_ms: Option<u64>,
+    cache_write_ms: Option<u64>,
+    metadata_ms: Option<u64>,
+    lyrics_ms: Option<u64>,
+    metadata_resolution: Option<MetadataResolution>,
+    lyrics_resolution: Option<LyricsResolution>,
+    transcription_calls: u32,
+    legacy_adapter_used: bool,
+    failure_category: Option<&'static str>,
     canceled: Option<Rc<Cell<bool>>>,
 }
 
@@ -244,13 +331,34 @@ pub async fn resolve(mut request: Request, request_id: &str, env: Env) -> Result
         .kv(RESULT_CACHE_BINDING)
         .ok()
         .map(|store| Arc::new(KvResolutionCache::new(store)) as Arc<dyn ResolutionCacheBackend>);
+    let started_at_ms = js_sys::Date::now();
+    let accepted_trace = trace_payload(
+        request_id,
+        "accepted",
+        started_at_ms,
+        cache.as_ref().map(|_| "pending"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        0,
+        false,
+        None,
+    );
+    emit_trace(&accepted_trace);
     let state = MetadataResolutionStreamState {
-        events: vec![Event::new(
-            "phase",
-            json!({"phase": "accepted", "message": "Resolution request accepted"}),
-        )],
+        events: vec![
+            Event::new(
+                "phase",
+                json!({"phase": "accepted", "message": "Resolution request accepted"}),
+            ),
+            Event::new("trace", accepted_trace),
+        ],
         index: 0,
         request_id: request_id.to_owned(),
+        started_at_ms,
         request: Some(normalized),
         env: Some(env),
         cache,
@@ -258,6 +366,16 @@ pub async fn resolve(mut request: Request, request_id: &str, env: Env) -> Result
         cache_checked: false,
         force_refresh,
         resolved: false,
+        cache_status: Some("pending"),
+        cache_lookup_ms: None,
+        cache_write_ms: None,
+        metadata_ms: None,
+        lyrics_ms: None,
+        metadata_resolution: None,
+        lyrics_resolution: None,
+        transcription_calls: 0,
+        legacy_adapter_used: false,
+        failure_category: None,
         canceled: None,
     };
     let event_stream = metadata_resolution_event_stream(
@@ -325,11 +443,55 @@ where
                             .as_ref()
                             .map(|request| request.video_id.clone());
                         if let (Some(cache), Some(video_id)) = (cache, video_id) {
+                            let cache_started = js_sys::Date::now();
                             if let Some(replay) =
                                 load_replay(cache.as_ref(), &state.cache_key, &video_id).await
                             {
+                                state.cache_status = Some("hit");
+                                state.cache_lookup_ms =
+                                    Some((js_sys::Date::now() - cache_started).max(0.0).round()
+                                        as u64);
+                                let trace = trace_payload(
+                                    &state.request_id,
+                                    "cache",
+                                    state.started_at_ms,
+                                    state.cache_status,
+                                    state.cache_lookup_ms,
+                                    state.cache_write_ms,
+                                    state.metadata_ms,
+                                    state.lyrics_ms,
+                                    state.metadata_resolution.as_ref(),
+                                    state.lyrics_resolution.as_ref(),
+                                    state.transcription_calls,
+                                    state.legacy_adapter_used,
+                                    state.failure_category,
+                                );
+                                emit_trace(&trace);
+                                state.events.push(Event::new("trace", trace));
                                 state.events.extend(replay.events);
                                 state.resolved = true;
+                            } else {
+                                state.cache_status = Some("miss");
+                                state.cache_lookup_ms =
+                                    Some((js_sys::Date::now() - cache_started).max(0.0).round()
+                                        as u64);
+                                let trace = trace_payload(
+                                    &state.request_id,
+                                    "cache",
+                                    state.started_at_ms,
+                                    state.cache_status,
+                                    state.cache_lookup_ms,
+                                    state.cache_write_ms,
+                                    state.metadata_ms,
+                                    state.lyrics_ms,
+                                    state.metadata_resolution.as_ref(),
+                                    state.lyrics_resolution.as_ref(),
+                                    state.transcription_calls,
+                                    state.legacy_adapter_used,
+                                    state.failure_category,
+                                );
+                                emit_trace(&trace);
+                                state.events.push(Event::new("trace", trace));
                             }
                         }
                     }
@@ -350,21 +512,48 @@ where
                         duration: request.duration,
                     };
                     let config = MetadataConfig::from_env(&env);
+                    let metadata_started = js_sys::Date::now();
                     let resolution = crate::metadata::resolve_metadata(&input, &config).await;
+                    state.metadata_resolution = Some(resolution.clone());
+                    state.metadata_ms =
+                        Some((js_sys::Date::now() - metadata_started).max(0.0).round() as u64);
                     let mut live_events = metadata_events(&request, &resolution);
                     let lyrics_input = LyricsInput {
                         artist: resolution.selected.artist.clone(),
                         track: resolution.selected.track.clone(),
                         duration: resolution.selected.duration.or(request.duration),
                     };
+                    let lyrics_started = js_sys::Date::now();
                     let lyrics_resolution =
                         run_trusted_lyrics_cascade(&lyrics_input, &LyricsConfig::default()).await;
+                    state.lyrics_resolution = Some(lyrics_resolution.clone());
+                    state.lyrics_ms =
+                        Some((js_sys::Date::now() - lyrics_started).max(0.0).round() as u64);
+                    state.transcription_calls = 0;
+                    let trace = trace_payload(
+                        &state.request_id,
+                        "resolution",
+                        state.started_at_ms,
+                        state.cache_status,
+                        state.cache_lookup_ms,
+                        state.cache_write_ms,
+                        state.metadata_ms,
+                        state.lyrics_ms,
+                        state.metadata_resolution.as_ref(),
+                        state.lyrics_resolution.as_ref(),
+                        state.transcription_calls,
+                        state.legacy_adapter_used,
+                        None,
+                    );
+                    emit_trace(&trace);
+                    state.events.push(Event::new("trace", trace));
                     live_events.extend(lyrics_events(&lyrics_resolution));
                     live_events.extend(terminal_placeholder_events(&request, &resolution));
                     if let Some(cache) = state.cache.as_ref().cloned() {
                         if let Some(replay) =
                             replay_from_events(&request.video_id, live_events.clone())
                         {
+                            let cache_store_started = js_sys::Date::now();
                             let _ = store_replay(
                                 cache.as_ref(),
                                 &state.cache_key,
@@ -372,6 +561,9 @@ where
                                 state.force_refresh,
                             )
                             .await;
+                            state.cache_write_ms =
+                                Some((js_sys::Date::now() - cache_store_started).max(0.0).round()
+                                    as u64);
                         }
                     }
                     state.events.extend(live_events);
@@ -618,6 +810,23 @@ fn terminal_placeholder_events(
 }
 
 fn terminal_error(request_id: &str, error: ProtocolError) -> Result<Response> {
+    let started_at_ms = js_sys::Date::now();
+    let trace = trace_payload(
+        request_id,
+        "terminal_error",
+        started_at_ms,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        0,
+        false,
+        Some(error.code),
+    );
+    emit_trace(&trace);
     let event = Event::new(
         "error",
         json!({
@@ -1076,5 +1285,45 @@ mod tests {
             .expect("lyrics warning");
         assert_eq!(warning.data["source"], "lyrics_ovh");
         assert_eq!(warning.data["code"], "source_unavailable");
+    }
+
+    #[test]
+    fn trace_payload_excludes_lyrics_text_and_audio_urls() {
+        let request = normalize_request(valid_request()).expect("valid request");
+        let metadata = supplied_metadata_resolution(&request);
+        let lyrics = crate::lyrics::LyricsResolution {
+            candidates: vec![crate::lyrics::LyricsCandidate {
+                source: crate::lyrics::LyricsSource::LrclibExact,
+                source_id: Some("42".into()),
+                artist: "Rick Astley".into(),
+                track: "Never Gonna Give You Up".into(),
+                duration: Some(212.4),
+                plain_lyrics: "never gonna give you up".into(),
+                synced_lyrics: Some("[00:01.00] never gonna give you up".into()),
+                synced: true,
+                diagnostics: vec![],
+            }],
+            warnings: vec![],
+        };
+        let trace = trace_payload(
+            "request-123",
+            "resolution",
+            js_sys::Date::now(),
+            Some("miss"),
+            Some(12),
+            Some(4),
+            Some(9),
+            Some(8),
+            Some(&metadata),
+            Some(&lyrics),
+            0,
+            false,
+            None,
+        );
+        let encoded = serde_json::to_string(&trace).expect("trace encodes");
+        assert!(!encoded.contains("plainLyrics"));
+        assert!(!encoded.contains("syncedLyrics"));
+        assert!(!encoded.contains("audioUrl"));
+        assert!(encoded.contains("\"selectedSource\":\"supplied\""));
     }
 }
