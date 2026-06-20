@@ -4,6 +4,7 @@ use url::Url;
 use uuid::Uuid;
 use worker::{console_error, event, Context, Env, Headers, Request, RequestInit, Response, Result};
 
+mod lyrics;
 mod metadata;
 mod resolution;
 
