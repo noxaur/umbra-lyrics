@@ -1,4 +1,4 @@
-use std::{cell::Cell, future::Future, rc::Rc, time::Duration};
+use std::{cell::Cell, future::Future, rc::Rc, sync::Arc, time::Duration};
 
 use futures_util::{stream, Stream};
 use serde::{Deserialize, Serialize};
@@ -7,6 +7,10 @@ use worker::{Delay, Env, Headers, Method, Request, Response, ResponseBuilder, Re
 
 use crate::lyrics::{run_trusted_lyrics_cascade, LyricsConfig, LyricsInput, LyricsResolution};
 use crate::metadata::{MetadataConfig, MetadataInput, MetadataResolution};
+use crate::result_cache::{
+    cache_key, load_replay, replay_from_events, store_replay, KvResolutionCache,
+    ResolutionCacheBackend, RESULT_CACHE_BINDING,
+};
 
 pub const PROTOCOL_VERSION: &str = "1";
 const MAX_BODY_BYTES: usize = 16 * 1024;
@@ -47,15 +51,18 @@ struct EventEnvelope<'a> {
     data: Value,
 }
 
-#[derive(Debug, Clone)]
-struct Event {
-    name: &'static str,
-    data: Value,
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub(crate) struct Event {
+    pub(crate) name: String,
+    pub(crate) data: Value,
 }
 
 impl Event {
-    fn new(name: &'static str, data: Value) -> Self {
-        Self { name, data }
+    pub(crate) fn new(name: impl Into<String>, data: Value) -> Self {
+        Self {
+            name: name.into(),
+            data,
+        }
     }
 }
 
@@ -98,6 +105,10 @@ struct MetadataResolutionStreamState {
     request_id: String,
     request: Option<ResolveRequest>,
     env: Option<Env>,
+    cache: Option<Arc<dyn ResolutionCacheBackend>>,
+    cache_key: String,
+    cache_checked: bool,
+    force_refresh: bool,
     resolved: bool,
     canceled: Option<Rc<Cell<bool>>>,
 }
@@ -227,6 +238,12 @@ pub async fn resolve(mut request: Request, request_id: &str, env: Env) -> Result
         Err(error) => return terminal_error(request_id, error),
     };
 
+    let cache_key_value = cache_key(&normalized.video_id);
+    let force_refresh = normalized.force_refresh;
+    let cache = env
+        .kv(RESULT_CACHE_BINDING)
+        .ok()
+        .map(|store| Arc::new(KvResolutionCache::new(store)) as Arc<dyn ResolutionCacheBackend>);
     let state = MetadataResolutionStreamState {
         events: vec![Event::new(
             "phase",
@@ -236,6 +253,10 @@ pub async fn resolve(mut request: Request, request_id: &str, env: Env) -> Result
         request_id: request_id.to_owned(),
         request: Some(normalized),
         env: Some(env),
+        cache,
+        cache_key: cache_key_value,
+        cache_checked: false,
+        force_refresh,
         resolved: false,
         canceled: None,
     };
@@ -295,35 +316,67 @@ where
         let now = now.clone();
         async move {
             if state.index >= state.events.len() && !state.resolved {
-                let request = state
-                    .request
-                    .take()
-                    .expect("metadata request exists until resolution");
-                let env = state
-                    .env
-                    .take()
-                    .expect("Worker environment exists until resolution");
-                let input = MetadataInput {
-                    video_id: request.video_id.clone(),
-                    title: request.title.clone(),
-                    author: request.author.clone(),
-                    duration: request.duration,
-                };
-                let config = MetadataConfig::from_env(&env);
-                let resolution = crate::metadata::resolve_metadata(&input, &config).await;
-                state.events.extend(metadata_events(&request, &resolution));
-                let lyrics_input = LyricsInput {
-                    artist: resolution.selected.artist.clone(),
-                    track: resolution.selected.track.clone(),
-                    duration: resolution.selected.duration.or(request.duration),
-                };
-                let lyrics_resolution =
-                    run_trusted_lyrics_cascade(&lyrics_input, &LyricsConfig::default()).await;
-                state.events.extend(lyrics_events(&lyrics_resolution));
-                state
-                    .events
-                    .extend(terminal_placeholder_events(&request, &resolution));
-                state.resolved = true;
+                if !state.cache_checked {
+                    state.cache_checked = true;
+                    if !state.force_refresh {
+                        let cache = state.cache.as_ref().cloned();
+                        let video_id = state
+                            .request
+                            .as_ref()
+                            .map(|request| request.video_id.clone());
+                        if let (Some(cache), Some(video_id)) = (cache, video_id) {
+                            if let Some(replay) =
+                                load_replay(cache.as_ref(), &state.cache_key, &video_id).await
+                            {
+                                state.events.extend(replay.events);
+                                state.resolved = true;
+                            }
+                        }
+                    }
+                }
+                if state.index >= state.events.len() && !state.resolved {
+                    let request = state
+                        .request
+                        .take()
+                        .expect("metadata request exists until resolution");
+                    let env = state
+                        .env
+                        .take()
+                        .expect("Worker environment exists until resolution");
+                    let input = MetadataInput {
+                        video_id: request.video_id.clone(),
+                        title: request.title.clone(),
+                        author: request.author.clone(),
+                        duration: request.duration,
+                    };
+                    let config = MetadataConfig::from_env(&env);
+                    let resolution = crate::metadata::resolve_metadata(&input, &config).await;
+                    let mut live_events = metadata_events(&request, &resolution);
+                    let lyrics_input = LyricsInput {
+                        artist: resolution.selected.artist.clone(),
+                        track: resolution.selected.track.clone(),
+                        duration: resolution.selected.duration.or(request.duration),
+                    };
+                    let lyrics_resolution =
+                        run_trusted_lyrics_cascade(&lyrics_input, &LyricsConfig::default()).await;
+                    live_events.extend(lyrics_events(&lyrics_resolution));
+                    live_events.extend(terminal_placeholder_events(&request, &resolution));
+                    if let Some(cache) = state.cache.as_ref().cloned() {
+                        if let Some(replay) =
+                            replay_from_events(&request.video_id, live_events.clone())
+                        {
+                            let _ = store_replay(
+                                cache.as_ref(),
+                                &state.cache_key,
+                                &replay,
+                                state.force_refresh,
+                            )
+                            .await;
+                        }
+                    }
+                    state.events.extend(live_events);
+                    state.resolved = true;
+                }
             }
             if state.index >= state.events.len() {
                 state.finish();
@@ -613,6 +666,14 @@ fn sse_response(response: Response, request_id: &str) -> Result<Response> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::result_cache::{CacheOutcomeClass, CachedResolutionReplay, ResolutionCacheBackend};
+    use std::{
+        collections::HashMap,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc, Mutex,
+        },
+    };
 
     fn valid_request() -> ResolveRequest {
         ResolveRequest {
@@ -648,6 +709,50 @@ mod tests {
                 scoring_reasons: vec![],
             }],
         )
+    }
+
+    #[derive(Default)]
+    struct MockCache {
+        replay: Mutex<HashMap<String, CachedResolutionReplay>>,
+        reads: AtomicUsize,
+        writes: AtomicUsize,
+    }
+
+    impl MockCache {
+        fn reads(&self) -> usize {
+            self.reads.load(Ordering::SeqCst)
+        }
+
+        fn writes(&self) -> usize {
+            self.writes.load(Ordering::SeqCst)
+        }
+    }
+
+    impl ResolutionCacheBackend for MockCache {
+        fn get<'a>(
+            &'a self,
+            key: &'a str,
+        ) -> futures::future::BoxFuture<'a, Option<CachedResolutionReplay>> {
+            Box::pin(async move {
+                self.reads.fetch_add(1, Ordering::SeqCst);
+                self.replay.lock().expect("cache").get(key).cloned()
+            })
+        }
+
+        fn put<'a>(
+            &'a self,
+            key: &'a str,
+            replay: &'a CachedResolutionReplay,
+            _ttl_secs: u64,
+        ) -> futures::future::BoxFuture<'a, ()> {
+            Box::pin(async move {
+                self.writes.fetch_add(1, Ordering::SeqCst);
+                self.replay
+                    .lock()
+                    .expect("cache")
+                    .insert(key.to_owned(), replay.clone());
+            })
+        }
     }
 
     #[test]
@@ -823,6 +928,112 @@ mod tests {
             .expect("metadata");
         assert!(candidate_index < source_warning_index);
         assert!(source_warning_index < metadata_index);
+    }
+
+    #[test]
+    fn cache_hit_still_streams_progress_and_result_events() {
+        use futures_util::{future, pin_mut, task::noop_waker_ref, Stream};
+
+        let request = normalize_request(valid_request()).expect("valid request");
+        let video_id = request.video_id.clone();
+        let cache = Arc::new(MockCache::default());
+        let cache_key = crate::result_cache::cache_key(&video_id);
+        cache.replay.lock().expect("cache").insert(
+            cache_key.clone(),
+            CachedResolutionReplay {
+                schema_version: crate::result_cache::CACHE_SCHEMA_VERSION,
+                pipeline_version: crate::result_cache::CACHE_PIPELINE_VERSION.to_owned(),
+                video_id: video_id.clone(),
+                outcome_class: CacheOutcomeClass::Negative,
+                events: vec![
+                    Event::new(
+                        "metadata",
+                        json!({
+                            "kind": "canonical",
+                            "videoId": video_id.clone(),
+                            "title": "Never Gonna Give You Up",
+                            "author": "Rick Astley"
+                        }),
+                    ),
+                    Event::new(
+                        "phase",
+                        json!({"phase": "resolving", "message": "Canonical metadata resolved"}),
+                    ),
+                    Event::new(
+                        "warning",
+                        json!({
+                            "code": "placeholder_resolution",
+                            "message": "Lyrics provider resolution is not implemented yet"
+                        }),
+                    ),
+                    Event::new(
+                        "result",
+                        json!({
+                            "outcome": "not_found",
+                            "resolution": "placeholder",
+                            "videoId": video_id.clone(),
+                            "metadata": {
+                                "title": "Never Gonna Give You Up",
+                                "author": "Rick Astley",
+                                "duration": 212.4,
+                                "language": "en"
+                            },
+                            "lyrics": Value::Null,
+                        }),
+                    ),
+                ],
+            },
+        );
+
+        let state = MetadataResolutionStreamState {
+            events: vec![Event::new(
+                "phase",
+                json!({"phase": "accepted", "message": "Resolution request accepted"}),
+            )],
+            index: 0,
+            request_id: "request-123".into(),
+            request: Some(request),
+            env: None,
+            cache: Some(cache.clone()),
+            cache_key,
+            cache_checked: false,
+            force_refresh: false,
+            resolved: false,
+            canceled: None,
+        };
+        let stream = metadata_resolution_event_stream(
+            state,
+            || future::ready(()),
+            || "2026-06-19T12:00:00.000Z".into(),
+        );
+        pin_mut!(stream);
+        let mut context = std::task::Context::from_waker(noop_waker_ref());
+
+        let first = match Stream::poll_next(stream.as_mut(), &mut context) {
+            std::task::Poll::Ready(Some(Ok(chunk))) => chunk,
+            other => panic!("expected first chunk, got {other:?}"),
+        };
+        let first_text = String::from_utf8(first).expect("utf8");
+        assert!(first_text.contains("event: phase"));
+        assert!(!first_text.contains("event: metadata"));
+
+        let mut remaining = String::new();
+        loop {
+            match Stream::poll_next(stream.as_mut(), &mut context) {
+                std::task::Poll::Ready(Some(Ok(chunk))) => {
+                    remaining.push_str(&String::from_utf8(chunk).expect("utf8"));
+                }
+                std::task::Poll::Ready(None) => break,
+                std::task::Poll::Pending => continue,
+                std::task::Poll::Ready(Some(Err(error))) => panic!("stream error: {error:?}"),
+            }
+        }
+
+        assert!(remaining.contains("event: metadata"));
+        assert!(remaining.contains("event: warning"));
+        assert!(remaining.contains("event: result"));
+        assert_eq!(cache.reads(), 1);
+        assert_eq!(cache.writes(), 0);
     }
 
     #[test]
