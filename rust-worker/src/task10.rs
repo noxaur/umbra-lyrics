@@ -313,7 +313,7 @@ async fn probe_client(
                     allowed_host: true,
                 },
                 stream: Some(stream),
-                playability_failure: reason,
+                playability_failure: None,
             });
         }
         if !playability_is_ok(status.as_deref()) {
@@ -364,16 +364,21 @@ async fn probe_client(
         .and_then(|value| value.reason.clone());
     let stream = select_audio_stream(&player_json, profile.name);
     let direct_audio_url = stream.is_some();
+    let playability_failure = if direct_audio_url {
+        None
+    } else {
+        reason.clone().or(status.clone())
+    };
     Ok(ProbeOutcome {
         attempt: AudioResolutionAttempt {
             client: profile.name,
             status,
-            reason: reason.clone(),
+            reason,
             direct_audio_url,
             allowed_host: direct_audio_url,
         },
         stream,
-        playability_failure: reason.or(status),
+        playability_failure,
     })
 }
 
@@ -560,7 +565,8 @@ async fn fetch_text(
 
     let controller = AbortController::default();
     let signal = controller.signal();
-    let fetch = Fetch::Request(request).send_with_signal(&signal);
+    let binding = Fetch::Request(request);
+    let fetch = binding.send_with_signal(&signal);
     let timeout = Delay::from(Duration::from_millis(NATIVE_TIMEOUT_MS));
     pin_mut!(fetch, timeout);
 
@@ -643,7 +649,8 @@ async fn fetch_player_json(
 
     let controller = AbortController::default();
     let signal = controller.signal();
-    let fetch = Fetch::Request(request).send_with_signal(&signal);
+    let binding = Fetch::Request(request);
+    let fetch = binding.send_with_signal(&signal);
     let timeout = Delay::from(Duration::from_millis(NATIVE_TIMEOUT_MS));
     pin_mut!(fetch, timeout);
 
@@ -764,6 +771,47 @@ mod tests {
         );
         assert_eq!(stream.mime_type, "audio/mp4");
         assert_eq!(stream.client, "IOS");
+    }
+
+    #[test]
+    fn resolves_cipher_urls_with_precomputed_signature() {
+        let format = StreamFormat {
+            mime_type: Some("audio/mp4".into()),
+            bitrate: Some(128_000),
+            url: None,
+            signature_cipher: Some(
+                "url=https%3A%2F%2Frr3---sn-abc.googlevideo.com%2Fvideoplayback%3Fx%3D1&sig=abc123"
+                    .into(),
+            ),
+            cipher: None,
+        };
+        let url = resolve_format_url(&format).expect("cipher url");
+        assert_eq!(
+            url,
+            "https://rr3---sn-abc.googlevideo.com/videoplayback?x=1&sig=abc123"
+        );
+    }
+
+    #[test]
+    fn rejects_cipher_urls_that_need_js_deciphering() {
+        let format = StreamFormat {
+            mime_type: Some("audio/mp4".into()),
+            bitrate: Some(128_000),
+            url: None,
+            signature_cipher: Some(
+                "url=https%3A%2F%2Frr3---sn-abc.googlevideo.com%2Fvideoplayback%3Fx%3D1&s=opaque"
+                    .into(),
+            ),
+            cipher: None,
+        };
+        assert!(resolve_format_url(&format).is_none());
+    }
+
+    #[test]
+    fn playability_gate_blocks_login_required() {
+        assert!(!playability_is_ok(Some("LOGIN_REQUIRED")));
+        assert!(playability_is_ok(Some("OK")));
+        assert!(playability_is_ok(Some("CONTENT_CHECK_REQUIRED")));
     }
 
     #[test]

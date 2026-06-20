@@ -468,7 +468,8 @@ async fn probe_audio_size_from_url(stream_url: &str) -> Result<Option<usize>, wo
     let head_request = Request::new_with_init(stream_url, &head_init)?;
     let controller = AbortController::default();
     let signal = controller.signal();
-    let fetch = Fetch::Request(head_request).send_with_signal(&signal);
+    let binding = Fetch::Request(head_request);
+    let fetch = binding.send_with_signal(&signal);
     let timeout = Delay::from(Duration::from_millis(30_000));
     pin_mut!(fetch, timeout);
     let mut head_response = match select(fetch, timeout).await {
@@ -502,7 +503,8 @@ async fn probe_audio_size_from_url(stream_url: &str) -> Result<Option<usize>, wo
     let range_request = Request::new_with_init(stream_url, &range_init)?;
     let controller = AbortController::default();
     let signal = controller.signal();
-    let fetch = Fetch::Request(range_request).send_with_signal(&signal);
+    let binding = Fetch::Request(range_request);
+    let fetch = binding.send_with_signal(&signal);
     let timeout = Delay::from(Duration::from_millis(30_000));
     pin_mut!(fetch, timeout);
     let mut range_response = match select(fetch, timeout).await {
@@ -569,7 +571,8 @@ async fn fetch_audio_range_from_url(
     let request = Request::new_with_init(stream_url, &init)?;
     let controller = AbortController::default();
     let signal = controller.signal();
-    let fetch = Fetch::Request(request).send_with_signal(&signal);
+    let binding = Fetch::Request(request);
+    let fetch = binding.send_with_signal(&signal);
     let timeout = Delay::from(Duration::from_millis(120_000));
     pin_mut!(fetch, timeout);
     let mut response = match select(fetch, timeout).await {
@@ -662,7 +665,6 @@ async fn fetch_audio_window_with_native_first(
                 let mut report = probe.report.clone();
                 report.used_legacy_fallback = true;
                 report.source = AudioResolutionSource::Legacy;
-                report.range_capable = true;
                 report.attempts.push(crate::task10::AudioResolutionAttempt {
                     client: stream.client,
                     status: Some("NATIVE_FETCH_FAILED".into()),
@@ -680,7 +682,6 @@ async fn fetch_audio_window_with_native_first(
     let mut report = probe.report.clone();
     report.used_legacy_fallback = true;
     report.source = AudioResolutionSource::Legacy;
-    report.range_capable = true;
     Ok(AudioWindowResolution { window, report })
 }
 
@@ -821,6 +822,7 @@ async fn transcribe_chunked_stream(
     if plans.is_empty() {
         return Ok((String::new(), Vec::new(), true, 0, 0));
     }
+    let chunk_range_requests = plans.len() as u32;
 
     let mut text_parts = Vec::new();
     let mut segment_groups = Vec::new();
@@ -872,7 +874,7 @@ async fn transcribe_chunked_stream(
         segments,
         partial,
         whisper_calls,
-        plans.len() as u32,
+        chunk_range_requests,
     ))
 }
 
@@ -1505,6 +1507,20 @@ mod tests {
         assert!(encoded.contains("\"playabilityFailure\":\"LOGIN_REQUIRED\""));
         assert!(!encoded.contains("googlevideo.com"));
         assert!(!encoded.contains("videoplayback"));
+    }
+
+    #[test]
+    fn legacy_only_fallback_keeps_native_range_capable_false() {
+        let report = AudioResolutionReport {
+            source: AudioResolutionSource::Legacy,
+            used_legacy_fallback: true,
+            playability_failure: Some("LOGIN_REQUIRED".into()),
+            attempts: Vec::new(),
+            range_capable: false,
+        };
+        assert!(report.used_legacy_fallback);
+        assert!(!report.range_capable);
+        assert!(used_legacy_audio_adapter_for_report(&report));
     }
 
     #[test]
