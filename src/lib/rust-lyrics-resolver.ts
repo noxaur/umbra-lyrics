@@ -164,6 +164,7 @@ export async function resolveLyricsWithRust(
       throw new RustLyricsProtocolError(parseErrorData(event.data))
     }
     if (event.event === "result") {
+      options.onEvent?.(event)
       terminalSeen = true
       result = parseResultData(event.data)
     } else {

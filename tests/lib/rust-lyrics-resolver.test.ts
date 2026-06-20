@@ -87,7 +87,7 @@ describe("resolveLyricsWithRust", () => {
       },
     )
 
-    expect(seen).toEqual(["phase"])
+    expect(seen).toEqual(["phase", "result"])
     expect(result).toMatchObject({
       outcome: "found",
       resolution: "native",
