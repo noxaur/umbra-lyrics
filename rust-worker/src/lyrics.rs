@@ -17,7 +17,7 @@ const USER_AGENT: &str = "umbra/1.0.0 (https://github.com/noxaur/umbra-lyrics)";
 const GENIUS_USER_AGENT: &str = "Mozilla/5.0 (compatible; umbra/1.0.0)";
 const STRONG_SYNC_MIN_LINES: usize = 4;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LyricsSource {
     LrclibExact,

@@ -7,6 +7,7 @@ use worker::{Delay, Env, Headers, Method, Request, Response, ResponseBuilder, Re
 
 use crate::lyrics::{run_trusted_lyrics_cascade, LyricsConfig, LyricsInput, LyricsResolution};
 use crate::metadata::{MetadataConfig, MetadataInput, MetadataResolution};
+use crate::native_lyrics::{build_native_lyrics_result, NativeLyricsResult};
 use crate::observability::emit_json_log;
 use crate::result_cache::{
     cache_key, load_replay, replay_from_events, store_replay, KvResolutionCache,
@@ -548,7 +549,11 @@ where
                     emit_trace(&trace);
                     state.events.push(Event::new("trace", trace));
                     live_events.extend(lyrics_events(&lyrics_resolution));
-                    live_events.extend(terminal_placeholder_events(&request, &resolution));
+                    live_events.extend(native_result_events(
+                        &request,
+                        &resolution,
+                        &lyrics_resolution,
+                    ));
                     if let Some(cache) = state.cache.as_ref().cloned() {
                         if let Some(replay) =
                             replay_from_events(&request.video_id, live_events.clone())
@@ -769,10 +774,22 @@ fn lyrics_events(resolution: &LyricsResolution) -> Vec<Event> {
     events
 }
 
-fn terminal_placeholder_events(
+fn native_result_events(
     request: &ResolveRequest,
     resolution: &MetadataResolution,
+    lyrics_resolution: &LyricsResolution,
 ) -> Vec<Event> {
+    let input = LyricsInput {
+        artist: resolution.selected.artist.clone(),
+        track: resolution.selected.track.clone(),
+        duration: resolution.selected.duration.or(request.duration),
+    };
+    let native = build_native_lyrics_result(
+        &lyrics_resolution.candidates,
+        &input,
+        &request.video_id,
+        request.language.as_deref(),
+    );
     let metadata = json!({
         "kind": "canonical",
         "videoId": request.video_id,
@@ -788,25 +805,47 @@ fn terminal_placeholder_events(
         "language": request.language,
     });
 
-    vec![
-        Event::new(
-            "warning",
-            json!({
-                "code": "placeholder_resolution",
-                "message": "Lyrics provider resolution is not implemented yet"
-            }),
-        ),
-        Event::new(
-            "result",
-            json!({
-                "outcome": "not_found",
-                "resolution": "placeholder",
-                "videoId": request.video_id,
-                "metadata": metadata,
-                "lyrics": Value::Null,
-            }),
-        ),
-    ]
+    vec![Event::new(
+        "result",
+        native_result_payload(request, metadata, native),
+    )]
+}
+
+fn native_result_payload(
+    request: &ResolveRequest,
+    metadata: Value,
+    native: NativeLyricsResult,
+) -> Value {
+    let selected_lyrics = json!({
+        "id": native.id,
+        "providerId": native.provider_id,
+        "artist": native.artist_name,
+        "track": native.track_name,
+        "duration": native.duration,
+        "plainLyrics": native.plain_lyrics,
+        "syncedLyrics": native.synced_lyrics,
+        "synced": native.synced,
+        "approximateTiming": native.approximate_timing,
+        "lines": native.lines,
+        "score": native.score,
+        "confidence": native.confidence,
+        "scoringReasons": native.scoring_reasons,
+    });
+
+    json!({
+        "outcome": native.outcome,
+        "resolution": "native",
+        "videoId": request.video_id,
+        "metadata": metadata,
+        "lyrics": match native.outcome {
+            crate::native_lyrics::NativeLyricsOutcome::Found
+            | crate::native_lyrics::NativeLyricsOutcome::LowConfidence => selected_lyrics,
+            crate::native_lyrics::NativeLyricsOutcome::Instrumental
+            | crate::native_lyrics::NativeLyricsOutcome::NotFound => Value::Null,
+        },
+        "alternates": native.alternates,
+        "message": native.message,
+    })
 }
 
 fn terminal_error(request_id: &str, error: ProtocolError) -> Result<Response> {
@@ -1080,21 +1119,36 @@ mod tests {
     }
 
     #[test]
-    fn placeholder_result_is_deterministic() {
+    fn native_result_is_deterministic() {
         let request = normalize_request(valid_request()).expect("valid request");
         let resolution = supplied_metadata_resolution(&request);
-        let first = terminal_placeholder_events(&request, &resolution);
-        let second = terminal_placeholder_events(&request, &resolution);
+        let lyrics = crate::lyrics::LyricsResolution {
+            candidates: vec![crate::lyrics::LyricsCandidate {
+                source: crate::lyrics::LyricsSource::LrclibExact,
+                source_id: Some("1".into()),
+                artist: resolution.selected.artist.clone(),
+                track: resolution.selected.track.clone(),
+                duration: resolution.selected.duration,
+                plain_lyrics: "one\ntwo\nthree\nfour".into(),
+                synced_lyrics: None,
+                synced: false,
+                diagnostics: vec![crate::lyrics::LyricsDiagnostic {
+                    code: "test",
+                    message: "test".into(),
+                    retryable: false,
+                }],
+            }],
+            warnings: Vec::new(),
+        };
+        let first = native_result_events(&request, &resolution, &lyrics);
+        let second = native_result_events(&request, &resolution, &lyrics);
         assert_eq!(first.last().expect("result").name, "result");
         assert_eq!(
             first.last().expect("result").data,
             second.last().expect("result").data
         );
-        assert_eq!(
-            first.last().expect("result").data["resolution"],
-            "placeholder"
-        );
-        assert_eq!(first.last().expect("result").data["outcome"], "not_found");
+        assert_eq!(first.last().expect("result").data["resolution"], "native");
+        assert_eq!(first.last().expect("result").data["outcome"], "found");
     }
 
     #[test]
@@ -1153,7 +1207,7 @@ mod tests {
                 schema_version: crate::result_cache::CACHE_SCHEMA_VERSION,
                 pipeline_version: crate::result_cache::CACHE_PIPELINE_VERSION.to_owned(),
                 video_id: video_id.clone(),
-                outcome_class: CacheOutcomeClass::Negative,
+                outcome_class: CacheOutcomeClass::Successful,
                 events: vec![
                     Event::new(
                         "metadata",
@@ -1165,21 +1219,10 @@ mod tests {
                         }),
                     ),
                     Event::new(
-                        "phase",
-                        json!({"phase": "resolving", "message": "Canonical metadata resolved"}),
-                    ),
-                    Event::new(
-                        "warning",
-                        json!({
-                            "code": "placeholder_resolution",
-                            "message": "Lyrics provider resolution is not implemented yet"
-                        }),
-                    ),
-                    Event::new(
                         "result",
                         json!({
-                            "outcome": "not_found",
-                            "resolution": "placeholder",
+                            "outcome": "found",
+                            "resolution": "native",
                             "videoId": video_id.clone(),
                             "metadata": {
                                 "title": "Never Gonna Give You Up",
@@ -1187,7 +1230,33 @@ mod tests {
                                 "duration": 212.4,
                                 "language": "en"
                             },
-                            "lyrics": Value::Null,
+                            "lyrics": {
+                                "id": "42",
+                                "providerId": "lrclib",
+                                "artist": "Rick Astley",
+                                "track": "Never Gonna Give You Up",
+                                "duration": 212.4,
+                                "plainLyrics": "We're no strangers to love",
+                                "syncedLyrics": "[00:18.00] We're no strangers to love",
+                                "synced": true,
+                                "approximateTiming": false,
+                                "lines": [
+                                    {
+                                        "startMs": 18000,
+                                        "endMs": 22000,
+                                        "text": "We're no strangers to love",
+                                        "approximate": false,
+                                        "kind": "lyric"
+                                    }
+                                ],
+                                "score": 0,
+                                "confidence": 100,
+                                "scoringReasons": [
+                                    {"code": "synced_lrc", "points": -120}
+                                ]
+                            },
+                            "alternates": [],
+                            "message": "Found native lyrics",
                         }),
                     ),
                 ],

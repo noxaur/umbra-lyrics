@@ -95,9 +95,8 @@ describeGateway("Rust Worker gateway", () => {
       remaining += new TextDecoder().decode(chunk.value)
     }
     expect(remaining).toContain("event: metadata")
-    expect(remaining).toContain("event: warning")
     expect(remaining).toContain("event: result")
-    expect(remaining).toContain('"resolution":"placeholder"')
+    expect(remaining).toContain('"resolution":"native"')
   })
 
   it("returns invalid input as a typed terminal SSE error", async () => {
