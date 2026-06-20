@@ -59,7 +59,7 @@ pub struct LyricsCandidate {
     pub diagnostics: Vec<LyricsDiagnostic>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LyricsInput {
     pub artist: String,
     pub track: String,
@@ -521,8 +521,9 @@ async fn fetch_json<T: for<'de> Deserialize<'de>>(
 
         let controller = AbortController::default();
         let signal = controller.signal();
-        let fetch = Fetch::Request(request).send_with_signal(&signal);
-        let response = match fetch.await {
+        let fetch_request = Fetch::Request(request);
+        let fetch = fetch_request.send_with_signal(&signal);
+        let mut response = match fetch.await {
             Ok(response) => response,
             Err(error) => {
                 controller.abort();
@@ -573,8 +574,9 @@ async fn fetch_text(
 
         let controller = AbortController::default();
         let signal = controller.signal();
-        let fetch = Fetch::Request(request).send_with_signal(&signal);
-        let response = match fetch.await {
+        let fetch_request = Fetch::Request(request);
+        let fetch = fetch_request.send_with_signal(&signal);
+        let mut response = match fetch.await {
             Ok(response) => response,
             Err(error) => {
                 controller.abort();

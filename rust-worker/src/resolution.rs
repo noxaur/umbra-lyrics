@@ -732,7 +732,8 @@ mod tests {
         fn get<'a>(
             &'a self,
             key: &'a str,
-        ) -> futures::future::BoxFuture<'a, Option<CachedResolutionReplay>> {
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<CachedResolutionReplay>> + 'a>>
+        {
             Box::pin(async move {
                 self.reads.fetch_add(1, Ordering::SeqCst);
                 self.replay.lock().expect("cache").get(key).cloned()
@@ -744,7 +745,7 @@ mod tests {
             key: &'a str,
             replay: &'a CachedResolutionReplay,
             _ttl_secs: u64,
-        ) -> futures::future::BoxFuture<'a, ()> {
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
             Box::pin(async move {
                 self.writes.fetch_add(1, Ordering::SeqCst);
                 self.replay

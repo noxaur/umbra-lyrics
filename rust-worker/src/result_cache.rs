@@ -1,8 +1,12 @@
-use futures::future::BoxFuture;
+use std::future::Future;
+use std::pin::Pin;
+
 use serde::{Deserialize, Serialize};
 use worker::kv::KvStore;
 
 use crate::resolution::Event;
+
+type CacheFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
 pub const RESULT_CACHE_BINDING: &str = "RESULT_CACHE";
 pub const CACHE_SCHEMA_VERSION: u32 = 1;
@@ -31,14 +35,14 @@ pub struct CachedResolutionReplay {
 }
 
 pub trait ResolutionCacheBackend: Send + Sync {
-    fn get<'a>(&'a self, key: &'a str) -> BoxFuture<'a, Option<CachedResolutionReplay>>;
+    fn get<'a>(&'a self, key: &'a str) -> CacheFuture<'a, Option<CachedResolutionReplay>>;
 
     fn put<'a>(
         &'a self,
         key: &'a str,
         replay: &'a CachedResolutionReplay,
         ttl_secs: u64,
-    ) -> BoxFuture<'a, ()>;
+    ) -> CacheFuture<'a, ()>;
 }
 
 #[derive(Clone, Debug)]
@@ -53,7 +57,7 @@ impl KvResolutionCache {
 }
 
 impl ResolutionCacheBackend for KvResolutionCache {
-    fn get<'a>(&'a self, key: &'a str) -> BoxFuture<'a, Option<CachedResolutionReplay>> {
+    fn get<'a>(&'a self, key: &'a str) -> CacheFuture<'a, Option<CachedResolutionReplay>> {
         Box::pin(async move {
             self.store
                 .get(key)
@@ -69,7 +73,7 @@ impl ResolutionCacheBackend for KvResolutionCache {
         key: &'a str,
         replay: &'a CachedResolutionReplay,
         ttl_secs: u64,
-    ) -> BoxFuture<'a, ()> {
+    ) -> CacheFuture<'a, ()> {
         Box::pin(async move {
             if let Ok(builder) = self.store.put(key, replay) {
                 let _ = builder.expiration_ttl(ttl_secs).execute().await;
@@ -190,7 +194,7 @@ mod tests {
     }
 
     impl ResolutionCacheBackend for MockCache {
-        fn get<'a>(&'a self, key: &'a str) -> BoxFuture<'a, Option<CachedResolutionReplay>> {
+        fn get<'a>(&'a self, key: &'a str) -> CacheFuture<'a, Option<CachedResolutionReplay>> {
             Box::pin(async move {
                 self.reads.fetch_add(1, Ordering::SeqCst);
                 self.values.lock().expect("cache").get(key).cloned()
@@ -202,7 +206,7 @@ mod tests {
             key: &'a str,
             replay: &'a CachedResolutionReplay,
             _ttl_secs: u64,
-        ) -> BoxFuture<'a, ()> {
+        ) -> CacheFuture<'a, ()> {
             Box::pin(async move {
                 self.writes.fetch_add(1, Ordering::SeqCst);
                 self.values
