@@ -48,7 +48,11 @@ if (Array.isArray(config.kv_namespaces)) {
     const previewId = process.env.RESULT_CACHE_PREVIEW_ID?.trim()
     if (productionId) {
       resultCache.id = productionId
-      if (previewId) resultCache.preview_id = previewId
+      if (previewId) {
+        resultCache.preview_id = previewId
+      } else if (String(resultCache.preview_id).includes("_PLACEHOLDER")) {
+        delete resultCache.preview_id
+      }
     } else if (
       String(resultCache.id).includes("_PLACEHOLDER") ||
       String(resultCache.preview_id).includes("_PLACEHOLDER")

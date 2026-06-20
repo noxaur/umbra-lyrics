@@ -106,6 +106,31 @@ describe("prepare-wrangler-deploy.mjs", () => {
     expect(result.kv_namespaces).toBeUndefined()
   })
 
+  it("drops placeholder preview_id when only production namespace ID is set", () => {
+    const result = runPrepare(
+      {
+        name: "song-kara",
+        kv_namespaces: [
+          {
+            binding: "RESULT_CACHE",
+            id: "PRODUCTION_RESULT_CACHE_NAMESPACE_ID_PLACEHOLDER",
+            preview_id: "PRODUCTION_RESULT_CACHE_PREVIEW_ID_PLACEHOLDER",
+          },
+        ],
+      },
+      {
+        RESULT_CACHE_NAMESPACE_ID: "0123456789abcdef0123456789abcdef",
+      },
+    )
+
+    expect(result.kv_namespaces).toEqual([
+      {
+        binding: "RESULT_CACHE",
+        id: "0123456789abcdef0123456789abcdef",
+      },
+    ])
+  })
+
   it("injects configured KV namespace IDs", () => {
     const result = runPrepare(
       {
