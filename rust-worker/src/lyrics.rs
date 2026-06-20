@@ -8,12 +8,15 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 use worker::{AbortController, Delay, Fetch, Headers, Method, Request, RequestInit};
 
-const DEFAULT_TIMEOUT_MS: u64 = 8_000;
+// Match legacy `/api/lyrics/lrclib` proxy budget; LRCLIB often needs 10–20s.
+const DEFAULT_TIMEOUT_MS: u64 = 20_000;
 const MAX_SEARCH_RESULTS: usize = 3;
 const LRCLIB_BASE: &str = "https://lrclib.net/api";
 const LYRICS_OVH_BASE: &str = "https://api.lyrics.ovh/v1";
 const GENIUS_BASE: &str = "https://genius.com";
 const USER_AGENT: &str = "umbra/1.0.0 (https://github.com/noxaur/umbra-lyrics)";
+const LRCLIB_CLIENT: &str = USER_AGENT;
+const LRCLIB_HEADERS: [(&str, &str); 2] = [("User-Agent", USER_AGENT), ("Lrclib-Client", LRCLIB_CLIENT)];
 const GENIUS_USER_AGENT: &str = "Mozilla/5.0 (compatible; umbra/1.0.0)";
 const STRONG_SYNC_MIN_LINES: usize = 4;
 
@@ -618,7 +621,7 @@ async fn search_lrclib_exact(
         url,
         LyricsSource::LrclibExact,
         timeout_ms,
-        &[("User-Agent", USER_AGENT)],
+        &LRCLIB_HEADERS,
         "LRCLIB",
     )
     .await?;
@@ -641,7 +644,7 @@ async fn search_lrclib_variants(
             url,
             LyricsSource::LrclibVariant,
             timeout_ms,
-            &[("User-Agent", USER_AGENT)],
+            &LRCLIB_HEADERS,
             "LRCLIB",
         )
         .await

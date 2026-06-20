@@ -22,6 +22,7 @@ import {
   resolveLyricsWithRust,
   RUST_LYRICS_PROTOCOL_VERSION,
   type RustLyricsEvent,
+  type RustLyricsResult,
 } from "@/lib/rust-lyrics-resolver"
 import type { LyricsResult } from "@/types/lyrics"
 
@@ -56,6 +57,97 @@ export function lyricsResultToNativeLines(lyrics: LyricsResult): string[] {
 
 export function lyricsResultSampleText(lyrics: LyricsResult): string {
   return lyrics.plainLyrics?.trim() || lyrics.syncedLyrics?.trim() || ""
+}
+
+function shouldFallbackToBrowserAfterRust(result: RustLyricsResult): boolean {
+  if (result.outcome === "instrumental") return false
+  if (result.outcome === "found" && result.lyrics) return false
+  return true
+}
+
+function rustResultToPipeline(
+  result: RustLyricsResult,
+  wallT0: number,
+  onNativeReady?: (result: LyricsOrchestratorResult) => void,
+): LyricsPipelineResult {
+  const nativeStatus =
+    result.outcome === "low_confidence" ? "partial" : (result.outcome as "found" | "instrumental" | "not_found")
+  const lyrics = result.lyrics
+    ? {
+        id: result.lyrics.id ?? result.videoId,
+        providerId: (result.lyrics.providerId ?? "lrclib") as LyricsResult["providerId"],
+        plainLyrics: result.lyrics.plainLyrics,
+        syncedLyrics: result.lyrics.syncedLyrics,
+      }
+    : undefined
+  const native: LyricsOrchestratorResult = {
+    status: nativeStatus,
+    strategy: `rust-sse-v${RUST_LYRICS_PROTOCOL_VERSION}`,
+    attempts: [],
+    providersTried: [],
+    message: result.message,
+    lyrics,
+    alternates: result.alternates.map((alternate) => ({
+      providerId: alternate.providerId as LyricsResult["providerId"],
+      id: alternate.id,
+      trackName: alternate.trackName,
+      artistName: alternate.artistName,
+      synced: alternate.synced,
+      lineCount: alternate.lineCount,
+      rankScore: alternate.rankScore,
+      lyricsResult: {
+        id: alternate.lyricsResult.id,
+        providerId: alternate.lyricsResult.providerId as LyricsResult["providerId"],
+        plainLyrics: alternate.lyricsResult.plainLyrics,
+        syncedLyrics: alternate.lyricsResult.syncedLyrics,
+      },
+    })),
+    providerId: lyrics?.providerId,
+    matchId: lyrics?.id,
+    synced: Boolean(lyrics?.syncedLyrics?.trim()),
+    instrumental: result.outcome === "instrumental",
+  }
+  const english =
+    result.english?.status === "ready"
+      ? {
+          lines: result.english.lines ?? [],
+          source: result.english.source ?? (result.english.providerId ? "found" : "translated"),
+          translationBackend: result.english.translationBackend ?? undefined,
+          status: "ready" as const,
+        }
+      : result.english?.status === "skipped"
+        ? {
+            lines: [],
+            source: "found" as const,
+            status: "skipped" as const,
+          }
+        : {
+            lines: [],
+            source: "translated" as const,
+            status: "failed" as const,
+          }
+  const romaji =
+    result.romaji?.status === "ready"
+      ? {
+          lines: result.romaji.lines ?? [],
+          status: "ready" as const,
+        }
+      : {
+          lines: [],
+          status: "skipped" as const,
+        }
+  onNativeReady?.(native)
+  return {
+    native,
+    romaji,
+    english,
+    timings: {
+      nativeMs: Math.round(performance.now() - wallT0),
+      romajiMs: 0,
+      englishMs: 0,
+      parallelMs: Math.round(performance.now() - wallT0),
+    },
+  }
 }
 
 /**
@@ -98,83 +190,11 @@ export async function runLyricsPipeline(
           },
         },
       )
-      const nativeStatus =
-        result.outcome === "low_confidence" ? "partial" : (result.outcome as "found" | "instrumental" | "not_found")
-      const lyrics = result.lyrics
-        ? {
-            id: result.lyrics.id ?? result.videoId,
-            providerId: (result.lyrics.providerId ?? "lrclib") as LyricsResult["providerId"],
-            plainLyrics: result.lyrics.plainLyrics,
-            syncedLyrics: result.lyrics.syncedLyrics,
-          }
-        : undefined
-      const native: LyricsOrchestratorResult = {
-        status: nativeStatus,
-        strategy: `rust-sse-v${RUST_LYRICS_PROTOCOL_VERSION}`,
-        attempts: [],
-        providersTried: [],
-        message: result.message,
-        lyrics,
-        alternates: result.alternates.map((alternate) => ({
-          providerId: alternate.providerId as LyricsResult["providerId"],
-          id: alternate.id,
-          trackName: alternate.trackName,
-          artistName: alternate.artistName,
-          synced: alternate.synced,
-          lineCount: alternate.lineCount,
-          rankScore: alternate.rankScore,
-          lyricsResult: {
-            id: alternate.lyricsResult.id,
-            providerId: alternate.lyricsResult.providerId as LyricsResult["providerId"],
-            plainLyrics: alternate.lyricsResult.plainLyrics,
-            syncedLyrics: alternate.lyricsResult.syncedLyrics,
-          },
-        })),
-        providerId: lyrics?.providerId,
-        matchId: lyrics?.id,
-        synced: Boolean(lyrics?.syncedLyrics?.trim()),
-        instrumental: result.outcome === "instrumental",
-      }
-      const english =
-        result.english?.status === "ready"
-          ? {
-              lines: result.english.lines ?? [],
-              source: result.english.source ?? (result.english.providerId ? "found" : "translated"),
-              translationBackend: result.english.translationBackend ?? undefined,
-              status: "ready" as const,
-            }
-          : result.english?.status === "skipped"
-            ? {
-                lines: [],
-                source: "found" as const,
-                status: "skipped" as const,
-              }
-            : {
-                lines: [],
-                source: "translated" as const,
-                status: "failed" as const,
-              }
-      const romaji =
-        result.romaji?.status === "ready"
-          ? {
-              lines: result.romaji.lines ?? [],
-              status: "ready" as const,
-            }
-          : {
-              lines: [],
-              status: "skipped" as const,
-            }
-      params.onNativeReady?.(native)
-      return {
-        native,
-        romaji,
-        english,
-        timings: {
-          nativeMs: Math.round(performance.now() - wallT0),
-          romajiMs: 0,
-          englishMs: 0,
-          parallelMs: Math.round(performance.now() - wallT0),
-        },
+      if (
+        !params.fallbackToBrowserOnRustFailure ||
+        !shouldFallbackToBrowserAfterRust(result)
+      ) {
+        return rustResultToPipeline(result, wallT0, params.onNativeReady)
       }
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") throw error
