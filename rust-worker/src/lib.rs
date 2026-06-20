@@ -6,6 +6,7 @@ use worker::{console_error, event, Context, Env, Headers, Request, RequestInit, 
 
 mod lyrics;
 mod metadata;
+mod observability;
 mod resolution;
 mod result_cache;
 
@@ -88,6 +89,15 @@ pub async fn fetch(request: Request, env: Env, _ctx: Context) -> Result<Response
             decorate_response(response, &request_id, "rust", false)
         }
         RouteDecision::Legacy => {
+            observability::emit_json_log(
+                "gateway_route",
+                &serde_json::json!({
+                    "requestId": request_id,
+                    "route": "legacy_adapter",
+                    "path": uri.path(),
+                    "legacyAdapterUsed": true,
+                }),
+            );
             let forwarded_request = forwarded_request(&request, &request_id)?;
             match env.service(LEGACY_BINDING) {
                 Ok(legacy) => match legacy.fetch_request(forwarded_request).await {
