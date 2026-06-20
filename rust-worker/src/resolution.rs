@@ -554,10 +554,18 @@ where
                     emit_trace(&trace);
                     state.events.push(Event::new("trace", trace));
                     live_events.extend(lyrics_events(&lyrics_resolution));
-                    live_events.extend(
-                        native_result_events(&request, &resolution, &lyrics_resolution, Some(&env))
-                            .await,
-                    );
+                    let (result_events, transcription_calls, legacy_adapter_used) =
+                        native_result_events(
+                            &state.request_id,
+                            &request,
+                            &resolution,
+                            &lyrics_resolution,
+                            Some(&env),
+                        )
+                        .await;
+                    state.transcription_calls = transcription_calls;
+                    state.legacy_adapter_used = legacy_adapter_used;
+                    live_events.extend(result_events);
                     if let Some(cache) = state.cache.as_ref().cloned() {
                         if let Some(replay) =
                             replay_from_events(&request.video_id, live_events.clone())
@@ -779,11 +787,12 @@ fn lyrics_events(resolution: &LyricsResolution) -> Vec<Event> {
 }
 
 async fn native_result_events(
+    request_id: &str,
     request: &ResolveRequest,
     resolution: &MetadataResolution,
     lyrics_resolution: &LyricsResolution,
     env: Option<&Env>,
-) -> Vec<Event> {
+) -> (Vec<Event>, u32, bool) {
     let input = LyricsInput {
         artist: resolution.selected.artist.clone(),
         track: resolution.selected.track.clone(),
@@ -816,9 +825,9 @@ async fn native_result_events(
     )
     .await;
     let transcription: TranscriptionResult =
-        resolve_transcription(&state.request_id, request, &native, env).await;
-    state.transcription_calls = transcription.side_channel.metrics.whisper_calls;
-    state.legacy_adapter_used = transcription.side_channel.used_legacy_audio_adapter;
+        resolve_transcription(request_id, request, &native, env).await;
+    let transcription_calls = transcription.side_channel.metrics.whisper_calls;
+    let legacy_adapter_used = transcription.side_channel.used_legacy_audio_adapter;
     let metadata = json!({
         "kind": "canonical",
         "videoId": request.video_id,
@@ -834,10 +843,14 @@ async fn native_result_events(
         "language": request.language,
     });
 
-    vec![Event::new(
-        "result",
-        native_result_payload(request, metadata, native, side_channels, transcription),
-    )]
+    (
+        vec![Event::new(
+            "result",
+            native_result_payload(request, metadata, native, side_channels, transcription),
+        )],
+        transcription_calls,
+        legacy_adapter_used,
+    )
 }
 
 fn native_result_payload(
@@ -1190,19 +1203,29 @@ mod tests {
             }],
             warnings: Vec::new(),
         };
-        let first =
-            futures::executor::block_on(native_result_events(&request, &resolution, &lyrics, None));
-        let second =
-            futures::executor::block_on(native_result_events(&request, &resolution, &lyrics, None));
-        assert_eq!(first.last().expect("result").name, "result");
+        let first = futures::executor::block_on(native_result_events(
+            "test-request-id",
+            &request,
+            &resolution,
+            &lyrics,
+            None,
+        ));
+        let second = futures::executor::block_on(native_result_events(
+            "test-request-id",
+            &request,
+            &resolution,
+            &lyrics,
+            None,
+        ));
+        assert_eq!(first.0.last().expect("result").name, "result");
         assert_eq!(
-            first.last().expect("result").data,
-            second.last().expect("result").data
+            first.0.last().expect("result").data,
+            second.0.last().expect("result").data
         );
-        assert_eq!(first.last().expect("result").data["resolution"], "native");
-        assert_eq!(first.last().expect("result").data["outcome"], "found");
-        assert!(first.last().expect("result").data["english"].is_object());
-        assert!(first.last().expect("result").data["romaji"].is_object());
+        assert_eq!(first.0.last().expect("result").data["resolution"], "native");
+        assert_eq!(first.0.last().expect("result").data["outcome"], "found");
+        assert!(first.0.last().expect("result").data["english"].is_object());
+        assert!(first.0.last().expect("result").data["romaji"].is_object());
     }
 
     #[test]

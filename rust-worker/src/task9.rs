@@ -622,6 +622,7 @@ async fn transcribe_chunked_stream(
     if plans.is_empty() {
         return Ok((String::new(), Vec::new(), true, 0, 0));
     }
+    let planned_chunks = plans.len();
 
     let mut text_parts = Vec::new();
     let mut segment_groups = Vec::new();
@@ -673,7 +674,7 @@ async fn transcribe_chunked_stream(
         segments,
         partial,
         whisper_calls,
-        plans.len() as u32,
+        planned_chunks as u32,
     ))
 }
 
