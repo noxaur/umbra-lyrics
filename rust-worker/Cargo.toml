@@ -8,6 +8,7 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+futures = "0.3"
 futures-util = "0.3"
 http = "1"
 js-sys = "0.3"

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use worker::{Delay, Env, Headers, Method, Request, Response, ResponseBuilder, Result};
 
+use crate::lyrics::{run_trusted_lyrics_cascade, LyricsConfig, LyricsInput, LyricsResolution};
 use crate::metadata::{MetadataConfig, MetadataInput, MetadataResolution};
 
 pub const PROTOCOL_VERSION: &str = "1";
@@ -311,6 +312,17 @@ where
                 let config = MetadataConfig::from_env(&env);
                 let resolution = crate::metadata::resolve_metadata(&input, &config).await;
                 state.events.extend(metadata_events(&request, &resolution));
+                let lyrics_input = LyricsInput {
+                    artist: resolution.selected.artist.clone(),
+                    track: resolution.selected.track.clone(),
+                    duration: resolution.selected.duration.or(request.duration),
+                };
+                let lyrics_resolution =
+                    run_trusted_lyrics_cascade(&lyrics_input, &LyricsConfig::default()).await;
+                state.events.extend(lyrics_events(&lyrics_resolution));
+                state
+                    .events
+                    .extend(terminal_placeholder_events(&request, &resolution));
                 state.resolved = true;
             }
             if state.index >= state.events.len() {
@@ -465,11 +477,73 @@ fn metadata_events(request: &ResolveRequest, resolution: &MetadataResolution) ->
         "language": request.language,
     });
     events.extend([
-        Event::new("metadata", metadata.clone()),
+        Event::new("metadata", metadata),
         Event::new(
             "phase",
             json!({"phase": "resolving", "message": "Canonical metadata resolved"}),
         ),
+    ]);
+    events
+}
+
+fn lyrics_events(resolution: &LyricsResolution) -> Vec<Event> {
+    let mut events = resolution
+        .candidates
+        .iter()
+        .map(|candidate| {
+            Event::new(
+                "candidate",
+                json!({
+                    "kind": "lyrics",
+                    "source": candidate.source,
+                    "sourceId": candidate.source_id,
+                    "artist": candidate.artist,
+                    "track": candidate.track,
+                    "duration": candidate.duration,
+                    "plainLyrics": candidate.plain_lyrics,
+                    "syncedLyrics": candidate.synced_lyrics,
+                    "synced": candidate.synced,
+                    "diagnostics": candidate.diagnostics,
+                }),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    events.extend(resolution.warnings.iter().map(|warning| {
+        Event::new(
+            "warning",
+            json!({
+                "code": warning.diagnostic.code,
+                "source": warning.source,
+                "message": warning.diagnostic.message,
+                "retryable": warning.diagnostic.retryable,
+            }),
+        )
+    }));
+
+    events
+}
+
+fn terminal_placeholder_events(
+    request: &ResolveRequest,
+    resolution: &MetadataResolution,
+) -> Vec<Event> {
+    let metadata = json!({
+        "kind": "canonical",
+        "videoId": request.video_id,
+        "title": resolution.selected.track,
+        "author": resolution.selected.artist,
+        "duration": resolution.selected.duration.or(request.duration),
+        "source": resolution.selected.source,
+        "score": resolution.selected.score,
+        "scoringReasons": resolution.selected.scoring_reasons,
+        "stableIds": resolution.selected.stable_ids,
+        "canonical": resolution.selected,
+        "alternates": resolution.candidates.iter().skip(1).collect::<Vec<_>>(),
+        "language": request.language,
+    });
+
+    vec![
         Event::new(
             "warning",
             json!({
@@ -487,8 +561,7 @@ fn metadata_events(request: &ResolveRequest, resolution: &MetadataResolution) ->
                 "lyrics": Value::Null,
             }),
         ),
-    ]);
-    events
+    ]
 }
 
 fn terminal_error(request_id: &str, error: ProtocolError) -> Result<Response> {
@@ -696,8 +769,8 @@ mod tests {
     fn placeholder_result_is_deterministic() {
         let request = normalize_request(valid_request()).expect("valid request");
         let resolution = supplied_metadata_resolution(&request);
-        let first = metadata_events(&request, &resolution);
-        let second = metadata_events(&request, &resolution);
+        let first = terminal_placeholder_events(&request, &resolution);
+        let second = terminal_placeholder_events(&request, &resolution);
         assert_eq!(first.last().expect("result").name, "result");
         assert_eq!(
             first.last().expect("result").data,
@@ -750,5 +823,47 @@ mod tests {
             .expect("metadata");
         assert!(candidate_index < source_warning_index);
         assert!(source_warning_index < metadata_index);
+    }
+
+    #[test]
+    fn lyrics_events_expose_shared_candidate_model() {
+        let events = lyrics_events(&crate::lyrics::LyricsResolution {
+            candidates: vec![crate::lyrics::LyricsCandidate {
+                source: crate::lyrics::LyricsSource::Genius,
+                source_id: Some("7".into()),
+                artist: "Queen".into(),
+                track: "Don't Stop Me Now".into(),
+                duration: Some(210.0),
+                plain_lyrics: "Tonight I'm gonna have myself a real good time".into(),
+                synced_lyrics: None,
+                synced: false,
+                diagnostics: vec![crate::lyrics::LyricsDiagnostic {
+                    code: "genius",
+                    message: "Genius page lyrics".into(),
+                    retryable: false,
+                }],
+            }],
+            warnings: vec![crate::lyrics::LyricsSourceFailure::transport(
+                crate::lyrics::LyricsSource::LyricsOvh,
+                "lyrics.ovh unavailable",
+            )],
+        });
+
+        let candidate = events
+            .iter()
+            .find(|event| event.name == "candidate")
+            .expect("lyrics candidate");
+        assert_eq!(candidate.data["kind"], "lyrics");
+        assert_eq!(candidate.data["source"], "genius");
+        assert_eq!(candidate.data["artist"], "Queen");
+        assert_eq!(candidate.data["track"], "Don't Stop Me Now");
+        assert_eq!(candidate.data["synced"], false);
+        assert!(candidate.data["diagnostics"].is_array());
+        let warning = events
+            .iter()
+            .find(|event| event.name == "warning" && event.data.get("source").is_some())
+            .expect("lyrics warning");
+        assert_eq!(warning.data["source"], "lyrics_ovh");
+        assert_eq!(warning.data["code"], "source_unavailable");
     }
 }
