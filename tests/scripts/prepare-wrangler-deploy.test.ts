@@ -80,14 +80,14 @@ describe("prepare-wrangler-deploy.mjs", () => {
     const result = runPrepare(
       {
         name: "song-kara",
-        main: "rust-worker/build/worker/shim.mjs",
+        main: "modules/backend/rust-gateway/build/worker/shim.mjs",
         assets: { directory: "dist/client" },
       },
       {},
       "dist/rust-worker",
     )
 
-    expect(result.main).toBe("../../rust-worker/build/worker/shim.mjs")
+    expect(result.main).toBe("../../modules/backend/rust-gateway/build/worker/shim.mjs")
     expect(result.assets?.directory).toBe("../client")
   })
 

@@ -1,4 +1,4 @@
-import legacyWorker from "../../worker"
+import legacyWorker from "../../modules/backend/legacy-worker/src"
 
 export interface ContractTarget {
   name: string

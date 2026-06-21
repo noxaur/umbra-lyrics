@@ -1,7 +1,7 @@
 {
   "$schema": "../../../node_modules/wrangler/config-schema.json",
   "name": "song-kara",
-  "main": "../../../rust-worker/build/worker/shim.mjs",
+  "main": "../../../modules/backend/rust-gateway/build/worker/shim.mjs",
   "compatibility_date": "2026-06-19",
   "compatibility_flags": ["nodejs_compat"],
   "services": [

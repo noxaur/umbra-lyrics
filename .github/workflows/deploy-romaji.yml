@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths:
-      - services/romaji/**
+      - modules/backend/romaji/**
       - .github/workflows/deploy-romaji.yml
 
 jobs:
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: services/romaji
+        working-directory: modules/backend/romaji
     steps:
       - uses: actions/checkout@v4
 

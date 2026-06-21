@@ -32,6 +32,16 @@ npm run dev
 
 Open http://127.0.0.1:5173
 
+Source lives under `modules/`:
+
+- `modules/frontend` — React/Vite SPA
+- `modules/backend/rust-gateway` — public Rust/Wasm Worker
+- `modules/backend/legacy-worker` — TypeScript Worker adapter
+- `modules/backend/romaji` — optional Python romaji adapter
+- `modules/shared/youtube` — pure TypeScript shared by frontend and legacy Worker
+
+Root scripts and Cloudflare configs orchestrate these modules.
+
 The default dev server runs the legacy TypeScript API worker. The Rust SSE
 resolver is now the frontend default when the SPA can reach a Rust gateway, and
 the browser orchestrator stays available as an explicit fallback. To exercise it

@@ -7,7 +7,7 @@
     "ignoreDeprecations": "6.0",
     "types": ["vite/client"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./modules/frontend/src/*"]
     },
     "skipLibCheck": true,
 
@@ -25,5 +25,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["modules/frontend/src", "modules/shared"]
 }

@@ -7,7 +7,7 @@
     "dev": "vp dev",
     "build": "npm run build:web && npm run build:rust",
     "build:web": "tsc -b && vp build",
-    "build:rust": "worker-build --release rust-worker",
+    "build:rust": "worker-build --release modules/backend/rust-gateway",
     "lint": "vp lint .",
     "preview": "vp preview",
     "test": "vp test",

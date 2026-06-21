@@ -2,7 +2,7 @@
  * Live orchestrator smoke test against production API proxy.
  * Run: node scripts/test-orchestrator-live.mjs
  */
-import { orchestrateLyricsSearch } from "../src/lib/lyrics-orchestrator.ts"
+import { orchestrateLyricsSearch } from "../modules/frontend/src/lib/lyrics-orchestrator.ts"
 
 const TRACKS = [
   {

@@ -7,5 +7,5 @@ dist/
 .env.*
 *.local
 .DS_Store
-rust-worker/build/
-rust-worker/target/
+modules/backend/rust-gateway/build/
+modules/backend/rust-gateway/target/

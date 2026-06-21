@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
-import { handleApiRequest } from "../../worker/router"
-import routerSource from "../../worker/router.ts?raw"
+import { handleApiRequest } from "../../modules/backend/legacy-worker/src/router"
+import routerSource from "../../modules/backend/legacy-worker/src/router.ts?raw"
 import routes from "../fixtures/contracts/api-routes.json"
 import validationErrors from "../fixtures/contracts/api-responses/validation-errors.json"
 import {
