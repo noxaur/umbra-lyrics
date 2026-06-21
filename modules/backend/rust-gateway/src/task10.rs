@@ -57,6 +57,7 @@ pub struct AudioResolutionReport {
     pub range_capable: bool,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioFixtureOutcome {
@@ -65,6 +66,7 @@ pub struct AudioFixtureOutcome {
     pub legacy_success: bool,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioFixtureRateSummary {
@@ -148,11 +150,13 @@ pub fn is_allowed_audio_url(raw_url: &str) -> bool {
         })
 }
 
-pub(crate) fn native_client_chain() -> &'static [NativeClientProfile] {
+#[cfg(test)]
+fn native_client_chain() -> &'static [NativeClientProfile] {
     NATIVE_CLIENT_CHAIN
 }
 
-pub fn summarize_fixture_rates(fixtures: &[AudioFixtureOutcome]) -> AudioFixtureRateSummary {
+#[cfg(test)]
+fn summarize_fixture_rates(fixtures: &[AudioFixtureOutcome]) -> AudioFixtureRateSummary {
     let fixture_count = fixtures.len();
     let native_success_count = fixtures
         .iter()
@@ -408,7 +412,7 @@ fn select_audio_stream(
         })
         .collect::<Vec<_>>();
 
-    candidates.sort_by(|left, right| right.0.cmp(&left.0));
+    candidates.sort_by_key(|candidate| std::cmp::Reverse(candidate.0));
     candidates
         .into_iter()
         .next()
@@ -454,12 +458,12 @@ fn resolve_format_url(format: &StreamFormat) -> Option<String> {
     {
         if let Some(sig) = params.get("sig").or_else(|| params.get("signature")) {
             parsed.query_pairs_mut().append_pair(sp, sig);
-        } else if params.get("s").is_some() {
+        } else if params.contains_key("s") {
             return None;
         }
     } else if let Some(sig) = params.get("sig").or_else(|| params.get("signature")) {
         parsed.query_pairs_mut().append_pair("sig", sig);
-    } else if params.get("s").is_some() {
+    } else if params.contains_key("s") {
         return None;
     }
     Some(parsed.into())
@@ -625,7 +629,7 @@ async fn fetch_player_json(
         "racyCheckOk": true
     });
 
-    let mut headers = Headers::new();
+    let headers = Headers::new();
     headers
         .set("Accept", "application/json")
         .map_err(|error| format!("player header failed: {error}"))?;

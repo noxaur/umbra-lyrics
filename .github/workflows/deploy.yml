@@ -28,6 +28,12 @@ jobs:
 
       - run: npm ci
 
+      - name: Check Rust gateway
+        run: |
+          cargo fmt --manifest-path modules/backend/rust-gateway/Cargo.toml -- --check
+          cargo clippy --manifest-path modules/backend/rust-gateway/Cargo.toml --all-targets -- -D warnings
+          cargo test --manifest-path modules/backend/rust-gateway/Cargo.toml
+
       - name: Build web app and Rust gateway
         run: npm run build
 

@@ -16,7 +16,8 @@ const LYRICS_OVH_BASE: &str = "https://api.lyrics.ovh/v1";
 const GENIUS_BASE: &str = "https://genius.com";
 const USER_AGENT: &str = "umbra/1.0.0 (https://github.com/noxaur/umbra-lyrics)";
 const LRCLIB_CLIENT: &str = USER_AGENT;
-const LRCLIB_HEADERS: [(&str, &str); 2] = [("User-Agent", USER_AGENT), ("Lrclib-Client", LRCLIB_CLIENT)];
+const LRCLIB_HEADERS: [(&str, &str); 2] =
+    [("User-Agent", USER_AGENT), ("Lrclib-Client", LRCLIB_CLIENT)];
 const GENIUS_USER_AGENT: &str = "Mozilla/5.0 (compatible; umbra/1.0.0)";
 const STRONG_SYNC_MIN_LINES: usize = 4;
 
@@ -90,6 +91,7 @@ impl Default for LyricsConfig {
 }
 
 impl LyricsConfig {
+    #[allow(dead_code)]
     pub fn with_timeout_ms(timeout_ms: u64) -> Self {
         Self { timeout_ms }
     }
@@ -345,6 +347,7 @@ fn strip_lrc_timestamps(text: &str) -> String {
         .join("\n")
 }
 
+#[allow(clippy::too_many_arguments)]
 fn lyrics_candidate(
     source: LyricsSource,
     source_id: Option<String>,
@@ -892,7 +895,7 @@ fn strip_html_tags(value: &str) -> String {
         match character {
             '<' => {
                 let mut tag = String::new();
-                while let Some(next) = chars.next() {
+                for next in chars.by_ref() {
                     if next == '>' {
                         break;
                     }

@@ -3,7 +3,7 @@ use std::{cell::Cell, future::Future, rc::Rc, sync::Arc, time::Duration};
 use futures_util::{stream, Stream};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use worker::{Delay, Env, Headers, Method, Request, Response, ResponseBuilder, Result};
+use worker::{Context, Delay, Env, Headers, Method, Request, Response, ResponseBuilder, Result};
 
 use crate::lyrics::{run_trusted_lyrics_cascade, LyricsConfig, LyricsInput, LyricsResolution};
 use crate::metadata::{MetadataConfig, MetadataInput, MetadataResolution};
@@ -25,6 +25,20 @@ const MAX_TEXT_LENGTH: usize = 512;
 const MAX_LANGUAGE_LENGTH: usize = 64;
 const MAX_DURATION_SECONDS: f64 = 86_400.0;
 
+#[cfg(target_arch = "wasm32")]
+fn now_ms() -> f64 {
+    js_sys::Date::now()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn now_ms() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64()
+        * 1000.0
+}
+
 fn source_label_metadata(source: crate::metadata::MetadataSource) -> &'static str {
     match source {
         crate::metadata::MetadataSource::Supplied => "supplied",
@@ -43,6 +57,7 @@ fn source_label_lyrics(source: crate::lyrics::LyricsSource) -> &'static str {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn trace_payload(
     request_id: &str,
     stage: &'static str,
@@ -73,7 +88,7 @@ fn trace_payload(
         })
     });
 
-    let elapsed_ms = (js_sys::Date::now() - started_at_ms).max(0.0).round() as u64;
+    let elapsed_ms = (now_ms() - started_at_ms).max(0.0).round() as u64;
     json!({
         "kind": "resolution_trace",
         "stage": stage,
@@ -188,6 +203,7 @@ struct MetadataResolutionStreamState {
     started_at_ms: f64,
     request: Option<ResolveRequest>,
     env: Option<Env>,
+    context: Option<Context>,
     cache: Option<Arc<dyn ResolutionCacheBackend>>,
     cache_key: String,
     cache_checked: bool,
@@ -220,7 +236,12 @@ impl Drop for MetadataResolutionStreamState {
     }
 }
 
-pub async fn resolve(mut request: Request, request_id: &str, env: Env) -> Result<Response> {
+pub async fn resolve(
+    mut request: Request,
+    request_id: &str,
+    env: Env,
+    context: Context,
+) -> Result<Response> {
     if request.method() != Method::Post {
         return terminal_error(
             request_id,
@@ -337,7 +358,7 @@ pub async fn resolve(mut request: Request, request_id: &str, env: Env) -> Result
         .kv(RESULT_CACHE_BINDING)
         .ok()
         .map(|store| Arc::new(KvResolutionCache::new(store)) as Arc<dyn ResolutionCacheBackend>);
-    let started_at_ms = js_sys::Date::now();
+    let started_at_ms = now_ms();
     let accepted_trace = trace_payload(
         request_id,
         "accepted",
@@ -367,6 +388,7 @@ pub async fn resolve(mut request: Request, request_id: &str, env: Env) -> Result
         started_at_ms,
         request: Some(normalized),
         env: Some(env),
+        context: Some(context),
         cache,
         cache_key: cache_key_value,
         cache_checked: false,
@@ -449,14 +471,13 @@ where
                             .as_ref()
                             .map(|request| request.video_id.clone());
                         if let (Some(cache), Some(video_id)) = (cache, video_id) {
-                            let cache_started = js_sys::Date::now();
+                            let cache_started = now_ms();
                             if let Some(replay) =
                                 load_replay(cache.as_ref(), &state.cache_key, &video_id).await
                             {
                                 state.cache_status = Some("hit");
                                 state.cache_lookup_ms =
-                                    Some((js_sys::Date::now() - cache_started).max(0.0).round()
-                                        as u64);
+                                    Some((now_ms() - cache_started).max(0.0).round() as u64);
                                 let trace = trace_payload(
                                     &state.request_id,
                                     "cache",
@@ -479,8 +500,7 @@ where
                             } else {
                                 state.cache_status = Some("miss");
                                 state.cache_lookup_ms =
-                                    Some((js_sys::Date::now() - cache_started).max(0.0).round()
-                                        as u64);
+                                    Some((now_ms() - cache_started).max(0.0).round() as u64);
                                 let trace = trace_payload(
                                     &state.request_id,
                                     "cache",
@@ -518,23 +538,21 @@ where
                         duration: request.duration,
                     };
                     let config = MetadataConfig::from_env(&env);
-                    let metadata_started = js_sys::Date::now();
+                    let metadata_started = now_ms();
                     let resolution = crate::metadata::resolve_metadata(&input, &config).await;
                     state.metadata_resolution = Some(resolution.clone());
-                    state.metadata_ms =
-                        Some((js_sys::Date::now() - metadata_started).max(0.0).round() as u64);
+                    state.metadata_ms = Some((now_ms() - metadata_started).max(0.0).round() as u64);
                     let mut live_events = metadata_events(&request, &resolution);
                     let lyrics_input = LyricsInput {
                         artist: resolution.selected.artist.clone(),
                         track: resolution.selected.track.clone(),
                         duration: resolution.selected.duration.or(request.duration),
                     };
-                    let lyrics_started = js_sys::Date::now();
+                    let lyrics_started = now_ms();
                     let lyrics_resolution =
                         run_trusted_lyrics_cascade(&lyrics_input, &LyricsConfig::default()).await;
                     state.lyrics_resolution = Some(lyrics_resolution.clone());
-                    state.lyrics_ms =
-                        Some((js_sys::Date::now() - lyrics_started).max(0.0).round() as u64);
+                    state.lyrics_ms = Some((now_ms() - lyrics_started).max(0.0).round() as u64);
                     state.transcription_calls = 0;
                     let trace = trace_payload(
                         &state.request_id,
@@ -565,21 +583,18 @@ where
                     state.transcription_calls = native_events.transcription_calls;
                     state.legacy_adapter_used = native_events.legacy_adapter_used;
                     live_events.extend(native_events.events);
-                    if let Some(cache) = state.cache.as_ref().cloned() {
+                    if let (Some(cache), Some(context)) =
+                        (state.cache.as_ref().cloned(), state.context.take())
+                    {
                         if let Some(replay) =
                             replay_from_events(&request.video_id, live_events.clone())
                         {
-                            let cache_store_started = js_sys::Date::now();
-                            let _ = store_replay(
-                                cache.as_ref(),
-                                &state.cache_key,
-                                &replay,
-                                state.force_refresh,
-                            )
-                            .await;
-                            state.cache_write_ms =
-                                Some((js_sys::Date::now() - cache_store_started).max(0.0).round()
-                                    as u64);
+                            let key = state.cache_key.clone();
+                            let force_refresh = state.force_refresh;
+                            context.wait_until(async move {
+                                let _ = store_replay(cache.as_ref(), &key, &replay, force_refresh)
+                                    .await;
+                            });
                         }
                     }
                     state.events.extend(live_events);
@@ -917,7 +932,7 @@ fn native_result_payload(
 }
 
 fn terminal_error(request_id: &str, error: ProtocolError) -> Result<Response> {
-    let started_at_ms = js_sys::Date::now();
+    let started_at_ms = now_ms();
     let trace = trace_payload(
         request_id,
         "terminal_error",
@@ -961,11 +976,17 @@ fn encode_event(event: &Event, request_id: &str, timestamp: &str) -> Result<Stri
     ))
 }
 
+#[cfg(target_arch = "wasm32")]
 fn timestamp() -> String {
     js_sys::Date::new_0()
         .to_iso_string()
         .as_string()
         .unwrap_or_else(|| "1970-01-01T00:00:00.000Z".into())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn timestamp() -> String {
+    "1970-01-01T00:00:00.000Z".into()
 }
 
 fn sse_response(response: Response, request_id: &str) -> Result<Response> {
@@ -1386,6 +1407,15 @@ mod tests {
                         }),
                     ),
                     Event::new(
+                        "warning",
+                        json!({
+                            "code": "source_timeout",
+                            "source": "lyrics_ovh",
+                            "message": "lyrics.ovh unavailable",
+                            "retryable": true
+                        }),
+                    ),
+                    Event::new(
                         "result",
                         json!({
                             "outcome": "found",
@@ -1440,6 +1470,7 @@ mod tests {
             started_at_ms: 0.0,
             request: Some(request),
             env: None,
+            context: None,
             cache: Some(cache.clone()),
             cache_key,
             cache_checked: false,
@@ -1557,7 +1588,7 @@ mod tests {
         let trace = trace_payload(
             "request-123",
             "resolution",
-            js_sys::Date::now(),
+            now_ms(),
             Some("miss"),
             Some(12),
             Some(4),

@@ -29,6 +29,10 @@ const CHUNK_BYTE_SIZE: usize = 2 * 1024 * 1024;
 const MAX_TRANSCRIBE_CHUNKS: usize = 5;
 const SAMPLE_ACCEPT_THRESHOLD: f64 = 0.38;
 
+fn accepts_range_response(status: u16) -> bool {
+    status == 206
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TranscriptionStatus {
@@ -77,6 +81,7 @@ pub struct TranscriptionResult {
     pub lyrics: Option<NativeLyricsResult>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct WhisperWord {
     word: Option<String>,
@@ -84,6 +89,7 @@ struct WhisperWord {
     end: Option<f64>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 struct WhisperSegment {
     start: Option<f64>,
@@ -429,7 +435,7 @@ async fn probe_audio_size(
     video_id: &str,
 ) -> Result<Option<usize>, worker::Error> {
     let request = legacy_audio_request(video_id, Some((0, 0)))?;
-    let mut response = legacy.fetch_request(request).await?;
+    let response = legacy.fetch_request(request).await?;
     if response.status_code() == 206 {
         if let Some(range) = response.headers().get("Content-Range")? {
             if let Some(total) = range
@@ -454,7 +460,7 @@ async fn probe_audio_size(
 }
 
 async fn probe_audio_size_from_url(stream_url: &str) -> Result<Option<usize>, worker::Error> {
-    let mut head_headers = Headers::new();
+    let head_headers = Headers::new();
     head_headers.set("Accept", "*/*")?;
     head_headers.set(
         "User-Agent",
@@ -472,7 +478,7 @@ async fn probe_audio_size_from_url(stream_url: &str) -> Result<Option<usize>, wo
     let fetch = fetch_request.send_with_signal(&signal);
     let timeout = Delay::from(Duration::from_millis(30_000));
     pin_mut!(fetch, timeout);
-    let mut head_response = match select(fetch, timeout).await {
+    let head_response = match select(fetch, timeout).await {
         Either::Left((result, _)) => result?,
         Either::Right(((), _)) => {
             controller.abort();
@@ -489,7 +495,7 @@ async fn probe_audio_size_from_url(stream_url: &str) -> Result<Option<usize>, wo
         }
     }
 
-    let mut ranged_headers = Headers::new();
+    let ranged_headers = Headers::new();
     ranged_headers.set("Accept", "*/*")?;
     ranged_headers.set(
         "User-Agent",
@@ -507,7 +513,7 @@ async fn probe_audio_size_from_url(stream_url: &str) -> Result<Option<usize>, wo
     let fetch = fetch_request.send_with_signal(&signal);
     let timeout = Delay::from(Duration::from_millis(30_000));
     pin_mut!(fetch, timeout);
-    let mut range_response = match select(fetch, timeout).await {
+    let range_response = match select(fetch, timeout).await {
         Either::Left((result, _)) => result?,
         Either::Right(((), _)) => {
             controller.abort();
@@ -545,9 +551,9 @@ async fn fetch_audio_range(
 ) -> Result<Vec<u8>, worker::Error> {
     let request = legacy_audio_request(video_id, Some((start, end)))?;
     let mut response = legacy.fetch_request(request).await?;
-    if !(200..300).contains(&response.status_code()) {
+    if !accepts_range_response(response.status_code()) {
         return Err(worker::Error::RustError(format!(
-            "legacy audio proxy returned HTTP {}",
+            "legacy audio proxy ignored byte range with HTTP {}",
             response.status_code()
         )));
     }
@@ -559,7 +565,7 @@ async fn fetch_audio_range_from_url(
     start: usize,
     end: usize,
 ) -> Result<Vec<u8>, worker::Error> {
-    let mut headers = Headers::new();
+    let headers = Headers::new();
     headers.set("Accept", "*/*")?;
     headers.set(
         "User-Agent",
@@ -584,9 +590,9 @@ async fn fetch_audio_range_from_url(
             ));
         }
     };
-    if !(200..300).contains(&response.status_code()) {
+    if !accepts_range_response(response.status_code()) {
         return Err(worker::Error::RustError(format!(
-            "native audio stream returned HTTP {}",
+            "native audio stream ignored byte range with HTTP {}",
             response.status_code()
         )));
     }
@@ -748,19 +754,6 @@ fn merge_transcript_segments_with_offsets(
     merged
 }
 
-fn compute_vocal_metrics(segments: &[TranscriptSegment], coverage_sec: f64) -> (f64, f64) {
-    let vocal_duration = segments
-        .iter()
-        .map(|segment| (segment.end - segment.start).max(0.0))
-        .sum::<f64>();
-    let vocal_density = if coverage_sec > 0.0 {
-        (vocal_duration / coverage_sec).min(1.0)
-    } else {
-        0.0
-    };
-    (vocal_density, coverage_sec)
-}
-
 async fn run_whisper(
     ai: &Ai,
     bytes: &[u8],
@@ -808,6 +801,7 @@ async fn transcribe_audio_buffer(
     Ok((text, segments, language_out))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn transcribe_chunked_stream(
     ai: &Ai,
     legacy: &Fetcher,
@@ -1049,11 +1043,11 @@ pub async fn resolve_transcription(
     native: &NativeLyricsResult,
     env: Option<&Env>,
 ) -> TranscriptionResult {
+    if !is_valid_video_id(&request.video_id) {
+        return not_found_transcription(false);
+    }
     if is_strong_native_result(native) {
         return skipped_transcription();
-    }
-    if !is_valid_video_id(&native.video_id) {
-        return not_found_transcription(false);
     }
 
     let Some(env) = env else {
@@ -1174,7 +1168,7 @@ pub async fn resolve_transcription(
     let total_bytes = audio_window
         .window
         .total_bytes
-        .unwrap_or_else(|| audio_window.window.bytes.len());
+        .unwrap_or(audio_window.window.bytes.len());
     let (text, segments, partial, whisper_calls, chunk_range_requests) =
         if total_bytes > MAX_AUDIO_BYTES || total_bytes > CHUNK_BYTE_SIZE {
             transcribe_chunked_stream(
@@ -1289,7 +1283,8 @@ pub async fn resolve_transcription(
     }
 }
 
-pub fn transcription_outcome_for_native(native: NativeLyricsOutcome) -> TranscriptionStatus {
+#[cfg(test)]
+fn transcription_outcome_for_native(native: NativeLyricsOutcome) -> TranscriptionStatus {
     match native {
         NativeLyricsOutcome::Found | NativeLyricsOutcome::Instrumental => {
             TranscriptionStatus::Skipped
@@ -1299,7 +1294,8 @@ pub fn transcription_outcome_for_native(native: NativeLyricsOutcome) -> Transcri
     }
 }
 
-pub fn used_legacy_audio_adapter(side_channel: &TranscriptionSideChannel) -> bool {
+#[cfg(test)]
+fn used_legacy_audio_adapter(side_channel: &TranscriptionSideChannel) -> bool {
     side_channel.used_legacy_audio_adapter
 }
 
@@ -1351,6 +1347,12 @@ mod tests {
         assert_eq!(plans.len(), MAX_TRANSCRIBE_CHUNKS);
         assert!(plans.iter().all(|(start, end)| end >= start));
         assert!(plans.last().map(|(_, end)| end + 1).unwrap_or_default() <= MAX_AUDIO_BYTES);
+    }
+
+    #[test]
+    fn rejects_origins_that_ignore_byte_ranges() {
+        assert!(accepts_range_response(206));
+        assert!(!accepts_range_response(200));
     }
 
     #[test]
@@ -1488,7 +1490,7 @@ mod tests {
         let json = serde_json::to_value(&side_channel).expect("json");
         assert_eq!(json["usedLegacyAudioAdapter"], true);
         assert_eq!(json["metrics"]["whisperCalls"], 3);
-        assert_eq!(used_legacy_audio_adapter(&side_channel), true);
+        assert!(used_legacy_audio_adapter(&side_channel));
     }
 
     #[test]

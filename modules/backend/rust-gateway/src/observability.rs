@@ -1,15 +1,22 @@
 use serde::Serialize;
 use serde_json::json;
+#[cfg(target_arch = "wasm32")]
 use worker::console_error;
 
 pub(crate) fn emit_json_log(kind: &'static str, payload: &impl Serialize) {
+    let Ok(data) = serde_json::to_value(payload) else {
+        return;
+    };
     let log = json!({
         "level": "info",
         "origin": "rust",
         "kind": kind,
-        "data": payload,
+        "data": data,
     });
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = log;
 
+    #[cfg(target_arch = "wasm32")]
     if let Ok(message) = serde_json::to_string(&log) {
         console_error!("{}", message);
     }

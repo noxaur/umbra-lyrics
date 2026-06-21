@@ -91,7 +91,6 @@ struct RankedNativeCandidate {
     confidence: u8,
     line_count: usize,
     text: String,
-    approximate_timing: bool,
     scoring_reasons: Vec<NativeLyricsScoringReason>,
 }
 
@@ -192,6 +191,7 @@ fn language_penalty(text: &str, preferred_language: Option<&str>) -> (i32, &'sta
     let Some(preferred_language) = preferred_language
         .map(str::trim)
         .filter(|value| !value.is_empty())
+        .map(|value| value.split('-').next().unwrap_or(value))
     else {
         return (0, "language_unspecified");
     };
@@ -238,10 +238,7 @@ fn strip_lrc_timestamps(text: &str) -> String {
     text.lines()
         .map(|line| {
             let mut rest = line.trim();
-            loop {
-                let Some(after_open) = rest.strip_prefix('[') else {
-                    break;
-                };
+            while let Some(after_open) = rest.strip_prefix('[') {
                 let Some(close) = after_open.find(']') else {
                     break;
                 };
@@ -304,7 +301,6 @@ fn rank_candidate(
 ) -> RankedNativeCandidate {
     let text = cleaned_text(candidate);
     let line_count = line_count(&text);
-    let approximate_timing = !candidate.synced;
     let mut score = 0;
     let mut scoring_reasons = Vec::new();
 
@@ -387,13 +383,8 @@ fn rank_candidate(
         });
     }
 
-    let confidence_penalty = artist_points
-        + track_points
-        + duration_points
-        + line_points
-        + junk_points
-        + language_points
-        + if candidate.instrumental { 100 } else { 0 };
+    let confidence_penalty =
+        line_points + junk_points + language_points + if candidate.instrumental { 100 } else { 0 };
     let confidence = (100 - confidence_penalty).clamp(0, 100) as u8;
 
     RankedNativeCandidate {
@@ -402,7 +393,6 @@ fn rank_candidate(
         confidence,
         line_count,
         text,
-        approximate_timing,
         scoring_reasons,
     }
 }
@@ -487,10 +477,7 @@ fn parse_lrc_lines(text: &str, duration_ms: Option<u32>) -> (Vec<NativeLyricsLin
         let mut rest = raw_line.trim();
         let mut timestamps = Vec::<u32>::new();
 
-        loop {
-            let Some(after_open) = rest.strip_prefix('[') else {
-                break;
-            };
+        while let Some(after_open) = rest.strip_prefix('[') {
             let Some(close) = after_open.find(']') else {
                 break;
             };
@@ -599,7 +586,9 @@ fn confidence_threshold(candidate: &RankedNativeCandidate) -> bool {
 }
 
 fn build_selected(candidate: &RankedNativeCandidate, input: &LyricsInput) -> NativeLyricsResult {
-    let (lines, approximate_timing) = build_lines(&candidate.candidate);
+    let mut selected = candidate.candidate.clone();
+    selected.duration = input.duration.or(selected.duration);
+    let (lines, approximate_timing) = build_lines(&selected);
     NativeLyricsResult {
         outcome: if candidate.candidate.instrumental {
             NativeLyricsOutcome::Instrumental
@@ -611,7 +600,7 @@ fn build_selected(candidate: &RankedNativeCandidate, input: &LyricsInput) -> Nat
         video_id: String::new(),
         title: input.track.clone(),
         author: input.artist.clone(),
-        duration: candidate.candidate.duration.or(input.duration),
+        duration: selected.duration,
         provider_id: Some(provider_id(candidate.candidate.source).into()),
         id: candidate.candidate.source_id.clone(),
         track_name: Some(candidate.candidate.track.clone()),
@@ -701,7 +690,8 @@ pub fn build_native_lyrics_result(
             .iter()
             .skip(1)
             .take(4)
-            .map(|candidate| build_alternate(candidate))
+            .copied()
+            .map(build_alternate)
             .collect();
         return result;
     }
@@ -729,7 +719,8 @@ pub fn build_native_lyrics_result(
                 .iter()
                 .skip(1)
                 .take(4)
-                .map(|candidate| build_alternate(candidate))
+                .copied()
+                .map(build_alternate)
                 .collect(),
             message: build_message(NativeLyricsOutcome::Instrumental),
         };
@@ -753,11 +744,7 @@ pub fn build_native_lyrics_result(
         score: None,
         confidence: Some(0),
         scoring_reasons: Vec::new(),
-        alternates: ranked
-            .iter()
-            .take(4)
-            .map(|candidate| build_alternate(candidate))
-            .collect(),
+        alternates: ranked.iter().take(4).map(build_alternate).collect(),
         message: build_message(NativeLyricsOutcome::NotFound),
     }
 }
@@ -776,7 +763,6 @@ impl Eq for RankedNativeCandidate {}
 mod tests {
     use super::*;
     use serde::Deserialize;
-    use serde_json::json;
     use std::collections::HashMap;
 
     fn candidate(

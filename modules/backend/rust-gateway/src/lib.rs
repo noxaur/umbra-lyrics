@@ -63,7 +63,7 @@ pub fn route_request(uri: &Uri) -> RouteDecision {
 }
 
 #[event(fetch)]
-pub async fn fetch(request: Request, env: Env, _ctx: Context) -> Result<Response> {
+pub async fn fetch(request: Request, env: Env, ctx: Context) -> Result<Response> {
     let request_id = request_id(request.headers());
     let uri: Uri = request
         .url()?
@@ -89,7 +89,7 @@ pub async fn fetch(request: Request, env: Env, _ctx: Context) -> Result<Response
             )
         }
         RouteDecision::Resolution => {
-            let response = resolution::resolve(request, &request_id, env).await?;
+            let response = resolution::resolve(request, &request_id, env, ctx).await?;
             decorate_response(response, &request_id, "rust", false)
         }
         RouteDecision::Legacy => {
