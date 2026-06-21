@@ -8,11 +8,11 @@ It is one product made of a few services. Standard commands live in `README.md` 
 
 ### Services
 - **Frontend SPA + legacy API worker** (the product): `npm run dev` → http://127.0.0.1:5173.
-  `vp dev` runs the Vite SPA together with the legacy Cloudflare Worker (`worker/`, via
+  `vp dev` runs the Vite SPA together with the legacy Cloudflare Worker (`modules/backend/legacy-worker/`, via
   `wrangler.legacy.jsonc`), which proxies `/api/*` to external APIs (LRCLIB, YouTube, etc.).
-- **Rust/Wasm gateway** (`rust-worker/`): production gateway, built by `npm run build:rust`.
+- **Rust/Wasm gateway** (`modules/backend/rust-gateway/`): production gateway, built by `npm run build:rust`.
   Not needed for normal feature work in dev.
-- **Romaji microservice** (`services/romaji/`, Python/FastAPI): optional; only Japanese romaji.
+- **Romaji microservice** (`modules/backend/romaji/`, Python/FastAPI): optional; only Japanese romaji.
 
 ### Running the dev server (important gotcha)
 `npm run dev` fails out of the box in this environment with
@@ -57,3 +57,17 @@ only function when run on real Cloudflare with the proper binding + secrets.
 Use Playwright's installed `chromium` for headless checks, but note it lacks proprietary
 codecs, so YouTube video still won't decode there. Reach the player UI directly via
 `/play/:videoId` (e.g. `/play/dQw4w9WgXcQ?debug=1`; `?debug=1` shows a yt-ready/time badge).
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues are the tracker for this repo, and external PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the canonical GitHub labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: one root `CONTEXT.md` and one root `docs/adr/` directory when domain docs are added. See `docs/agents/domain.md`.
