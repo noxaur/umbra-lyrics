@@ -119,12 +119,8 @@ pub async fn load_replay(
     if replay.video_id != video_id {
         return None;
     }
-    let Some(last_event) = replay.events.last() else {
-        return None;
-    };
-    if classify_terminal_event(last_event).is_none() {
-        return None;
-    }
+    let last_event = replay.events.last()?;
+    classify_terminal_event(last_event)?;
     Some(replay)
 }
 

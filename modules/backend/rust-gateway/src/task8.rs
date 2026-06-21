@@ -58,6 +58,7 @@ pub struct EnglishSideChannel {
 #[serde(rename_all = "snake_case")]
 pub enum RomajiStatus {
     Ready,
+    #[allow(dead_code)]
     Skipped,
     Unsupported,
 }
@@ -504,7 +505,7 @@ fn romanize_kana_run(run: &str) -> String {
         ("ぽ", "po"),
     ];
 
-    let mut chars = to_hiragana(run).chars().collect::<Vec<_>>();
+    let chars = to_hiragana(run).chars().collect::<Vec<_>>();
     let mut out = Vec::new();
     let mut current = String::new();
     let mut double_next = false;
@@ -849,9 +850,7 @@ pub async fn resolve_english_translation(
     language: Option<&str>,
     native_lines: &[String],
 ) -> Option<EnglishTranslation> {
-    let Some(env) = env else {
-        return None;
-    };
+    let env = env?;
     if is_english_language(language) || native_lines.is_empty() {
         return None;
     }
@@ -892,7 +891,7 @@ pub async fn build_task8_side_channels(
 mod tests {
     use super::*;
 
-    fn native_result(text: &str, language: Option<&str>) -> NativeLyricsResult {
+    fn native_result(text: &str, _language: Option<&str>) -> NativeLyricsResult {
         NativeLyricsResult {
             outcome: crate::native_lyrics::NativeLyricsOutcome::Found,
             video_id: "dQw4w9WgXcQ".into(),
