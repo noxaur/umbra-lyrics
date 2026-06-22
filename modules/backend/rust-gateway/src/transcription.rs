@@ -11,15 +11,15 @@ use worker::{
     AbortController, Ai, Delay, Env, Fetch, Fetcher, Headers, Method, Request, RequestInit,
 };
 
+use crate::audio_resolution::{
+    is_valid_video_id, resolve_native_audio_probe, AudioResolutionReport, AudioResolutionSource,
+};
 use crate::native_lyrics::{
     NativeLyricsLine, NativeLyricsLineKind, NativeLyricsOutcome, NativeLyricsResult,
     NativeLyricsScoringReason,
 };
 use crate::observability::emit_json_log;
 use crate::resolution::ResolveRequest;
-use crate::task10::{
-    is_valid_video_id, resolve_native_audio_probe, AudioResolutionReport, AudioResolutionSource,
-};
 
 const LEGACY_BINDING: &str = "LEGACY";
 const WHISPER_MODEL: &str = "@cf/openai/whisper-large-v3-turbo";
@@ -669,13 +669,15 @@ async fn fetch_audio_window_with_native_first(
                 report.used_legacy_fallback = true;
                 report.source = AudioResolutionSource::Legacy;
                 report.range_capable = true;
-                report.attempts.push(crate::task10::AudioResolutionAttempt {
-                    client: stream.client,
-                    status: Some("NATIVE_FETCH_FAILED".into()),
-                    reason: Some(error.to_string()),
-                    direct_audio_url: true,
-                    allowed_host: true,
-                });
+                report
+                    .attempts
+                    .push(crate::audio_resolution::AudioResolutionAttempt {
+                        client: stream.client,
+                        status: Some("NATIVE_FETCH_FAILED".into()),
+                        reason: Some(error.to_string()),
+                        direct_audio_url: true,
+                        allowed_host: true,
+                    });
                 let window = fetch_audio_window(legacy, video_id, max_bytes).await?;
                 return Ok(AudioWindowResolution { window, report });
             }
@@ -1497,7 +1499,7 @@ mod tests {
             source: AudioResolutionSource::Legacy,
             used_legacy_fallback: true,
             playability_failure: Some("LOGIN_REQUIRED".into()),
-            attempts: vec![crate::task10::AudioResolutionAttempt {
+            attempts: vec![crate::audio_resolution::AudioResolutionAttempt {
                 client: "IOS",
                 status: Some("LOGIN_REQUIRED".into()),
                 reason: Some("Needs sign-in".into()),

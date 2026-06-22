@@ -4,15 +4,15 @@ use url::Url;
 use uuid::Uuid;
 use worker::{console_error, event, Context, Env, Headers, Request, RequestInit, Response, Result};
 
+mod audio_resolution;
+mod lyric_side_channels;
 mod lyrics;
 mod metadata;
 mod native_lyrics;
 mod observability;
 mod resolution;
 mod result_cache;
-mod task10;
-mod task8;
-mod task9;
+mod transcription;
 
 const ASSETS_BINDING: &str = "ASSETS";
 const LEGACY_BINDING: &str = "LEGACY";

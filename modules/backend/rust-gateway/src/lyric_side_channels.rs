@@ -73,7 +73,7 @@ pub struct RomajiSideChannel {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Task8SideChannels {
+pub struct LyricsSideChannels {
     pub english: EnglishSideChannel,
     pub romaji: RomajiSideChannel,
 }
@@ -875,17 +875,17 @@ pub async fn resolve_english_translation(
     None
 }
 
-pub async fn build_task8_side_channels(
+pub async fn build_lyric_side_channels(
     native: &NativeLyricsResult,
     resolution: &LyricsResolution,
     language: Option<&str>,
     translated: Option<EnglishTranslation>,
     env: Option<&Env>,
-) -> Task8SideChannels {
+) -> LyricsSideChannels {
     let search_hit = select_english_search_hit(native, resolution);
     let english = build_english_side_channel(native, language, search_hit, translated);
     let romaji = build_romaji_side_channel(native, language, env).await;
-    Task8SideChannels { english, romaji }
+    LyricsSideChannels { english, romaji }
 }
 
 #[cfg(test)]
@@ -944,7 +944,7 @@ mod tests {
             warnings: vec![],
         };
 
-        let side = futures::executor::block_on(build_task8_side_channels(
+        let side = futures::executor::block_on(build_lyric_side_channels(
             &native,
             &resolution,
             Some("ja"),
@@ -966,7 +966,7 @@ mod tests {
             warnings: vec![],
         };
 
-        let side = futures::executor::block_on(build_task8_side_channels(
+        let side = futures::executor::block_on(build_lyric_side_channels(
             &native,
             &resolution,
             Some("ja"),
@@ -990,7 +990,7 @@ mod tests {
             warnings: vec![],
         };
 
-        let side = futures::executor::block_on(build_task8_side_channels(
+        let side = futures::executor::block_on(build_lyric_side_channels(
             &native,
             &resolution,
             Some("ja"),
@@ -1012,7 +1012,7 @@ mod tests {
             warnings: vec![],
         };
 
-        let side = futures::executor::block_on(build_task8_side_channels(
+        let side = futures::executor::block_on(build_lyric_side_channels(
             &native,
             &resolution,
             Some("en"),
@@ -1036,7 +1036,7 @@ mod tests {
             warnings: vec![],
         };
 
-        let side = futures::executor::block_on(build_task8_side_channels(
+        let side = futures::executor::block_on(build_lyric_side_channels(
             &native,
             &resolution,
             Some("ja"),

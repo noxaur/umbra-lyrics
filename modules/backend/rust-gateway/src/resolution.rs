@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use worker::{Delay, Env, Headers, Method, Request, Response, ResponseBuilder, Result};
 
+use crate::lyric_side_channels::{
+    build_lyric_side_channels, resolve_english_translation, select_english_search_hit,
+    LyricsSideChannels,
+};
 use crate::lyrics::{run_trusted_lyrics_cascade, LyricsConfig, LyricsInput, LyricsResolution};
 use crate::metadata::{MetadataConfig, MetadataInput, MetadataResolution};
 use crate::native_lyrics::{build_native_lyrics_result, NativeLyricsResult};
@@ -13,11 +17,7 @@ use crate::result_cache::{
     cache_key, load_replay, replay_from_events, store_replay, KvResolutionCache,
     ResolutionCacheBackend, RESULT_CACHE_BINDING,
 };
-use crate::task8::{
-    build_task8_side_channels, resolve_english_translation, select_english_search_hit,
-    Task8SideChannels,
-};
-use crate::task9::{resolve_transcription, TranscriptionResult, TranscriptionStatus};
+use crate::transcription::{resolve_transcription, TranscriptionResult, TranscriptionStatus};
 
 pub const PROTOCOL_VERSION: &str = "1";
 const MAX_BODY_BYTES: usize = 16 * 1024;
@@ -821,7 +821,7 @@ async fn native_result_events(
     } else {
         None
     };
-    let side_channels: Task8SideChannels = build_task8_side_channels(
+    let side_channels: LyricsSideChannels = build_lyric_side_channels(
         &native,
         lyrics_resolution,
         request.language.as_deref(),
@@ -862,7 +862,7 @@ fn native_result_payload(
     request: &ResolveRequest,
     metadata: Value,
     native: NativeLyricsResult,
-    side_channels: Task8SideChannels,
+    side_channels: LyricsSideChannels,
     transcription: TranscriptionResult,
 ) -> Value {
     let transcription_lyrics = transcription.lyrics.clone();
@@ -1273,26 +1273,26 @@ mod tests {
             &request,
             json!({"kind": "canonical"}),
             native,
-            Task8SideChannels {
-                english: crate::task8::EnglishSideChannel {
-                    status: crate::task8::EnglishStatus::Skipped,
+            LyricsSideChannels {
+                english: crate::lyric_side_channels::EnglishSideChannel {
+                    status: crate::lyric_side_channels::EnglishStatus::Skipped,
                     source: None,
                     provider_id: None,
                     translation_backend: None,
-                    alignment: crate::task8::EnglishAlignment::Skipped,
+                    alignment: crate::lyric_side_channels::EnglishAlignment::Skipped,
                     lines: Vec::new(),
                 },
-                romaji: crate::task8::RomajiSideChannel {
-                    status: crate::task8::RomajiStatus::Skipped,
+                romaji: crate::lyric_side_channels::RomajiSideChannel {
+                    status: crate::lyric_side_channels::RomajiStatus::Skipped,
                     system: None,
                     reason: None,
                     lines: Vec::new(),
                 },
             },
-            crate::task9::TranscriptionResult {
-                side_channel: crate::task9::TranscriptionSideChannel {
-                    status: crate::task9::TranscriptionStatus::Partial,
-                    mode: Some(crate::task9::TranscriptionMode::Full),
+            crate::transcription::TranscriptionResult {
+                side_channel: crate::transcription::TranscriptionSideChannel {
+                    status: crate::transcription::TranscriptionStatus::Partial,
+                    mode: Some(crate::transcription::TranscriptionMode::Full),
                     source: Some("whisper"),
                     used_legacy_audio_adapter: true,
                     partial: true,
@@ -1302,7 +1302,7 @@ mod tests {
                     not_found: false,
                     vocal_density: Some(0.4),
                     coverage_sec: Some(120.0),
-                    metrics: crate::task9::TranscriptionMetrics {
+                    metrics: crate::transcription::TranscriptionMetrics {
                         audio_bytes: 1_024,
                         range_requests: 3,
                         whisper_calls: 2,

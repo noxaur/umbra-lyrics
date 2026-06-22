@@ -1,3 +1,5 @@
+//! Resolves direct YouTube audio streams for transcription.
+
 use std::time::Duration;
 
 use futures_util::{
